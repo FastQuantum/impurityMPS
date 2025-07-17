@@ -1,0 +1,53 @@
+{    
+    "save": false,
+    "verbose": true,
+    "use_tdvp": false,
+    "extract_f": true,        
+    "Ls": [24,52,100,200],
+    "irlm_gs": {
+        "L": 24,
+        "t": 0.5,
+        "V": 0.1,
+        "U": 0.5,
+        "ed": 0,
+        "connected": true
+    },
+    "irlm0": {
+        "L": 24,
+        "t": 0.5,
+        "V": 0.0,
+        "U": 0.5,
+        "ed": -10,
+        "connected": false
+    },
+    "irlm": {
+        "L": 24,
+        "t": 0.5,
+        "V": 0.1,
+        "U": -0.5,
+        "ed": 0,
+        "connected": true
+    },
+    "tdvp": {
+        "dt": 0.1,
+        "nKrylov": 3,
+        "epsilonM": 1e-7
+    },
+    "circuit": {
+        "dt": 0.1,
+        "nSite": 40,
+        "nImp": 2,
+        "tolGs2": 1e-5,
+        "comment": "if nImp==-1 then it will be determined by the number of active orbitals in gs2 using tolgs2",
+        "tol": 1e-10
+    },
+    "ip": {
+        "type": "circuit",
+        "tolActivity": 1e-10,
+        "comment": "type can be one of {none,circuit,activity} meaning {don't use ip, use circuit.nImp, use instantaneous active orbitals}"
+    },
+    "green": {
+        "t0": 5,
+        "greater": true
+    }
+}
