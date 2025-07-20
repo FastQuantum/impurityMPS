@@ -7,16 +7,32 @@ For the simpler **ground state** problem, we are able to solve 1 million orbital
 
 ## Dependencies
 - [ITensor](https://github.com/ITensor/ITensor) for MPS manipulation
-- [tdvp]() for bechmarking our code
-- [armadillo](http://arma.sourceforge.net/) for linear algebra. Armadillo depends on **blas**, **lapack** (we recommend **mkl**).
+- [TDVP](https://github.com/ITensor/TDVP) for bechmarking our code
+- [armadillo](http://arma.sourceforge.net/) for linear algebra. Armadillo depends on **blas**, **lapack**.
 - [Catch2](https://github.com/catchorg/Catch2) for testing
 
 ## Compiling
-- compile the ITensor library at `${HOME}/opt
+- install your favorite `blas`/`lapack` libraries (for instansce `mkl`) including their `-dev` versions.
+- download the [ITensor](https://github.com/ITensor/ITensor) library to `${HOME}/opt` (our cmake links to this place) and compile it following `INSTALL.md`
+- download the [TDVP](https://github.com/ITensor/TDVP) library to `${HOME}/opt`
+- compile our library:
+```bash
+git clone https://github.com/FastQuantum/impurityMPS.git
+mkdir build
+cd build
+cmake ..
+make -j4
+``` 
 
 ## Running 
-Before running the code you should:
+You will get a binary file per example, so you can type for instance
 ```bash
-export LD_LIBRARY_PATH=/opt/intel/mkl/lib/intel64:$LD_LIBRARY_PATH
+example/irlm_gs
+```
+We have tested the programs with one core, so we recommend before running
+```bash
+export OMP_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
 export MKL_THREADING_LAYER=sequential
 ```
+Enjoy it!
