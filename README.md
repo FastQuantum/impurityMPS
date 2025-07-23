@@ -1,5 +1,5 @@
 # Impurity dynamics using MPS with orbital rotation 
-This code is associtated with this paper [Nunez2025](https://doi.org/10.48550/arXiv.2503.13706)
+This code is associated with the paper [Nunez2025](https://doi.org/10.48550/arXiv.2503.13706)
 
 ![](results/Banner.gif)
 
