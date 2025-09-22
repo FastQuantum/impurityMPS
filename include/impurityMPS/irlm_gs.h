@@ -8,8 +8,6 @@
 #include <itensor/all.h>
 
 
-std::pair<arma::vec,arma::mat> FullDiagonalizeTridiagonal(arma::vec an, arma::vec bn);
-
 struct IrlmData {
     int L=20;
     double t=0.5;
@@ -63,13 +61,6 @@ struct IrlmData {
     }
 };
 
-struct DmrgParams {
-    int max_bond_dim=512;
-    int nIter_diag=4;
-    double noise=1e-8;
-};
-
-
 struct Irlm_gs {
     IrlmData irlm;
     itensor::Fermion sites;
@@ -86,7 +77,7 @@ struct Irlm_gs {
 
     explicit Irlm_gs(const IrlmData& irlm_, double tol_=1e-10)
         : irlm(irlm_)
-        , sites(itensor::Fermion(irlm.L, {"ConserveNf",true}))
+        , sites(itensor::Fermion(irlm.L, {"ConserveNf",false}))
         , hImp (sites)
         , tol(tol_)
         , K(irlm_.star_kin())
@@ -101,7 +92,7 @@ struct Irlm_gs {
                     hImp += Umat(i,j),"N", i+1,"N", j+1;
     }
 
-    void iterate(DmrgParams args={})
+    void iterate(DmrgParam args={})
     {
         extract_f(0.0);
         extract_f(1.0);
@@ -112,6 +103,7 @@ struct Irlm_gs {
     /// extract f orbital of the sites with ni=0 or 1
     void extract_f(double nRef)
     {
+        itensor::cpu_time t0;
         arma::vec ni=cc.diag();
         arma::vec nSlater=arma::abs(ni.rows(nActive,irlm.L-1)-nRef).eval();
         arma::uvec pos0=arma::find(nSlater<0.5).eval()+nActive ;
@@ -119,14 +111,13 @@ struct Irlm_gs {
         auto k12 = K.head_rows(nActive).eval().cols(pos0).eval();
         arma::vec s;
         arma::mat U, V;
-        svd(U,s,V, k12);
+        svd_econ(U,s,V, k12);
         int nSv=arma::find(s>tol*s[0]).eval().size();
         auto givens=GivensRotForRot_left(V.head_cols(nSv).eval());
         GivensDaggerInPlace(givens);
         auto Kcol=K.cols(pos0).eval();
         applyGivens(Kcol,givens);
         K.cols(pos0)=Kcol;
-        itensor::cpu_time t0;
         std::cout<<" givens to K 1"<<t0.sincemark()<<std::endl; t0.mark();
 
         {
@@ -147,7 +138,7 @@ struct Irlm_gs {
         }
     }
 
-    void doDmrg(DmrgParams args={})
+    void doDmrg(DmrgParam args={})
     {
         auto h=hImp;
         for(auto i=0; i<nActive; i++)
@@ -249,20 +240,5 @@ private:
         cc.swap_rows(i,j);
     }
 };
-
-#include<mkl_lapacke.h>
-
-inline std::pair<arma::vec,arma::mat> FullDiagonalizeTridiagonal(arma::vec an, arma::vec bn)
-{
-    lapack_int n=an.size(), M;
-    arma::vec eval(n);
-    arma::mat evec(n,n);
-    std::vector<lapack_int> ifail(n);
-    int info=LAPACKE_dstevr(LAPACK_COL_MAJOR,'V','A', n, an.memptr(), bn.memptr(),
-                              0.0, 0.0,1,1,2e-11,&M,eval.memptr(),evec.memptr(),n,ifail.data());
-    if (info!=0) throw
-            std::runtime_error("LAPACKE_dstevx inside DiagonalizeTridiagonal, info!=0");
-    return std::make_pair(eval,evec);
-}
 
 #endif // IRLM_GS_H

@@ -7,6 +7,56 @@
 #include <map>
 #include <array>
 #include <itensor/all.h>
+#include<mkl_lapacke.h>
+
+inline std::pair<arma::vec,arma::mat> FullDiagonalizeTridiagonal(arma::vec an, arma::vec bn)
+{
+    lapack_int n=an.size(), M;
+    arma::vec eval(n);
+    arma::mat evec(n,n);
+    std::vector<lapack_int> ifail(n);
+    int info=LAPACKE_dstevr(LAPACK_COL_MAJOR,'V','A', n, an.memptr(), bn.memptr(),
+                              0.0, 0.0,1,1,2e-11,&M,eval.memptr(),evec.memptr(),n,ifail.data());
+    if (info!=0) throw
+            std::runtime_error("LAPACKE_dstevx inside DiagonalizeTridiagonal, info!=0");
+    return std::make_pair(eval,evec);
+}
+
+auto addTWoSites(itensor::Fermion sites, itensor::MPS const& psi)
+{
+    using namespace itensor;
+    int N=psi.length();
+    auto state = itensor::InitState(sites);
+    for(int i = 1; i <= sites.length(); ++i)
+    {
+        if(i%2 == 0) state.set(i,"1");
+        else         state.set(i,"0");
+    }
+    auto psi2 = itensor::MPS(state);
+    for(int i = 1; i+1 <= psi.length(); ++i)
+        psi2.Aref(i)=psi(i);
+    { // manually copy the last tensor
+        auto a=commonIndex(psi(N-1), psi(N));
+        auto s=uniqueIndex(psi(N),psi(N-1));
+        auto b=commonIndex(psi2(N),psi2(N+1));
+        auto T=ITensor(a,s,b);
+        for(auto ai:range1(a))
+            for(auto si:range1(s)) {
+                auto value=psi(N).eltC(a(ai), s(si));
+                T.set(a(ai), s(si).dag(), b(1), value);
+            }
+        psi2.set(N,T);
+    }
+    psi2.replaceSiteInds(sites.inds());
+    return psi2;
+}
+
+
+struct DmrgParam {
+    int max_bond_dim=512;
+    int nIter_diag=4;
+    double noise=1e-8;
+};
 
 struct HamSys {
     itensor::Fermion sites;
