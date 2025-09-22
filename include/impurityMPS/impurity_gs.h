@@ -59,11 +59,10 @@ struct ImpurityParam {
 
 struct Impurity_gs {
     ImpurityParam param;
-    itensor::Fermion sites;
-    itensor::AutoMPO hImp;
     double tol=1e-10;
 
     /// these quantities are updated during the iterations
+    itensor::Fermion sites;
     arma::mat K;
     itensor::MPS psi;
     double energy=-1000;
@@ -72,17 +71,12 @@ struct Impurity_gs {
 
     explicit Impurity_gs(const ImpurityParam& param_, double tol_=1e-10)
         : param(param_)
-        , sites(itensor::Fermion(param.length(), {"ConserveNf",false}))
-        , hImp (sites)
         , tol(tol_)
+        , sites(itensor::Fermion(param.nImp(), {"ConserveNf",false}))
         , K(arma::mat(param_.Kstar))
         , nActive(param.nImp())
     {
         prepareSlaterGs(K.diag(), param.length()/2);
-        for(auto i=0; i<param.nImp(); i++)
-            for(auto j=0; j<param.nImp(); j++)
-                if (std::abs(param.Umat(i,j))>1e-15)
-                    hImp += param.Umat(i,j), "N", i+1, "N", j+1;
     }
 
     void iterate(DmrgParam args={})
@@ -130,11 +124,45 @@ struct Impurity_gs {
             SlaterSwap(nActive,pos0.at(i));
             nActive++;
         }
+        enlargeMPS();
+    }
+
+    void enlargeMPS()
+    {
+        using namespace itensor;
+        if (psi.length()==nActive) return;
+        int N=psi.length();
+        sites=Fermion(nActive, {"ConserveNf",false});
+        auto state = itensor::InitState(sites);
+        for(int i = 1; i <= sites.length(); ++i)
+        {
+            if(cc(i,i)<0.5) state.set(i,"0");
+            else            state.set(i,"1");
+        }
+        auto psi2 = itensor::MPS(state);
+        for(int i = 1; i+1 <= psi.length(); ++i)
+            psi2.Aref(i)=psi(i);
+
+        { // manually copy the last tensor
+            auto a=commonIndex(psi(N-1), psi(N));
+            auto s=uniqueIndex(psi(N),psi(N-1));
+            auto b=commonIndex(psi2(N),psi2(N+1));
+            auto T=ITensor(a.dag(),s,b);
+            for(auto ai:range1(a))
+                for(auto si:range1(s)) {
+                    auto value=psi(N).eltC(a(ai), s(si));
+                    if (std::abs(value)==0.0) continue;
+                    T.set(a(ai), s(si).dag(), b(1), value);
+                }
+            psi2.set(N,T);
+        }
+        psi2.replaceSiteInds(sites.inds());
+        psi=psi2;
     }
 
     void doDmrg(DmrgParam args={})
     {
-        auto mpo=fullHamiltonian( K.submat(0,0,nActive-1,nActive-1) );
+        auto mpo=Ham( K.submat(0,0,nActive-1,nActive-1) );
         auto sweeps = itensor::Sweeps(1);
         sweeps.maxdim() = args.max_bond_dim;
         sweeps.cutoff() = tol;
@@ -160,7 +188,7 @@ struct Impurity_gs {
         cc.rows(0,nActive-1)=rot1*cc.rows(0,nActive-1).eval();
         K.cols(0,nActive-1)=K.cols(0,nActive-1).eval()*rot1.st();
         K.rows(0,nActive-1)=rot1.st().t()*K.rows(0,nActive-1).eval();
-        auto ni_bath=arma::real(cc.diag()).eval().rows(param.nImp(),param.length()-1).eval();
+        auto ni_bath=arma::real(cc.diag()).eval().rows(param.nImp(),nActive-1).eval();
         nActive=arma::find(ni_bath>tol && ni_bath<1-tol).eval().size()+param.nImp();
     }
 
@@ -172,7 +200,7 @@ struct Impurity_gs {
         double energy=0;
         for(int j = 0; j < nPart; j++) {
             int k=iek[j];
-            state.set(k+1,"1");
+            if (k<sites.length()) state.set(k+1,"1");
             energy += ek[k];
             cc(k,k)=1;
         }
@@ -187,10 +215,15 @@ struct Impurity_gs {
         return energy;
     }
 
-    /// return the mpo of the Hamiltoninan given by himp and the kinetic energy kin
-    itensor::MPO fullHamiltonian(arma::mat const& kin) const
+    /// return the mpo of the Hamiltoninan given by U*ni*nj and the kinetic energy kin
+    itensor::MPO Ham(arma::mat const& kin) const
     {
-        auto h=hImp;
+        if (kin.n_rows!=sites.length()) throw std::invalid_argument("impurity_gs::Ham() sites and K don't match");
+        itensor::AutoMPO h(sites);
+        for(auto i=0; i<param.nImp(); i++)
+            for(auto j=0; j<param.nImp(); j++)
+                if (std::abs(param.Umat(i,j))>1e-15)
+                    h += param.Umat(i,j), "N", i+1, "N", j+1;
         for(auto i=0; i<kin.n_rows; i++)
             for(auto j=0; j<kin.n_cols; j++)
                 if (std::abs(kin(i,j))>tol)
@@ -207,16 +240,6 @@ private:
         if (std::abs(cc(i,i)-cc(j,j))<0.5) throw std::runtime_error("SlaterSwap for equal occupations");
         K.swap_cols(i,j);
         K.swap_rows(i,j);
-
-        auto flip=[&](int p) {
-            auto G = cc(p,p)>0.5 ? sites.op("A",p+1) : sites.op("Adag",p+1) ;
-            auto newA = G*psi(p+1);
-            newA.noPrime();
-            psi.set(p+1,newA);
-        };
-        flip(i);
-        flip(j);
-
         cc.swap_cols(i,j);
         cc.swap_rows(i,j);
     }
