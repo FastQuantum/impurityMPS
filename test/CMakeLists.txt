@@ -1,6 +1,7 @@
 add_executable(${PROJECT_NAME}_test 
     test_main.cpp
     test_givens.cpp
+    test_itensor.cpp
 )
 
 target_include_directories(${PROJECT_NAME}_test INTERFACE Catch2::Catch2)
