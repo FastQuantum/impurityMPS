@@ -72,7 +72,7 @@ struct Impurity_gs {
 
     explicit Impurity_gs(const ImpurityParam& param_, double tol_=1e-10)
         : param(param_)
-        , sites(itensor::Fermion(param.length(), {"ConserveNf",false}))
+        , sites(itensor::Fermion(param.length(), {"ConserveNf",true}))
         , hImp (sites)
         , tol(tol_)
         , K(arma::mat(param_.Kstar))

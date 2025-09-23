@@ -21,7 +21,7 @@ int main()
         K(0,0)=-U/2;
         K(1,1)=-U/2;
     }
-    arma::sp_mat Umat(3,3);
+    arma::sp_mat Umat(2,2);
     Umat(0,1)=U;
     auto Kstar=ImpurityParam::to_star_kin_tridiag(K, Umat.n_rows);
     auto model0=Impurity_gs({.Kstar=Kstar, .Umat=Umat});
@@ -37,7 +37,7 @@ int main()
     t0.mark();
 
     cout<<"iteration nActive energy time\n"<<setprecision(12);
-    for(auto i=0;i<100;i++){
+    for(auto i=0;i<30;i++){
         model0.extract_f(0.0);
         model0.extract_f(1.0);
         cout<<"extract f: "<<t0.sincemark()<<"  "; t0.mark();
