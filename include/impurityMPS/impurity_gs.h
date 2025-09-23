@@ -130,8 +130,7 @@ struct Impurity_gs {
     void enlargeMPS()
     {
         using namespace itensor;
-        if (psi.length()==nActive) return;
-        int N=psi.length();
+        if (psi.length()>=nActive) return;
         sites=Fermion(nActive, {"ConserveNf",false});
         auto state = itensor::InitState(sites);
         for(int i = 1; i <= sites.length(); ++i)
@@ -144,6 +143,7 @@ struct Impurity_gs {
             psi2.Aref(i)=psi(i);
 
         { // manually copy the last tensor
+            int N=psi.length();
             auto a=commonIndex(psi(N-1), psi(N));
             auto s=uniqueIndex(psi(N),psi(N-1));
             auto b=commonIndex(psi2(N),psi2(N+1));
@@ -152,8 +152,43 @@ struct Impurity_gs {
                 for(auto si:range1(s)) {
                     auto value=psi(N).eltC(a(ai), s(si));
                     if (std::abs(value)==0.0) continue;
-                    T.set(a(ai), s(si).dag(), b(1), value);
+                    T.set(a(ai), s(si), b(1), value);
                 }
+            psi2.set(N,T);
+        }
+        psi2.replaceSiteInds(sites.inds());
+        psi=psi2;
+    }
+
+    void shrinkMPS()
+    {
+        using namespace itensor;
+        if (psi.length()<=nActive) return;
+        sites=Fermion(nActive, {"ConserveNf",false});
+        auto state = itensor::InitState(sites);
+        for(int i = 1; i <= sites.length(); ++i)
+        {
+            if(cc(i,i)<0.5) state.set(i,"0");
+            else            state.set(i,"1");
+        }
+        auto psi2 = itensor::MPS(state);
+        for(int i = 1; i+1 <= psi2.length(); ++i)
+            psi2.Aref(i)=psi(i);
+
+        { // manually copy the last tensor
+            int N=psi2.length();
+            auto a=commonIndex(psi(N-1), psi(N));
+            auto s=siteIndex(psi,N);
+            auto b=commonIndex(psi(N),psi(N+1));
+            auto T=ITensor(a.dag(),s);
+            for(auto ai:range1(a))
+                for(auto si:range1(s))
+                    for(auto bi:range1(b))
+                    {
+                        auto value=psi(N).eltC(a(ai), s(si), b(bi));
+                        if (std::abs(value)==0.0) continue;
+                        T.set(a(ai), s(si), value);
+                    }
             psi2.set(N,T);
         }
         psi2.replaceSiteInds(sites.inds());
@@ -190,6 +225,7 @@ struct Impurity_gs {
         K.rows(0,nActive-1)=rot1.st().t()*K.rows(0,nActive-1).eval();
         auto ni_bath=arma::real(cc.diag()).eval().rows(param.nImp(),nActive-1).eval();
         nActive=arma::find(ni_bath>tol && ni_bath<1-tol).eval().size()+param.nImp();
+        shrinkMPS();
     }
 
     void prepareSlaterGs(arma::vec ek, int nPart)
