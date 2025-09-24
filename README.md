@@ -53,7 +53,7 @@ make -j4
 The new binary will appear at `build/example`.
 
 ## Example code for ground state
-
+Let's find the ground state of the IRLM model:
 ```c++
 #include "impurityMPS/impurity_gs.h"
 #include <iostream>
@@ -98,4 +98,13 @@ int main()
     return 0;
 }
 ```
-
+The output is
+```bash
+iteration nActive energy time(s)
+...
+25 12 -318.016525206 0.596198
+26 12 -318.016525213 0.636912
+27 12 -318.016525221 0.657342
+28 12 -318.016525226 0.618605
+29 12 -318.016525228 0.62662
+30 12 -318.016525231 0.617154
