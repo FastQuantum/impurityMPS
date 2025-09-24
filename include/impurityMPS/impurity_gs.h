@@ -96,7 +96,7 @@ struct Impurity_gs {
     /// extract f orbital of the sites with ni=0 or 1
     void extract_f(double nRef)
     {
-        itensor::cpu_time t0;
+        // itensor::cpu_time t0;
         arma::vec ni_bath=cc.diag().eval().rows(nActive,param.length()-1);
         arma::vec delta_n_bath=arma::abs(ni_bath-nRef);
         arma::uvec pos0=arma::find(delta_n_bath<0.5).eval()+nActive ;
@@ -112,7 +112,7 @@ struct Impurity_gs {
         auto Kcol=K.cols(pos0).eval();
         applyGivens(Kcol,givens);
         K.cols(pos0)=Kcol;
-        std::cout<<" givens to K 1"<<t0.sincemark()<<std::endl; t0.mark();
+        // std::cout<<" givens to K 1"<<t0.sincemark()<<std::endl; t0.mark();
 
         {
             arma::inplace_trans(K);
@@ -124,7 +124,7 @@ struct Impurity_gs {
             // applyGivens(GivensDagger(givens),Krow);
             // K.rows(pos0)=Krow;
         }
-        std::cout<<" givens to K 2"<<t0.sincemark()<<std::endl; t0.mark();
+        // std::cout<<" givens to K 2"<<t0.sincemark()<<std::endl; t0.mark();
         // no need to update cc
         for(auto i=0; i<nSv; i++) {
             SlaterSwap(nActive,pos0.at(i));

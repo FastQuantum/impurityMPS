@@ -1,16 +1,11 @@
 #include "impurityMPS/impurity_gs.h"
-
 #include <iostream>
 #include <iomanip>
-#include<itensor/all.h>
-#include <nlohmann/json.hpp>
 
 using namespace std;
 
-
 int main()
 {
-    itensor::cpu_time t0;
     int L=1000;
     double U=0.5;
     arma::sp_mat K(L,L);
@@ -26,27 +21,22 @@ int main()
     auto Kstar=ImpurityParam::to_star_kin_tridiag(K, Umat.n_rows);
     auto model0=Impurity_gs({.Kstar=Kstar, .Umat=Umat});
 
-    { // force impurity ocupation |10>
+    { // optional: force impurity ocupation |10>
         auto ek=arma::vec {Kstar.diag()};
         ek[0]=-10;
         ek[1]=10;
         model0.prepareSlaterGs(ek,L/2);
     }
 
-    cout<<"initialization: "<<t0.sincemark().wall<<endl;
-    t0.mark();
-
     cout<<"iteration nActive energy time\n"<<setprecision(12);
+    itensor::cpu_time t0;
     for(auto i=0;i<30;i++){
         model0.extract_f(0.0);
         model0.extract_f(1.0);
-        cout<<"extract f: "<<t0.sincemark()<<"  "; t0.mark();
         model0.doDmrg();
-        cout<<"dmrg: "<<t0.sincemark()<<"  "; t0.mark();
         model0.rotateToNaturalOrbitals();
-        cout<<"nat orb: "<<t0.sincemark()<<"  "; t0.mark();
-        cout<<i+1<<" "<<model0.nActive<<" "<<model0.energy<<endl;
+        cout<<i+1<<" "<<model0.nActive<<" "<<model0.energy<<" "<<t0.sincemark().wall<<endl;
+        t0.mark();
     }
-
     return 0;
 }
