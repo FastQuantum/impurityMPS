@@ -5,55 +5,13 @@ This code is associated with the paper [Nunez2025](https://doi.org/10.48550/arXi
 
 For the simpler **ground state** problem, we are able to solve 1 million orbitals in 1 hour of single core. See the branch [million](https://github.com/yurielnf/noip/tree/million)
 
-## Dependencies
-- [ITensor](https://github.com/ITensor/ITensor) for MPS manipulation
-- [TDVP](https://github.com/ITensor/TDVP) for bechmarking our code
-- [armadillo](http://arma.sourceforge.net/) for linear algebra. Armadillo depends on **blas**, **lapack**.
-- [Catch2](https://github.com/catchorg/Catch2) for testing
-
-## Compiling
-1) Install your favorite `blas`/`lapack` libraries (for instance `mkl`) including their `-dev` versions.
-
-2) Download the [ITensor](https://github.com/ITensor/ITensor) library to `${HOME}/opt` (our cmake links to this place) and compile it following `INSTALL.md`
-
-3) Replace the line 371 of `itensor/mps/dmrg.h` saying `const int N = length(psi);` to
-```c++
-const int N = args.getInt("MaxSite",length(psi));
-``` 
-
-4) Download the [TDVP](https://github.com/ITensor/TDVP) library to `${HOME}/opt`
-
-5) Compile our library:
-```bash
-git clone https://github.com/FastQuantum/impurityMPS.git
-mkdir build
-cd build
-cmake ..
-make -j4
-``` 
-
-## Running 
-You will get a binary file per example, so you can type for instance
-```bash
-build/example/impurity_gs_irlm
-```
-We have tested the programs with one core, so we recommend before running
-```bash
-export OMP_NUM_THREADS=1
-export OPENBLAS_NUM_THREADS=1
-export MKL_THREADING_LAYER=sequential
-```
-## Adding your application
-Now you can add your own application in the folder `impurityMPS/example` and recompile
-```bash
-cd build
-cmake ..
-make -j4
-```
-The new binary will appear at `build/example`.
-
 ## Example code for ground state
 Let's find the ground state of the IRLM model:
+
+$$
+H=U\left(n_{0}-\frac{1}{2}\right)\left(n_{1}-\frac{1}{2}\right)+V\left(c_{0}^{\dagger}c_{1}+c_{1}^{\dagger}c_{0}\right)+t\sum_{i=1}^{L-2}\left(c_{i}^{\dagger}c_{i+1}+c_{i+1}^{\dagger}c_{i}\right)
+$$
+
 ```c++
 #include "impurityMPS/impurity_gs.h"
 #include <iostream>
@@ -102,9 +60,62 @@ The output is
 ```bash
 iteration nActive energy time(s)
 ...
-25 12 -318.016525206 0.596198
-26 12 -318.016525213 0.636912
-27 12 -318.016525221 0.657342
-28 12 -318.016525226 0.618605
-29 12 -318.016525228 0.62662
-30 12 -318.016525231 0.617154
+25 12 -318.01652521 0.377259
+26 12 -318.016525214 0.406382
+27 12 -318.01652522 0.406088
+28 12 -318.016525224 0.392344
+29 12 -318.016525227 0.39133
+30 12 -318.016525231 0.418371
+```
+
+## Dependencies
+- [ITensor](https://github.com/ITensor/ITensor) for MPS manipulation
+- [TDVP](https://github.com/ITensor/TDVP) for bechmarking our code
+- [armadillo](http://arma.sourceforge.net/) for linear algebra. Armadillo depends on **blas**, **lapack**.
+- [Catch2](https://github.com/catchorg/Catch2) for testing
+
+## Compiling
+1) Install your favorite `blas`/`lapack` library (for instance [mkl](https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl-download.html), which is faster) including their `-dev` versions.
+Specially for `mkl`, we need to export its path:
+```bash
+export CMAKE_PREFIX_PATH=/opt/intel/oneapi/2024.2/lib:${CMAKE_PREFIX_PATH}
+export MKLROOT=/opt/intel/oneapi/mkl/2024.2
+```
+
+2) Download the [ITensor](https://github.com/ITensor/ITensor) library to `${HOME}/opt` (our cmake links to this place) and compile it following `INSTALL.md`
+
+3) Replace the line 371 of `itensor/mps/dmrg.h` saying `const int N = length(psi);` to
+```c++
+const int N = args.getInt("MaxSite",length(psi));
+``` 
+
+4) Download the [TDVP](https://github.com/ITensor/TDVP) library to `${HOME}/opt`
+
+5) Compile our library:
+```bash
+git clone https://github.com/FastQuantum/impurityMPS.git
+mkdir build
+cd build
+cmake ..
+make -j4
+``` 
+
+## Running 
+You will get a binary file per example, so you can type for instance
+```bash
+build/example/impurity_gs_irlm
+```
+We have tested the programs with one core, so we recommend before running
+```bash
+export OMP_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export MKL_THREADING_LAYER=sequential
+```
+## Adding your application
+Now you can add your own application in the folder `impurityMPS/example` and recompile
+```bash
+cd build
+cmake ..
+make -j4
+```
+The new binary will appear at `build/example`.
