@@ -87,14 +87,14 @@ struct Impurity_gs {
 
     void iterate(DmrgParam args={})
     {
-        extract_f(0.0);
-        extract_f(1.0);
+        extract_representative(0);
+        extract_representative(1);
         doDmrg(args);
         rotateToNaturalOrbitals();
     }
 
-    /// extract f orbital of the sites with ni=0 or 1
-    void extract_f(double nRef)
+    /// extract representative orbital of the sites with ni=nRef where nRef can be 0 or 1
+    void extract_representative(int nRef)
     {
         // itensor::cpu_time t0;
         arma::vec ni_bath=cc.diag().eval().rows(nActive,param.length()-1);
