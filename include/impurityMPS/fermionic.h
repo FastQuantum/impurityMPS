@@ -7,7 +7,12 @@
 #include <map>
 #include <array>
 #include <itensor/all.h>
+
+#ifndef MKL_ILP64
+#include<lapacke.h>
+#else
 #include<mkl_lapacke.h>
+#endif
 
 inline std::pair<arma::vec,arma::mat> FullDiagonalizeTridiagonal(arma::vec an, arma::vec bn)
 {
