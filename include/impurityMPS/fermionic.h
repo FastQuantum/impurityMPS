@@ -8,32 +8,22 @@
 #include <array>
 #include <itensor/all.h>
 
-#if defined(MKL) || defined(MKL_ILP64)
-#include<mkl_lapacke.h>
-#else
+#ifndef MKL_ILP64
 #include<lapacke.h>
+#else
+#include<mkl_lapacke.h>
 #endif
 
-inline std::pair<arma::vec,arma::mat> FullDiagonalizeTridiagonal(arma::vec const& an, arma::vec const& bn)
+inline std::pair<arma::vec,arma::mat> FullDiagonalizeTridiagonal(arma::vec an, arma::vec bn)
 {
     lapack_int n=an.size(), M;
-    lapack_int *ifail=new lapack_int[n];
-    double *ad=new double[n];
-    double *bd=new double[n];
-    for(auto i=0; i<n; i++) {ad[i]=an[i]; bd[i]=bn[i];}
     arma::vec eval(n);
     arma::mat evec(n,n);
-    lapack_int info=LAPACKE_dstevr(LAPACK_COL_MAJOR,'V','A',
-                            n, ad, bd,0.0,
-                            0.0,1,1,
-                            2e-11,&M,eval.memptr(),evec.memptr(),
-                            n,ifail);
+    std::vector<lapack_int> ifail(n);
+    int info=LAPACKE_dstevr(LAPACK_COL_MAJOR,'V','A', n, an.memptr(), bn.memptr(),
+                              0.0, 0.0,1,1,2e-11,&M,eval.memptr(),evec.memptr(),n,ifail.data());
     if (info!=0) throw
             std::runtime_error("LAPACKE_dstevx inside DiagonalizeTridiagonal, info!=0");
-
-//    delete[] ifail;    TODO: memory problem
-//    delete []ad;
-//    delete []bd;
     return std::make_pair(eval,evec);
 }
 
