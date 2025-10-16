@@ -46,8 +46,8 @@ int main()
     cout<<"iteration nActive energy time\n"<<setprecision(12);
     itensor::cpu_time t0;
     for(auto i=0;i<30;i++){
-        model0.extract_f(0.0);
-        model0.extract_f(1.0);
+        model0.extract_f(0);
+        model0.extract_f(1);
         model0.doDmrg();
         model0.rotateToNaturalOrbitals();
         cout<<i+1<<" "<<model0.nActive<<" "<<model0.energy<<" "<<t0.sincemark().wall<<endl;
