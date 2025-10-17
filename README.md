@@ -78,7 +78,6 @@ iteration nActive energy time(s)
 1) Install your favorite `blas`/`lapack` library (for instance [mkl](https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl-download.html), which is faster) including their `-dev` versions.
 Specially for `mkl`, we need to export its path:
 ```bash
-export CMAKE_PREFIX_PATH=/opt/intel/oneapi/2024.2/lib:${CMAKE_PREFIX_PATH}
 export MKLROOT=/opt/intel/oneapi/mkl/2024.2
 ```
 
