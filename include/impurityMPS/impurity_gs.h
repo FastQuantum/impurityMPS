@@ -64,21 +64,13 @@ struct Impurity_gs {
     /// these quantities are updated during the iterations
     Fb_mps<double> fb;
     arma::mat K;
-    double energy=-1000;
-
-    itensor::AutoMPO hImp;
+    double energy=-1000;    
 
     explicit Impurity_gs(const ImpurityParam& param_)
         : param(param_)
         , fb { prepareSlater(param_) }
-        , hImp (fb.sites)
         , K(arma::mat(param_.Kstar))
-    {
-        for(auto i=0; i<param.nImp(); i++)
-            for(auto j=0; j<param.nImp(); j++)
-                if (std::abs(param.Umat(i,j))>1e-15)
-                    hImp += param.Umat(i,j), "N", i+1, "N", j+1;
-    }
+    {}
 
     void iterate(DmrgParam args={})
     {
@@ -106,9 +98,10 @@ struct Impurity_gs {
 
     void rotateToNaturalOrbitals()
     {
+        int nA=fb.nActive; // it will change
         auto rot1=fb.rotateToNaturalOrbitals(param.nImp());
-        K.cols(0,fb.nActive-1)=K.cols(0,fb.nActive-1).eval()*rot1;
-        K.rows(0,fb.nActive-1)=rot1.t()*K.rows(0,fb.nActive-1).eval();
+        K.cols(0,nA-1)=K.cols(0,nA-1).eval()*rot1;
+        K.rows(0,nA-1)=rot1.t()*K.rows(0,nA-1).eval();
     }
 
     void prepareSlaterGs(arma::vec ek) { fb=Fb_mps<double>::from_slater(ek,param.nPart(),param.nImp()); }
@@ -118,7 +111,11 @@ struct Impurity_gs {
     /// return the mpo of the Hamiltoninan given by himp and the kinetic energy kin
     itensor::MPO fullHamiltonian(arma::mat const& kin) const
     {
-        auto h=hImp;
+        itensor::AutoMPO h(fb.sites);
+        for(auto i=0; i<param.nImp(); i++)
+            for(auto j=0; j<param.nImp(); j++)
+                if (std::abs(param.Umat(i,j))>1e-15)
+                    h += param.Umat(i,j), "N", i+1, "N", j+1;
         for(auto i=0; i<kin.n_rows; i++)
             for(auto j=0; j<kin.n_cols; j++)
                 if (std::abs(kin(i,j))>fb.tol)
