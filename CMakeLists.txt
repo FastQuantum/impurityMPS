@@ -14,6 +14,8 @@ add_library(${PROJECT_NAME} STATIC
     include/impurityMPS/givens_rotation.h
     include/impurityMPS/irlm_gs.h
     include/impurityMPS/impurity_gs.h
+    include/impurityMPS/fb_mps.h
+    include/impurityMPS/impurity_dyn.h
     empty.cpp
     README.md
 )

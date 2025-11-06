@@ -18,7 +18,7 @@ int main()
     }
     arma::sp_mat Umat(2,2);
     Umat(0,1)=U;
-    auto Kstar=ImpurityParam::to_star_kin_tridiag(K, Umat.n_rows);
+    auto Kstar=ImpurityParam::to_star_kin(arma::mat{K}, Umat.n_rows);
     auto model0=Impurity_gs({.Kstar=Kstar, .Umat=Umat});
 
     { // optional: force impurity ocupation |10>

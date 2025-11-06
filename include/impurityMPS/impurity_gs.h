@@ -3,6 +3,7 @@
 
 #include "givens_rotation.h"
 #include "fermionic.h"
+#include "fb_mps.h"
 
 #include <armadillo>
 #include <itensor/all.h>
@@ -59,20 +60,15 @@ struct ImpurityParam {
 
 struct Impurity_gs {
     ImpurityParam param;
-    itensor::Fermion sites;
     itensor::AutoMPO hImp;
-    double tol=1e-10;
 
     /// these quantities are updated during the iterations
+    Fb_mps<double> fb;
     arma::mat K;
-    itensor::MPS psi;
     double energy=-1000;
-    arma::mat cc;
-    int nActive;
 
     explicit Impurity_gs(const ImpurityParam& param_, double tol_=1e-10)
         : param(param_)
-        , sites(itensor::Fermion(param.length(), {"ConserveNf",true}))
         , hImp (sites)
         , tol(tol_)
         , K(arma::mat(param_.Kstar))
