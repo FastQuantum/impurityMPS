@@ -17,24 +17,25 @@ struct Fb_mps
     int nActive;                ///< the number of active orbitals (the rest nActive...sites.length() is considered Slater)
     double tol=1e-10;           ///< the tolerance used for both applying the gates and defining active orbitals.
 
-    struct from_slater {};
 
     /// construct a Fb_mps as a Slater state.
     /// ek is the energy of every site, nPart is the number of particles.
     /// The number of active orbitals is initialized with nActive
-    Fb_mps(from_slater tag, arma::vec ek, int nPart, int nActive_)
-    : sites (itensor::Fermion(ek.size(), {"ConserveNf",true}))
-    , cc (arma::Mat<T>(ek.size(), ek.size(), arma::fill::zeros))
-    , nActive (nActive_)
-    {                
-        auto state = itensor::InitState(sites,"0");
+    static Fb_mps<T> from_slater(arma::vec ek, int nPart, int nActive)
+    {
+        Fb_mps<T> fb;
+        fb.sites=itensor::Fermion(ek.size(), {"ConserveNf",true});
+        fb.cc=arma::Mat<T>(ek.size(), ek.size(), arma::fill::zeros);
+        fb.nActive=nActive;
+        auto state = itensor::InitState(fb.sites,"0");
         arma::uvec iek=arma::sort_index(ek);
         for(int j = 0; j < nPart; j++) {
             int k=iek[j];
             state.set(k+1,"1");
-            cc(k,k)=1;
+            fb.cc(k,k)=1;
         }
-        psi=itensor::MPS(state);
+        fb.psi=itensor::MPS(state);
+        return fb;
     }
 
     /// extract representative orbitals of the sites with ni=nRef where nRef can be 0 or 1.
@@ -42,10 +43,10 @@ struct Fb_mps
     std::vector<GivensRot<T>> extract_representative(arma::Mat<T>& K, int nRef)
     {
         // 1. find the orbitals with the occupation nref
-        arma::vec ni_bath=cc.diag().eval().rows(nActive, cc.n_rows-1);
+        arma::vec ni_bath=arma::vec(cc.diag().eval().rows(nActive, cc.n_rows-1));
         arma::vec delta_n_bath=arma::abs(ni_bath-nRef);
         arma::uvec pos0=arma::find(delta_n_bath<0.5).eval()+nActive ;
-        if (pos0.empty()) { std::cout<<"warning: no Slater?\n"; return; }
+        if (pos0.empty()) { std::cout<<"warning: no Slater?\n"; return {}; }
 
         // 2. find the Givens rotations for them
         auto k12 = K.head_rows(nActive).eval().cols(pos0).eval();
@@ -89,7 +90,7 @@ struct Fb_mps
     /// Return the rotation Q applied: ci=Qij*dj (where ci are the old orbitals)
     arma::Mat<T> rotateToNaturalOrbitals(int start)
     {
-        auto cc1=cc.submat(start,start,nActive-1, nActive-1).eval();
+        auto cc1=arma::Mat<T>(cc.submat(start,start,nActive-1, nActive-1).eval());
         auto givens=GivensRotForCC_right(cc1);
         for(auto& g:givens) g.b+=start;
         auto gates=Fermionic::NOGates(sites,givens);
@@ -97,7 +98,7 @@ struct Fb_mps
         auto rot1=matrot_from_Givens(givens,nActive);
         cc.cols(0,nActive-1)=cc.cols(0,nActive-1).eval()*rot1.t();
         cc.rows(0,nActive-1)=rot1*cc.rows(0,nActive-1).eval();
-        auto ni_bath=arma::real(cc.diag()).eval().rows(start,cc.n_rows-1).eval();
+        auto ni_bath=arma::vec( arma::real(cc.diag()).eval().rows(start,cc.n_rows-1).eval() );
         nActive=arma::find(ni_bath>tol && ni_bath<1-tol).eval().size()+start;
         return rot1.st();
     }

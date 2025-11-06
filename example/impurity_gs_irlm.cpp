@@ -25,7 +25,7 @@ int main()
         auto ek=arma::vec {Kstar.diag()};
         ek[0]=-10;
         ek[1]=10;
-        model0.prepareSlaterGs(ek,L/2);
+        model0.prepareSlaterGs(ek);
     }
 
     cout<<"iteration nActive energy time\n"<<setprecision(12);
@@ -35,7 +35,7 @@ int main()
         model0.extract_representative(1);
         model0.doDmrg();
         model0.rotateToNaturalOrbitals();
-        cout<<i+1<<" "<<model0.nActive<<" "<<model0.energy<<" "<<t0.sincemark().wall<<endl;
+        cout<<i+1<<" "<<model0.fb.nActive<<" "<<model0.energy<<" "<<t0.sincemark().wall<<endl;
         t0.mark();
     }
     return 0;
