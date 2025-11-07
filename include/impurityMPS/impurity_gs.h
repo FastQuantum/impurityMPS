@@ -104,7 +104,7 @@ struct Impurity_gs {
         K.rows(0,nA-1)=rot1.t()*K.rows(0,nA-1).eval();
     }
 
-    void prepareSlaterGs(arma::vec ek) { fb=Fb_mps<double>::from_slater(ek,param.nPart(),param.nImp()); }
+    void prepareSlaterGs(arma::vec const& ek) { fb=Fb_mps<double>::from_slater(ek,param.nPart(),param.nImp()); }
 
     double SlaterEnergy() const { return fb.SlaterEnergy(K); }
 

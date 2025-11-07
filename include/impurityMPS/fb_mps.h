@@ -71,10 +71,12 @@ struct Fb_mps
         // no need to update cc
         // 4. move the nSv representative orbitals to the beginning of the Slater
         for(auto i=0; i<nSv; i++) {
-            SlaterSwap(nActive,pos0.at(i));
+            SlaterSwap (nActive,pos0.at(i));
+            K.swap_cols(nActive,pos0.at(i));
+            K.swap_rows(nActive,pos0.at(i));
             nActive++;
         }
-        return givens;
+        return givens; // TODO: wrong, we need to add swap gates
     }
 
     /// update the cc in the active sector using the psi
