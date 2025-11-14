@@ -18,6 +18,7 @@ add_library(${PROJECT_NAME} STATIC
     include/impurityMPS/impurity_dyn.h
     empty.cpp
     README.md
+    include/impurityMPS/impurity_param.h
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC
