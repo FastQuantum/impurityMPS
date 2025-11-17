@@ -8,7 +8,7 @@ int main()
 {
     int L=1000;
     double U=0.5;
-    arma::sp_mat K(L,L);
+    arma::mat K(L,L, arma::fill::zeros);
     {
         for(auto i=1; i<L-1; i++)
             K(i,i+1)=K(i+1,i)=0.5;
@@ -16,26 +16,25 @@ int main()
         K(0,0)=-U/2;
         K(1,1)=-U/2;
     }
-    arma::sp_mat Umat(2,2);
-    Umat(0,1)=U;
-    auto [Kstar,rot]=ImpurityParam::to_star_kin(arma::mat{K}, Umat.n_rows);
-    auto model0=Impurity_gs({.Kstar=Kstar, .Umat=Umat});
+    arma::mat Umat={{0,U},{0,0}};
+    auto model = Impurity ({.Kmat=K, .Umat=Umat});
+    auto solver=Impurity_gs(model);
 
     { // optional: force impurity ocupation |10>
-        auto ek=arma::vec {Kstar.diag()};
+        auto ek=arma::vec {solver.param.Kmat.diag()};
         ek[0]=-10;
         ek[1]=10;
-        model0.prepareSlaterGs(ek);
+        solver.prepareSlaterGs(ek);
     }
 
     cout<<"iteration nActive energy time\n"<<setprecision(12);
     itensor::cpu_time t0;
     for(auto i=0;i<30;i++){
-        model0.extract_representative(0);
-        model0.extract_representative(1);
-        model0.doDmrg();
-        model0.rotateToNaturalOrbitals();
-        cout<<i+1<<" "<<model0.fb.nActive<<" "<<model0.energy<<" "<<t0.sincemark().wall<<endl;
+        solver.extract_representative(0);
+        solver.extract_representative(1);
+        solver.doDmrg();
+        solver.rotateToNaturalOrbitals();
+        cout<<i+1<<" "<<solver.fb.nActive<<" "<<solver.energy<<" "<<t0.sincemark().wall<<endl;
         t0.mark();
     }
     return 0;

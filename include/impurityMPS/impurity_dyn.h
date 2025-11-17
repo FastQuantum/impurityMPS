@@ -21,7 +21,7 @@ struct Impurity_dyn {
         , hImp (sites)
         , dt(dt_)
         , tol(tol_) 
-        , K(arma::mat(param_.Kstar))
+        , K(arma::mat(param_.Kmat))
         , rotF( arma::cx_mat(param_.lenght(),param_.length(), arma::fill::eye) )
         , psi(psi_)
         , nActive(param.nImp())

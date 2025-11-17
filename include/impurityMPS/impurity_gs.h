@@ -1,7 +1,6 @@
 #ifndef IMPURITY_GS_H
 #define IMPURITY_GS_H
 
-#include "givens_rotation.h"
 #include "fermionic.h"
 #include "impurity_param.h"
 #include "fb_mps.h"
@@ -12,12 +11,12 @@ struct Impurity_gs {
     /// these quantities are updated during the iterations
     Fb_mps<double> fb;
     arma::mat K;
-    double energy=-1000;    
+    double energy=-1000;
 
-    explicit Impurity_gs(const ImpurityParam& param_)
-        : param(param_)
-        , fb { prepareSlater(param_) }
-        , K(arma::mat(param_.Kstar))
+    explicit Impurity_gs(Impurity const& imp)
+        : param(imp.param)
+        , fb { prepareSlater(param) }
+        , K(param.Kmat)
     {}
 
     void iterate(DmrgParam args={})
@@ -74,7 +73,7 @@ struct Impurity_gs {
 private:
     static Fb_mps<double> prepareSlater(ImpurityParam const& param)
     {
-        arma::vec ek=arma::vec(param.Kstar.diag());
+        arma::vec ek=param.Kmat.diag();
         return Fb_mps<double>::from_slater(ek, param.nPart(), param.nImp());
     }
 };
