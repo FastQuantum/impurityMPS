@@ -14,6 +14,24 @@
 #include<mkl_lapacke.h>
 #endif
 
+inline std::vector<int> iota(int n)
+{
+    std::vector<int> all(n);
+    for(int i=0;i<n;i++) all[i]=i;
+    return all;
+}
+
+inline std::vector<int> set_diff(int n, std::vector<int> Iset)
+{
+    std::vector<int> all=iota(n);
+    std::sort(Iset.begin(),Iset.end());
+    std::vector<int> diff;
+    diff.reserve(n-Iset.size());
+    std::set_difference(all.begin(),all.end(),
+                        Iset.begin(),Iset.end(),back_inserter(diff));
+    return diff;
+}
+
 inline std::pair<arma::vec,arma::mat> FullDiagonalizeTridiagonal(arma::vec an, arma::vec bn)
 {
     lapack_int n=an.size(), M;
