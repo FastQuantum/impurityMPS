@@ -17,14 +17,14 @@ int main()
         K(1,1)=-U/2;
     }
     arma::mat Umat={{0,U},{0,0}};
-    auto model = Impurity ({.Kmat=K, .Umat=Umat});
+    auto model = Impurity {{.Kmat=K, .Umat=Umat}};
     auto solver=Impurity_gs(model);
 
     { // optional: force impurity ocupation |10>
         auto ek=arma::vec {solver.param.Kmat.diag()};
         ek[0]=-10;
         ek[1]=10;
-        solver.prepareSlaterGs(ek);
+        solver.setSlaterGs(ek);
     }
 
     cout<<"iteration nActive energy time\n"<<setprecision(12);

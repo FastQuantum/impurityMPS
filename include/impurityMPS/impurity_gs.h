@@ -15,7 +15,7 @@ struct Impurity_gs {
 
     explicit Impurity_gs(Impurity const& imp)
         : param(imp.param)
-        , fb { prepareSlater(param) }
+        , fb { FbfromSlater(param) }
         , K(param.Kmat)
     {}
 
@@ -51,7 +51,7 @@ struct Impurity_gs {
         K.rows(0,nA-1)=rot1.t()*K.rows(0,nA-1).eval();
     }
 
-    void prepareSlaterGs(arma::vec const& ek) { fb=Fb_mps<double>::from_slater(ek,param.nPart(),param.nImp()); }
+    void setSlaterGs(arma::vec const& ek) { fb=Fb_mps<double>::from_slater(ek,param.nPart(),param.nImp()); }
 
     double SlaterEnergy() const { return fb.SlaterEnergy(K); }
 
@@ -71,7 +71,7 @@ struct Impurity_gs {
     }
 
 private:
-    static Fb_mps<double> prepareSlater(ImpurityParam const& param)
+    static Fb_mps<double> FbfromSlater(ImpurityParam const& param)
     {
         arma::vec ek=param.Kmat.diag();
         return Fb_mps<double>::from_slater(ek, param.nPart(), param.nImp());
