@@ -1,82 +1,66 @@
-#include"impurity_gs.h"
+#include "fermionic.h"
+#include "impurity_param.h"
+#include "fb_mps.h"
 
 struct Impurity_dyn {
     ImpurityParam param;
-    itensor::Fermion sites;
-    itensor::AutoMPO hImp;
-    double dt;
-    double tol=1e-10;
+    double dt=0.1;
 
     /// these quantities are updated during the iterations
+    Fb_mps<cmpx> fb;
     arma::cx_mat K;
-    arma::cx_mat rotF;
-    itensor::MPS psi;
     double energy=-1000;
-    arma::cx_mat cc;
-    int nActive;
 
-    Impurity_dyn(itensor::MPS const& psi_, const ImpurityParam& param_, double dt_, double tol_=1e-10)
-        : param(param_)
-        , sites(itensor::Fermion(param.length(), {"ConserveNf",true}))
-        , hImp (sites)
+    explicit Impurity_dyn(Impurity const& imp, Fb_mps<cmpx> const& fb_, double dt_)
+        : param(imp.param)
         , dt(dt_)
-        , tol(tol_) 
-        , K(arma::mat(param_.Kmat))
-        , rotF( arma::cx_mat(param_.lenght(),param_.length(), arma::fill::eye) )
-        , psi(psi_)
-        , nActive(param.nImp())
-    {
-        for(auto i=0; i<param.nImp(); i++)
-            for(auto j=0; j<param.nImp(); j++)
-                if (std::abs(param.Umat(i,j))>1e-15)
-                    hImp += param.Umat(i,j), "N", i+1, "N", j+1;
-    }
+        , fb { fb_ }
+        , K { param.Kmat, arma::zeros(arma::size(param.Kmat)) }
+    {}
 
     void iterate(DmrgParam args={})
     {
         extract_representative(0);
         extract_representative(1);
-        doDmrg(args);
+        doTdvp(args);
         rotateToNaturalOrbitals();
     }
 
     /// extract representative orbital of the sites with ni=nRef where nRef can be 0 or 1
-    void extract_representative(int nRef)
+    void extract_representative(int nRef){ fb.extract_representative(K,nRef); }
+
+    void doTdvp(DmrgParam args={})
     {
-        // itensor::cpu_time t0;
-        arma::cx_vec ni_bath=cc.diag().eval().rows(nActive,param.length()-1);
-        arma::cx_vec delta_n_bath=arma::abs(ni_bath-nRef);
-        arma::uvec pos0=arma::find(delta_n_bath<0.5).eval()+nActive ;
-        if (pos0.empty()) { std::cout<<"warning: no Slater?\n"; return; }
-        auto k12 = K.head_rows(nActive).eval().cols(pos0).eval();
-        arma::vec s;
-        arma::cx_mat U, V;
-        svd_econ(U,s,V, k12);
-        int nSv=arma::find(s>tol*s[0]).eval().size();
-        auto givens=GivensRotForRot_left(V.head_cols(nSv).eval());
-        GivensDaggerInPlace(givens);
-
-        auto Kcol=K.cols(pos0).eval();
-        applyGivens(Kcol,givens);
-        K.cols(pos0)=Kcol;
-        // std::cout<<" givens to K 1"<<t0.sincemark()<<std::endl; t0.mark();
-
-        {
-            arma::inplace_trans(K);
-            auto Kcol=K.cols(pos0).eval();
-            applyGivens(Kcol,givens);
-            K.cols(pos0)=Kcol;
-            arma::inplace_trans(K);
-            // auto Krow=K.rows(pos0).eval();
-            // applyGivens(GivensDagger(givens),Krow);
-            // K.rows(pos0)=Krow;
-        }
-        // std::cout<<" givens to K 2"<<t0.sincemark()<<std::endl; t0.mark();
-        // no need to update cc
-        for(auto i=0; i<nSv; i++) {
-            SlaterSwap(nActive,pos0.at(i));
-            nActive++;
-        }
+        auto mpo=fullHamiltonian( K.submat(0,0,fb.nActive-1,fb.nActive-1) );
+        auto sweeps = itensor::Sweeps(1);
+        sweeps.maxdim() = args.max_bond_dim;
+        sweeps.cutoff() = fb.tol;
+        sweeps.niter() = args.nIter_diag;
+        sweeps.noise() = args.noise;
+        energy=itensor::dmrg(fb.psi,mpo,sweeps, {"MaxSite",fb.nActive,"Quiet", true, "Silent", true});
+        fb.update_cc();
     }
 
+    void rotateToNaturalOrbitals()
+    {
+        int nA=fb.nActive; // it will change
+        auto rot1=fb.rotateToNaturalOrbitals(param.nImp());
+        K.cols(0,nA-1)=K.cols(0,nA-1).eval()*rot1;
+        K.rows(0,nA-1)=rot1.t()*K.rows(0,nA-1).eval();
+    }
+
+    /// return the mpo of the Hamiltoninan given by himp and the kinetic energy kin
+    itensor::MPO fullHamiltonian(arma::cx_mat const& kin) const
+    {
+        itensor::AutoMPO h(fb.sites);
+        for(auto i=0; i<param.nImp(); i++)
+            for(auto j=0; j<param.nImp(); j++)
+                if (std::abs(param.Umat(i,j))>1e-15)
+                    h += param.Umat(i,j), "N", i+1, "N", j+1;
+        for(auto i=0; i<kin.n_rows; i++)
+            for(auto j=0; j<kin.n_cols; j++)
+                if (std::abs(kin(i,j))>fb.tol)
+                    h += kin(i,j),"Cdag",i+1,"C",j+1;
+        return itensor::toMPO(h);
+    }
 };
