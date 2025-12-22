@@ -9,21 +9,49 @@ struct Impurity_dyn {
     /// these quantities are updated during the iterations
     Fb_mps<cmpx> fb;
     arma::cx_mat K;
-    double energy=-1000;
+    arma::cx_mat exp_ih;
 
     explicit Impurity_dyn(Impurity const& imp, Fb_mps<cmpx> const& fb_, double dt_)
         : param(imp.param)
         , dt(dt_)
         , fb { fb_ }
         , K { param.Kmat, arma::zeros(arma::size(param.Kmat)) }
-    {}
+    {
+        int nImp=fb.nActive;
+        using namespace arma;
+        exp_ih=cx_mat(size(K), fill::eye);
+        exp_ih.submat(nImp,nImp, K.n_rows-1,K.n_rows-1)=expIH<double>(K.submat(nImp,nImp, K.n_rows-1,K.n_rows-1) * dt);
+    }
 
     void iterate(DmrgParam args={})
     {
+        rotateIntPicture();
         extract_representative(0);
         extract_representative(1);
         doTdvp(args);
         rotateToNaturalOrbitals();
+    }
+
+    void rotateIntPicture()
+    {
+        int L=K.n_cols;
+        int nImp=fb.nActive;
+        arma::cx_mat  Kip; // interaction picture
+        {
+            const auto& K0=K;
+            arma::cx_mat K1 = K0.submat(0, nImp, nImp-1, L-1) *
+                              K0.submat(nImp,nImp,L-1, L-1) * arma::cx_double(0,-0.5*dt); //the commutator
+            Kip=K0 * arma::cx_double(1,0);
+            Kip.submat(nImp, nImp, L-1, L-1).fill(0.0);
+            Kip.submat(0,0,nImp-1,nImp-1)=K0.submat(0,0,nImp-1,nImp-1) * arma::cx_double(1,0);
+            Kip.submat(0, nImp, nImp-1, L-1)+=K1;
+            Kip.submat(nImp, 0, L-1, nImp-1)+=K1.t();
+
+            // rot.t()*Kip*rot
+            Kip.rows(0,nImp-1)=Kip.rows(0,nImp-1).eval()*rot;
+            Kip.cols(0,nImp-1)=rot.t()*Kip.cols(0,nImp-1).eval();
+        }
+        out.rot=this->exp_ih*rot; //this->rotIP(rot,nImp,dt);
     }
 
     /// extract representative orbital of the sites with ni=nRef where nRef can be 0 or 1

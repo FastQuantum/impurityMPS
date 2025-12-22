@@ -13,6 +13,7 @@ struct Fb_mps
 {
     itensor::Fermion sites;     ///< the sites of the network from ITensor
     itensor::MPS psi;           ///< the mps state
+    arma::Mat<T> rot;           ///< the actual rotation frame
     arma::SpMat<T> cc;          ///< the correlation matrix or one-particle density matrix
     int nActive;                ///< the number of active orbitals (the rest nActive...sites.length() is considered Slater)
     double tol=1e-10;           ///< the tolerance used for both applying the gates and defining active orbitals.
@@ -26,7 +27,6 @@ struct Fb_mps
         Fb_mps<T> fb;
         fb.sites=itensor::Fermion(ek.size(), {"ConserveNf",true});
         fb.cc=arma::Mat<T>(ek.size(), ek.size(), arma::fill::zeros);
-        fb.nActive=nActive;
         auto state = itensor::InitState(fb.sites,"0");
         arma::uvec iek=arma::sort_index(ek);
         for(int j = 0; j < nPart; j++) {
@@ -35,6 +35,8 @@ struct Fb_mps
             fb.cc(k,k)=1;
         }
         fb.psi=itensor::MPS(state);
+        fb.rot=arma::Mat<T>(ek.size(), ek.size(), arma::fill::eye);
+        fb.nActive=nActive;
         return fb;
     }
 
@@ -67,13 +69,17 @@ struct Fb_mps
             applyGivens(Kcol,givens);
             K.cols(pos0)=Kcol;
             arma::inplace_trans(K);
-        }        
+        }
+        auto Rcol=rot.cols(pos0).eval();
+        applyGivens(Rcol,givens);
+        rot.cols(pos0)=Rcol;
         // no need to update cc
         // 4. move the nSv representative orbitals to the beginning of the Slater
         for(auto i=0; i<nSv; i++) {
             SlaterSwap (nActive,pos0.at(i));
             K.swap_cols(nActive,pos0.at(i));
             K.swap_rows(nActive,pos0.at(i));
+            rot.swap_cols(nActive,pos0.at(i));
             nActive++;
         }
         return givens; // TODO: wrong, we need to add swap gates
