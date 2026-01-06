@@ -76,10 +76,12 @@ struct Fb_mps
         // no need to update cc
         // 4. move the nSv representative orbitals to the beginning of the Slater
         for(auto i=0; i<nSv; i++) {
-            SlaterSwap (nActive,pos0.at(i));
+            WaveFunctionSlaterSwap (nActive,pos0.at(i));
             K.swap_cols(nActive,pos0.at(i));
             K.swap_rows(nActive,pos0.at(i));
-            rot.swap_cols(nActive,pos0.at(i));
+            rot.swap_cols(nActive,pos0.at(i));            
+            cc.swap_cols(nActive,pos0.at(i));
+            cc.swap_rows(nActive,pos0.at(i));
             nActive++;
         }
         return givens; // TODO: wrong, we need to add swap gates
@@ -98,15 +100,16 @@ struct Fb_mps
     /// Return the rotation Q applied: ci=Qij*dj (where ci are the old orbitals)
     arma::Mat<T> rotateToNaturalOrbitals(int start)
     {
-        auto cc1=arma::Mat<T>(cc.submat(start,start,nActive-1, nActive-1).eval());
+        arma::Mat<T> cc1=cc.submat(start,start,nActive-1, nActive-1).eval();
         auto givens=GivensRotForCC_right(cc1);
         for(auto& g:givens) g.b+=start;
         auto gates=Fermionic::NOGates(sites,givens);
         gateTEvol(gates,1,1,psi,{"Cutoff",tol,"Quiet",true, "Normalize",false,"ShowPercent",false});
         auto rot1=matrot_from_Givens(givens,nActive);
+        rot.cols(0,nActive-1)=rot.cols(0,nActive-1).eval()*rot1.st();
         cc.cols(0,nActive-1)=cc.cols(0,nActive-1).eval()*rot1.t();
         cc.rows(0,nActive-1)=rot1*cc.rows(0,nActive-1).eval();
-        auto ni_bath=arma::vec( arma::real(cc.diag()).eval().rows(start,cc.n_rows-1).eval() );
+        arma::vec ni_bath=arma::real(cc.diag()).eval().rows(start,cc.n_rows-1).eval();
         nActive=arma::find(ni_bath>tol && ni_bath<1-tol).eval().size()+start;
         return rot1.st();
     }
@@ -121,7 +124,7 @@ struct Fb_mps
     }
 
     /// Swap to sites inside the Slater part
-    void SlaterSwap(int i,int j)
+    void WaveFunctionSlaterSwap(int i,int j)
     {
         if (i==j) return;
         if (i<nActive || j<nActive) throw std::runtime_error("SlaterSwap for active orbitals");
@@ -135,9 +138,6 @@ struct Fb_mps
         };
         flip(i);
         flip(j);
-
-        cc.swap_cols(i,j);
-        cc.swap_rows(i,j);
     }
 
 };

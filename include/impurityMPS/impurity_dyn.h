@@ -10,6 +10,7 @@ struct Impurity_dyn {
     Fb_mps<cmpx> fb;
     arma::cx_mat K;
     arma::cx_mat exp_ih;
+    arma::cx_mat Kip;
 
     explicit Impurity_dyn(Impurity const& imp, Fb_mps<cmpx> const& fb_, double dt_)
         : param(imp.param)
@@ -17,7 +18,7 @@ struct Impurity_dyn {
         , fb { fb_ }
         , K { param.Kmat, arma::zeros(arma::size(param.Kmat)) }
     {
-        int nImp=fb.nActive;
+        int nImp=param.nImp();
         using namespace arma;
         exp_ih=cx_mat(size(K), fill::eye);
         exp_ih.submat(nImp,nImp, K.n_rows-1,K.n_rows-1)=expIH<double>(K.submat(nImp,nImp, K.n_rows-1,K.n_rows-1) * dt);
@@ -35,23 +36,22 @@ struct Impurity_dyn {
     void rotateIntPicture()
     {
         int L=K.n_cols;
-        int nImp=fb.nActive;
+        int nImp=param.nImp();
         arma::cx_mat  Kip; // interaction picture
-        {
-            const auto& K0=K;
-            arma::cx_mat K1 = K0.submat(0, nImp, nImp-1, L-1) *
-                              K0.submat(nImp,nImp,L-1, L-1) * arma::cx_double(0,-0.5*dt); //the commutator
-            Kip=K0 * arma::cx_double(1,0);
-            Kip.submat(nImp, nImp, L-1, L-1).fill(0.0);
-            Kip.submat(0,0,nImp-1,nImp-1)=K0.submat(0,0,nImp-1,nImp-1) * arma::cx_double(1,0);
-            Kip.submat(0, nImp, nImp-1, L-1)+=K1;
-            Kip.submat(nImp, 0, L-1, nImp-1)+=K1.t();
 
-            // rot.t()*Kip*rot
-            Kip.rows(0,nImp-1)=Kip.rows(0,nImp-1).eval()*rot;
-            Kip.cols(0,nImp-1)=rot.t()*Kip.cols(0,nImp-1).eval();
-        }
-        out.rot=this->exp_ih*rot; //this->rotIP(rot,nImp,dt);
+        const auto& K0=K;
+        arma::cx_mat K1 = K0.submat(0, nImp, nImp-1, L-1) *
+                K0.submat(nImp,nImp,L-1, L-1) * arma::cx_double(0,-0.5*dt); //the commutator
+        Kip=K0;
+        Kip.submat(nImp, nImp, L-1, L-1).fill(0.0);
+        Kip.submat(0, nImp, nImp-1, L-1)+=K1;
+        Kip.submat(nImp, 0, L-1, nImp-1)+=K1.t();
+
+        // rot.t()*Kip*rot
+        Kip.rows(0,nImp-1)=Kip.rows(0,nImp-1).eval()*fb.rot;
+        Kip.cols(0,nImp-1)=fb.rot.t()*Kip.cols(0,nImp-1).eval();
+
+        fb.rot=exp_ih*fb.rot;
     }
 
     /// extract representative orbital of the sites with ni=nRef where nRef can be 0 or 1
