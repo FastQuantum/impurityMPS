@@ -76,7 +76,7 @@ struct Fb_mps
         // no need to update cc
         // 4. move the nSv representative orbitals to the beginning of the Slater
         for(auto i=0; i<nSv; i++) {
-            WaveFunctionSlaterSwap (nActive,pos0.at(i));
+            SlaterWaveFunctionSwap (nActive,pos0.at(i));
             K.swap_cols(nActive,pos0.at(i));
             K.swap_rows(nActive,pos0.at(i));
             rot.swap_cols(nActive,pos0.at(i));            
@@ -124,7 +124,7 @@ struct Fb_mps
     }
 
     /// Swap to sites inside the Slater part
-    void WaveFunctionSlaterSwap(int i,int j)
+    void SlaterWaveFunctionSwap(int i,int j)
     {
         if (i==j) return;
         if (i<nActive || j<nActive) throw std::runtime_error("SlaterSwap for active orbitals");

@@ -16,7 +16,7 @@ struct ImpurityParam {
     int nImp() const { return Umat.n_rows; }
     int nPart() const { return filling*length()+0.5; }
 
-    void validate()
+    void initializeDefault()
     {
         if (F.empty()) F=arma::mat(length(),length(), arma::fill::eye);
         if (impPos.empty()) impPos=iota(nImp());
@@ -25,7 +25,7 @@ struct ImpurityParam {
     /// transform Kmat to star geometry (Hbath is diagonal)
     void toStar()
     {
-        validate();
+        initializeDefault();
         // TODO : if the matrix is already in star then return *this;
         int L=length();
         int nImp=this->nImp();
