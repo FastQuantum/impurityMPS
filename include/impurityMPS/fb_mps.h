@@ -20,9 +20,11 @@ struct Fb_mps
 
 
     /// construct a Fb_mps as a Slater state.
-    /// ek is the energy of every site, nPart is the number of particles.
-    /// The number of active orbitals is initialized with nActive
-    static Fb_mps<T> from_slater(arma::vec ek, int nPart, int nActive)
+    /// rot is the rot to get the ek
+    /// ek is the energy of every site,
+    /// nPart is the number of particles,
+    /// nActive is the number of active orbitals.
+    static Fb_mps<T> from_slater(arma::Mat<T> const& rot,arma::vec const& ek, int nPart, int nActive)
     {
         Fb_mps<T> fb;
         fb.sites=itensor::Fermion(ek.size(), {"ConserveNf",true});
@@ -35,9 +37,20 @@ struct Fb_mps
             fb.cc(k,k)=1;
         }
         fb.psi=itensor::MPS(state);
-        fb.rot=arma::Mat<T>(ek.size(), ek.size(), arma::fill::eye);
+        fb.rot=rot;
         fb.nActive=nActive;
         return fb;
+    }
+
+    /// construct a Fb_mps as a Slater state.
+    /// the orbitals |k> to get the ek are taking as the original frame.
+    /// ek is the energy of every site,
+    /// nPart is the number of particles,
+    /// nActive is the number of active orbitals.
+    static Fb_mps<T> from_slater(arma::vec const& ek, int nPart, int nActive)
+    {
+        auto rot=arma::Mat<T>(ek.size(), ek.size(), arma::fill::eye);
+        return from_slater(rot, ek, nPart, nActive);
     }
 
     /// extract representative orbitals of the sites with ni=nRef where nRef can be 0 or 1.

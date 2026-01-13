@@ -5,12 +5,12 @@
 struct Impurity_dyn {
     ImpurityParam param;
     double dt=0.1;
+    arma::cx_mat exp_ih;
 
     /// these quantities are updated during the iterations
-    Fb_mps<cmpx> fb;
-    arma::cx_mat K;
-    arma::cx_mat exp_ih;
-    arma::cx_mat Kip;
+    Fb_mps<cmpx> fb;        ///< the current few body MPS
+    arma::cx_mat K;         ///< the current Hamiltonian
+    arma::cx_mat Kip;       ///< the current Hamiltonian in the interaction picture of the bath
 
     explicit Impurity_dyn(Impurity const& imp, Fb_mps<cmpx> const& fb_, double dt_)
         : param(imp.param)
@@ -37,7 +37,6 @@ struct Impurity_dyn {
     {
         int L=K.n_cols;
         int nImp=param.nImp();
-        arma::cx_mat  Kip; // interaction picture
 
         const auto& K0=K;
         arma::cx_mat K1 = K0.submat(0, nImp, nImp-1, L-1) *
