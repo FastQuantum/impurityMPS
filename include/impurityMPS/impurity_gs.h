@@ -53,8 +53,6 @@ struct Impurity_gs {
 
     void setSlaterGs(arma::vec const& ek) { fb=Fb_mps<double>::from_slater(ek,param.nPart(),param.nImp()); }
 
-    double SlaterEnergy() const { return fb.SlaterEnergy(K); }
-
     /// return the mpo of the Hamiltoninan given by himp and the kinetic energy kin
     itensor::MPO fullHamiltonian(arma::mat const& kin) const
     {

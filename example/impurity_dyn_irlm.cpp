@@ -1,0 +1,37 @@
+#include "impurityMPS/impurity_dyn.h"
+#include <iostream>
+#include <iomanip>
+
+using namespace std;
+
+int main()
+{
+    int L=1000;
+    double U=0.5;
+    arma::mat K(L,L, arma::fill::zeros);
+    {
+        for(auto i=1; i<L-1; i++)
+            K(i,i+1)=K(i+1,i)=0.5;
+        K(0,1)=K(1,0)=0.1;
+        K(0,0)=-U/2;
+        K(1,1)=-U/2;
+    }
+    arma::mat Umat={{0,U},{0,0}};
+    auto model = Impurity {{.Kmat=K, .Umat=Umat}};
+
+    auto ek=arma::vec {model.param.Kmat.diag()};
+    ek[0]=-10;    // force impurity ocupation |10>
+    ek[1]=10;
+    auto fb=Fb_mps<cmpx>::from_slater(ek, model.param.nPart(), model.param.nImp());
+
+    auto solver=Impurity_dyn(model,fb,0.1);
+
+    cout<<"iteration nActive energy time\n"<<setprecision(12);
+    itensor::cpu_time t0;
+    for(auto i=0;i<30;i++){
+        solver.iterate();
+        cout<<i+1<<" "<<solver.fb.nActive<<" "<<solver.energy<<" "<<t0.sincemark().wall<<endl;
+        t0.mark();
+    }
+    return 0;
+}

@@ -2,29 +2,32 @@
 #include "impurity_param.h"
 #include "fb_mps.h"
 
+#include "tdvp.h"
+#include "basisextension.h"
+
 struct Impurity_dyn {
     ImpurityParam param;
-    double dt=0.1;
+    double dt;
     arma::cx_mat exp_ih;
 
     /// these quantities are updated during the iterations
     Fb_mps<cmpx> fb;        ///< the current few body MPS
     arma::cx_mat K;         ///< the current Hamiltonian
     arma::cx_mat Kip;       ///< the current Hamiltonian in the interaction picture of the bath
+    double energy=-1000;
 
-    explicit Impurity_dyn(Impurity const& imp, Fb_mps<cmpx> const& fb_, double dt_)
+    explicit Impurity_dyn(Impurity const& imp, Fb_mps<cmpx> const& fb_, double dt_=0.1)
         : param(imp.param)
         , dt(dt_)
         , fb { fb_ }
-        , K { param.Kmat, arma::zeros(arma::size(param.Kmat)) }
+        , K { param.Kmat, arma::zeros(arma::size(param.Kmat)) } // convert to complex
     {
         int nImp=param.nImp();
-        using namespace arma;
-        exp_ih=cx_mat(size(K), fill::eye);
-        exp_ih.submat(nImp,nImp, K.n_rows-1,K.n_rows-1)=expIH<double>(K.submat(nImp,nImp, K.n_rows-1,K.n_rows-1) * dt);
+        exp_ih = arma::cx_mat(size(K), arma::fill::eye);
+        exp_ih.submat(nImp,nImp, K.n_rows-1,K.n_rows-1)=expIH<cmpx>(K.submat(nImp,nImp, K.n_rows-1,K.n_rows-1) * dt);
     }
 
-    void iterate(DmrgParam args={})
+    void iterate(TdvpParam args={})
     {
         rotateIntPicture();
         extract_representative(0);
@@ -54,17 +57,37 @@ struct Impurity_dyn {
     }
 
     /// extract representative orbital of the sites with ni=nRef where nRef can be 0 or 1
-    void extract_representative(int nRef){ fb.extract_representative(K,nRef); }
+    void extract_representative(int nRef){ fb.extract_representative(Kip,nRef); }
 
-    void doTdvp(DmrgParam args={})
+    void doTdvp(TdvpParam args={})
     {
-        auto mpo=fullHamiltonian( K.submat(0,0,fb.nActive-1,fb.nActive-1) );
+        auto mpo=fullHamiltonian( Kip.submat(0,0,fb.nActive-1,fb.nActive-1) );
         auto sweeps = itensor::Sweeps(1);
         sweeps.maxdim() = args.max_bond_dim;
         sweeps.cutoff() = fb.tol;
         sweeps.niter() = args.nIter_diag;
         sweeps.noise() = args.noise;
-        energy=itensor::dmrg(fb.psi,mpo,sweeps, {"MaxSite",fb.nActive,"Quiet", true, "Silent", true});
+
+        if (args.epsilonM != 0)
+        {
+            std::vector<double> epsilonK(args.nKrylov,1E-8);  // Global subspace expansion
+            itensor::addBasis(fb.psi,mpo,epsilonK,
+                              {"Cutoff", args.epsilonM,
+                               "Method", "DensityMatrix",
+                               "KrylovOrd", args.nKrylov,
+                               "DoNormalize", true,
+                               "Quiet", true,
+                               "Silent", true});
+        }
+
+        energy = itensor::tdvp(fb.psi,mpo, -imag_1*dt, sweeps,          // TDVP sweep
+                               {"Truncate", true,
+                                "DoNormalize", false,
+                                "Quiet", true,
+                                "Silent", true,
+                                "NumCenter", 2,
+                                "ErrGoal", args.err_goal});
+        energy += fb.SlaterEnergy(K);
         fb.update_cc();
     }
 

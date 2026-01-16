@@ -58,7 +58,7 @@ struct Fb_mps
     std::vector<GivensRot<T>> extract_representative(arma::Mat<T>& K, int nRef)
     {
         // 1. find the orbitals with the occupation nref
-        arma::vec ni_bath=arma::vec(cc.diag().eval().rows(nActive, cc.n_rows-1));
+        auto ni_bath=arma::vec( arma::real( cc.diag().eval().rows(nActive, cc.n_rows-1) ) );
         arma::vec delta_n_bath=arma::abs(ni_bath-nRef);
         arma::uvec pos0=arma::find(delta_n_bath<0.5).eval()+nActive ;
         if (pos0.empty()) { std::cout<<"warning: no Slater?\n"; return {}; }
@@ -103,17 +103,25 @@ struct Fb_mps
     /// update the cc in the active sector using the psi
     void update_cc()
     {
-        auto ccz=correlationMatrix(psi, sites,"Cdag","C",itensor::range1(nActive));
-        for(auto i=0u; i<ccz.size(); i++)
-            for(auto j=0u; j<ccz[i].size(); j++)
-                cc(i,j)=ccz.at(i).at(j);
+        if constexpr (std::is_same<T,double>::value) {
+            auto ccz=correlationMatrix(psi, sites,"Cdag","C",itensor::range1(nActive));
+            for(auto i=0u; i<ccz.size(); i++)
+                for(auto j=0u; j<ccz[i].size(); j++)
+                    cc(i,j)=ccz.at(i).at(j);
+        }
+        else {
+            auto ccz=correlationMatrixC(psi, sites,"Cdag","C",itensor::range1(nActive));
+            for(auto i=0u; i<ccz.size(); i++)
+                for(auto j=0u; j<ccz[i].size(); j++)
+                    cc(i,j)=ccz.at(i).at(j);
+        }
     }
 
     /// Diagonalize the cc submatrix from [start,nActive). Rotate psi, and update the nActive, accordingly.
     /// Return the rotation Q applied: ci=Qij*dj (where ci are the old orbitals)
     arma::Mat<T> rotateToNaturalOrbitals(int start)
     {
-        arma::Mat<T> cc1=cc.submat(start,start,nActive-1, nActive-1).eval();
+        auto cc1 = arma::Mat<T>( cc.submat(start,start,nActive-1, nActive-1).eval() );
         auto givens=GivensRotForCC_right(cc1);
         for(auto& g:givens) g.b+=start;
         auto gates=Fermionic::NOGates(sites,givens);
@@ -122,7 +130,7 @@ struct Fb_mps
         rot.cols(0,nActive-1)=rot.cols(0,nActive-1).eval()*rot1.st();
         cc.cols(0,nActive-1)=cc.cols(0,nActive-1).eval()*rot1.t();
         cc.rows(0,nActive-1)=rot1*cc.rows(0,nActive-1).eval();
-        arma::vec ni_bath=arma::real(cc.diag()).eval().rows(start,cc.n_rows-1).eval();
+        auto ni_bath = arma::vec( arma::real(cc.diag()).eval().rows(start,cc.n_rows-1).eval() );
         nActive=arma::find(ni_bath>tol && ni_bath<1-tol).eval().size()+start;
         return rot1.st();
     }
@@ -132,7 +140,7 @@ struct Fb_mps
     {
         double energy=0;
         for(auto i=nActive; i<cc.n_rows; i++)
-            energy += cc(i,i)*K(i,i);
+            energy += std::real(cc(i,i)*K(i,i));
         return energy;
     }
 
@@ -141,10 +149,12 @@ struct Fb_mps
     {
         if (i==j) return;
         if (i<nActive || j<nActive) throw std::runtime_error("SlaterSwap for active orbitals");
-        if (std::abs(cc(i,i)-cc(j,j))<0.5) throw std::runtime_error("SlaterSwap for equal occupations");
+        T ni=cc(i,i), nj=cc(j,j);
+        if (std::abs(ni-nj)<0.5) throw std::runtime_error("SlaterSwap for equal occupations");
 
         auto flip=[&](int p) {
-            auto G = cc(p,p)>0.5 ? sites.op("A",p+1) : sites.op("Adag",p+1) ;
+            T np=cc(p,p);
+            auto G = std::abs(np)>0.5 ? sites.op("A",p+1) : sites.op("Adag",p+1) ;
             auto newA = G*psi(p+1);
             newA.noPrime();
             psi.set(p+1,newA);

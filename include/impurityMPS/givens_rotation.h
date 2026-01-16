@@ -6,6 +6,7 @@
 #include <itensor/all.h>
 
 using cmpx=std::complex<double>;
+const cmpx imag_1 = {0.0, 1.0};
 
 /// compute the exp(-i H) assuming H is Hermitian
 template<class T>
@@ -14,7 +15,7 @@ arma::cx_mat expIH(arma::Mat<T> const& H)
     arma::Mat<T> evec;
     arma::vec eval;
     arma::eig_sym(eval,evec,H);
-    return evec * arma::diagmat(arma::exp(eval*cmpx(0,-1))) * evec.t();
+    return evec * arma::diagmat(arma::exp(-eval*imag_1)) * evec.t();
 }
 
 

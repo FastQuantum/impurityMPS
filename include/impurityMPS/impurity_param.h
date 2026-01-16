@@ -10,7 +10,7 @@ struct ImpurityParam {
     arma::mat Umat;           ///< the Coulomb interaction coeff: U(i,j) ni nj
     std::vector<int> impPos;  ///< (default => {0,1,...,nImp-1}) the positions of interacting sites
     double filling=0.5;       ///< number of electrons per site
-    arma::mat F;              ///< (default => identity) the actual frame, such that F*Kmat*F.t() gives the original Kmat (in real space)
+    arma::mat rot;              ///< (default => identity) the actual frame, such that F*Kmat*F.t() gives the original Kmat (in real space)
 
     int length() const { return Kmat.n_rows; }
     int nImp() const { return Umat.n_rows; }
@@ -18,7 +18,7 @@ struct ImpurityParam {
 
     void initializeDefault()
     {
-        if (F.empty()) F=arma::mat(length(),length(), arma::fill::eye);
+        if (rot.empty()) rot=arma::mat(length(),length(), arma::fill::eye);
         if (impPos.empty()) impPos=iota(nImp());
     }
 
@@ -33,7 +33,7 @@ struct ImpurityParam {
         for(auto i=0u; i<impPos.size(); i++) {  // put the impurity at the beginning
             Kmat.swap_cols(i,impPos[i]);
             Kmat.swap_rows(i,impPos[i]);
-            F.swap_cols(i,impPos[i]);
+            rot.swap_cols(i,impPos[i]);
         }
         arma::mat Kbath=Kmat.submat(nImp,nImp,L-1,L-1).eval();
         arma::mat evec;
@@ -49,7 +49,7 @@ struct ImpurityParam {
                 Kstar(i,j+nImp)=Kstar(j+nImp,i)=vk(i,j);
         }
         Kmat=Kstar;
-        F.cols(nImp,L-1)=F.cols(nImp,L-1).eval()*evec;
+        rot.cols(nImp,L-1)=rot.cols(nImp,L-1).eval()*evec;
         impPos=iota(nImp);
     }
 
