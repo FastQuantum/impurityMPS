@@ -13,9 +13,9 @@ struct Impurity_gs {
     arma::mat K;
     double energy=-1000;
 
-    explicit Impurity_gs(Impurity const& imp)
+    Impurity_gs(Impurity const& imp, Fb_mps<double> const& fb_)
         : param(imp.param)
-        , fb { FbfromSlater(param) }
+        , fb { fb_ }
         , K(param.Kmat)
     {}
 
@@ -51,8 +51,6 @@ struct Impurity_gs {
         K.rows(0,nA-1)=rot1.t()*K.rows(0,nA-1).eval();
     }
 
-    void setSlaterGs(arma::vec const& ek) { fb=Fb_mps<double>::from_slater(ek,param.nPart(),param.nImp()); }
-
     /// return the mpo of the Hamiltoninan given by himp and the kinetic energy kin
     itensor::MPO fullHamiltonian(arma::mat const& kin) const
     {
@@ -66,13 +64,6 @@ struct Impurity_gs {
                 if (std::abs(kin(i,j))>fb.tol)
                     h += kin(i,j),"Cdag",i+1,"C",j+1;
         return itensor::toMPO(h);
-    }
-
-private:
-    static Fb_mps<double> FbfromSlater(ImpurityParam const& param)
-    {
-        arma::vec ek=param.Kmat.diag();
-        return Fb_mps<double>::from_slater(ek, param.nPart(), param.nImp());
     }
 };
 

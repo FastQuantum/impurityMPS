@@ -20,7 +20,8 @@ int main()
     auto model = Impurity {{.Kmat=K, .Umat=Umat}};
 
     auto ek=arma::vec {model.param.Kmat.diag()};
-    ek[0]=-10;    // force impurity ocupation |10>
+    // force impurity ocupation |10>
+    ek[0]=-10;
     ek[1]=10;
     auto fb=Fb_mps<cmpx>::from_slater(ek, model.param.nPart(), model.param.nImp());
 

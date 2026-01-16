@@ -18,14 +18,14 @@ int main()
     }
     arma::mat Umat={{0,U},{0,0}};
     auto model = Impurity {{.Kmat=K, .Umat=Umat}};
-    auto solver=Impurity_gs(model);
 
-    { // optional: force impurity ocupation |10>
-        auto ek=arma::vec {solver.param.Kmat.diag()};
-        ek[0]=-10;
-        ek[1]=10;
-        solver.setSlaterGs(ek);
-    }
+    auto ek=arma::vec {model.param.Kmat.diag()};
+    // optional: force impurity ocupation |10>
+    ek[0]=-10;
+    ek[1]=10;
+    auto fb=Fb_mps<double>::from_slater(ek, model.param.nPart(), model.param.nImp());
+
+    auto solver=Impurity_gs(model,fb);
 
     cout<<"iteration nActive energy time\n"<<setprecision(12);
     itensor::cpu_time t0;
