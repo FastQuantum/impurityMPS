@@ -32,6 +32,7 @@ struct Impurity_dyn {
         rotateIntPicture();
         extract_representative(0);
         extract_representative(1);
+        extract_representative_final();
         doTdvp(args);
         rotateToNaturalOrbitals();
     }
@@ -59,9 +60,40 @@ struct Impurity_dyn {
     /// extract representative orbital of the sites with ni=nRef where nRef can be 0 or 1
     void extract_representative(int nRef){ fb.extract_representative(Kip,nRef); }
 
+    void extract_representative_final()
+    {
+        int L=param.length();
+        int nImp=param.nImp();
+        auto Kip2=Kip.eval();
+        int p0=fb.nActive;
+        // arma::abs(Kip2).eval().clean(1e-6).print("Kip before f");
+        int p1=std::min(L-1,p0+2);
+        // if (out.to==L) p1=p0+1;
+        auto k12=Kip.submat(0,nImp,nImp-1,p1);
+        arma::vec s;
+        arma::Mat<cmpx> U, V;
+        svd_econ(U,s,V,k12);
+        int nSv=arma::find(s>fb.tol*s[0]).eval().size();
+        //std::cout<<"nSV="<<nSv<<std::endl;
+        auto givens=GivensRotForRot_left(arma::conj(V.head_cols(nSv)).eval());
+        for(auto& g:givens) g.b+=nImp;
+        // arma::cx_mat rot1(L, L, arma::fill::eye);
+        // rot1.cols(0,p1)=rot1.cols(0,p1).eval() * matrot_from_Givens(givens, k12.n_cols+nImp).st();
+        // Kip=(rot1.t()*Kip*rot1).eval();
+        // out.rot = out.rot * rot1;
+        arma::cx_mat rot1=matrot_from_Givens(givens, k12.n_cols+nImp).st();
+        Kip.cols(0,p1)=Kip.cols(0,p1).eval()*rot1;
+        Kip.rows(0,p1)=rot1.t()*Kip.rows(0,p1).eval();
+        fb.rot.cols(0,p1)=fb.rot.cols(0,p1)*rot1;
+        // V.head_cols(nSv).eval().clean(1e-6).print("V for f");
+        // arma::cx_mat(rot1).clean(1e-6).print("rot1 for f");
+        // std::cout<<"\n is rot = "<<arma::norm(rot1.t()*rot1-arma::eye(arma::size(rot1)))<<"\n";
+        // arma::abs(Kip-Kip2).eval().clean(1e-6).print("kip diff");
+    }
+
     void doTdvp(TdvpParam args={})
     {
-        auto mpo=fullHamiltonian( Kip.submat(0,0,fb.nActive-1,fb.nActive-1) );
+        auto mpo=fullHamiltonian( Kip.submat(0,0,param.nImp()+1,param.nImp()+1) ); //TODO: fix this
         auto sweeps = itensor::Sweeps(1);
         sweeps.maxdim() = args.max_bond_dim;
         sweeps.cutoff() = fb.tol;

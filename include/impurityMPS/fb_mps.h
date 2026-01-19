@@ -119,7 +119,7 @@ struct Fb_mps
         }
     }
 
-    /// Diagonalize the `cc` submatrix int the interval [start,nActive).
+    /// Diagonalize the `cc` submatrix in the interval [start,nActive).
     /// Rotate `psi`, and update the `nActive`, accordingly.
     /// @return the rotation Q applied: ci=Qij*dj (where ci are the old orbitals)
     arma::Mat<T> rotateToNaturalOrbitals(int start)
@@ -179,6 +179,7 @@ struct Fb_mps
     }
 
 private:
+
     /// Swap to sites inside the Slater part
     void SlaterWaveFunctionSwap(int i,int j)
     {
