@@ -7,7 +7,7 @@
 #include <armadillo>
 #include <itensor/all.h>
 
-/// This class store a few body state.
+/// This class stores a few body state.
 template<class T>
 struct Fb_mps
 {
@@ -19,11 +19,14 @@ struct Fb_mps
     double tol=1e-10;           ///< the tolerance used for both applying the gates and defining active orbitals.
 
 
-    /// construct a Fb_mps as a Slater state.
-    /// rot is the rot to get the ek
-    /// ek is the energy of every site,
-    /// nPart is the number of particles,
-    /// nActive is the number of active orbitals.
+    /**
+     * @brief Construct a Fb_mps as a Slater state.
+     * @param rot is the rotation to get the ek
+     * @param ek is the energy of every site,
+     * @param nPart is the number of particles,
+     * @param nActive is the (for now artifitially imposed) number of active orbitals.
+     *        the part that will not rotated later
+     */
     static Fb_mps<T> from_slater(arma::Mat<T> const& rot,arma::vec const& ek, int nPart, int nActive)
     {
         Fb_mps<T> fb;
@@ -42,16 +45,15 @@ struct Fb_mps
         return fb;
     }
 
-    /// construct a Fb_mps as a Slater state.
-    /// the orbitals |k> to get the ek are taking as the original frame.
-    /// ek is the energy of every site,
-    /// nPart is the number of particles,
-    /// nActive is the number of active orbitals.
+    /// Construct a Fb_mps as a Slater state. The rotation is taken as identity. @see `from_slater`.
     static Fb_mps<T> from_slater(arma::vec const& ek, int nPart, int nActive)
     {
         auto rot=arma::Mat<T>(ek.size(), ek.size(), arma::fill::eye);
         return from_slater(rot, ek, nPart, nActive);
     }
+
+    /// convert to complex values. There is an specialization for `double` below.
+    Fb_mps<cmpx> to_complex() const { return *this; }
 
     /// extract representative orbitals of the sites with ni=nRef where nRef can be 0 or 1.
     /// Return the Givens rotations used.
@@ -117,8 +119,9 @@ struct Fb_mps
         }
     }
 
-    /// Diagonalize the cc submatrix from [start,nActive). Rotate psi, and update the nActive, accordingly.
-    /// Return the rotation Q applied: ci=Qij*dj (where ci are the old orbitals)
+    /// Diagonalize the `cc` submatrix int the interval [start,nActive).
+    /// Rotate `psi`, and update the `nActive`, accordingly.
+    /// @return the rotation Q applied: ci=Qij*dj (where ci are the old orbitals)
     arma::Mat<T> rotateToNaturalOrbitals(int start)
     {
         auto cc1 = arma::Mat<T>( cc.submat(start,start,nActive-1, nActive-1).eval() );
@@ -144,6 +147,38 @@ struct Fb_mps
         return energy;
     }
 
+    /// compute all the correlator <ci^ cj> where i and j are original sites (i.e. before the rotation).
+    arma::Mat<T> correlator_all() const
+    {
+        arma::Mat<T> Qinv=rot.st().t();
+        return Qinv.t() * cc * Qinv;
+    }
+
+    /// compute the correlator <ci^ cj> where i and j are original sites (i.e. before the rotation).
+    T correlator(int i, int j) const
+    {
+        arma::Mat<T> Qinv=rot.st().t();
+        arma::Col<T> ccQinv=cc*Qinv.col(j);
+        return arma::cdot(Qinv.col(i), ccQinv);
+    }
+
+    /// compute the correlator <ci^ cj> for all i, where i and j are original sites (i.e. before the rotation).
+    arma::Col<T> correlator_all_i(int j) const
+    {
+        arma::Mat<T> Qinv=rot.st().t();
+        arma::Col<T> ccQinv=cc*Qinv.col(j);
+        return Qinv.t() * ccQinv;
+    }
+
+    /// compute the correlator <ci^ cj> for all j, where i and j are original sites (i.e. before the rotation).
+    arma::Col<T> correlator_all_j(int i) const
+    {
+        arma::Mat<T> Qinv=rot.st().t();
+        arma::Col<T> Qinv_t_cc=Qinv.col(i).t()*cc;
+        return Qinv_t_cc*Qinv;
+    }
+
+private:
     /// Swap to sites inside the Slater part
     void SlaterWaveFunctionSwap(int i,int j)
     {
@@ -164,6 +199,19 @@ struct Fb_mps
     }
 
 };
+
+template<>
+Fb_mps<cmpx> Fb_mps<double>::to_complex() const
+{
+    Fb_mps<cmpx> fb;
+    fb.sites = sites;
+    fb.psi = psi * cmpx(1,0);
+    fb.rot = rot * cmpx(1,0);
+    fb.cc = cc * cmpx(1,0);
+    fb.nActive = nActive;
+    fb.tol = tol;
+    return fb;
+}
 
 
 #endif // FB_MPS_H
