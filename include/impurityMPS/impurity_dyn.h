@@ -9,6 +9,7 @@ struct Impurity_dyn {
     ImpurityParam param;
     double dt;
     arma::cx_mat exp_ih;
+    int nChannel;            ///< the number of channels that connect the impurity with the bath
 
     /// these quantities are updated during the iterations
     Fb_mps<cmpx> fb;        ///< the current few body MPS
@@ -25,6 +26,8 @@ struct Impurity_dyn {
         int nImp=param.nImp();
         exp_ih = arma::cx_mat(size(K), arma::fill::eye);
         exp_ih.submat(nImp,nImp, K.n_rows-1,K.n_rows-1)=expIH<cmpx>(K.submat(nImp,nImp, K.n_rows-1,K.n_rows-1) * dt);
+        arma::vec s = arma::svd(K.submat(0, param.nImp(), param.nImp()-1, K.n_cols-1));
+        nChannel = arma::find(s>fb.tol*s[0]).eval().size();
     }
 
     void iterate(TdvpParam args={})
@@ -64,8 +67,7 @@ struct Impurity_dyn {
     {
         int L=param.length();
         int nImp=param.nImp();
-        auto Kip2=Kip.eval();
-        int p0=fb.nActive;
+        int p0=fb.nActive; //?
         // arma::abs(Kip2).eval().clean(1e-6).print("Kip before f");
         int p1=std::min(L-1,p0+2);
         // if (out.to==L) p1=p0+1;
@@ -93,7 +95,8 @@ struct Impurity_dyn {
 
     void doTdvp(TdvpParam args={})
     {
-        auto mpo=fullHamiltonian( Kip.submat(0,0,param.nImp()+1,param.nImp()+1) ); //TODO: fix this
+        int localL=param.nImp()+nChannel;
+        auto mpo=fullHamiltonian( Kip.submat(0, 0, localL-1, localL-1) ); //TODO: fix this
         auto sweeps = itensor::Sweeps(1);
         sweeps.maxdim() = args.max_bond_dim;
         sweeps.cutoff() = fb.tol;
