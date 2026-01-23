@@ -25,11 +25,11 @@ int main()
     ek[1]=10;
     auto fb=Fb_mps<cmpx>::from_slater(ek, model.param.nPart(), model.param.nImp());
 
-    auto solver=Impurity_dyn(model,fb,0.01);
+    auto solver=Impurity_dyn(model,fb,0.1);
 
     cout<<"time nActive energy <n0> time\n"<<setprecision(12);
     itensor::cpu_time t0;
-    for(auto i=0;i<300;i++){
+    for(auto i=0;i<1000;i++){
         solver.iterate();
         double n0 = solver.fb.correlator(0,0).real();
         cout<<(i+1)*solver.dt<<" "<<solver.fb.nActive<<" "<<solver.energy<<" "<<n0<<" "<<t0.sincemark().wall<<endl;

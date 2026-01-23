@@ -26,7 +26,7 @@ struct Impurity_dyn {
         int nImp=param.nImp();
         exp_ih = arma::cx_mat(size(K), arma::fill::eye);
         exp_ih.submat(nImp,nImp, K.n_rows-1,K.n_rows-1)=expIH<cmpx>(K.submat(nImp,nImp, K.n_rows-1,K.n_rows-1) * dt);
-        arma::vec s = arma::svd(K.submat(0, param.nImp(), param.nImp()-1, K.n_cols-1));
+        arma::vec s = arma::svd(K.submat(0, nImp, nImp-1, K.n_cols-1));
         nChannel = arma::find(s>fb.tol*s[0]).eval().size();
     }
 
@@ -36,7 +36,7 @@ struct Impurity_dyn {
         extract_representative(0);
         extract_representative(1);
         extract_representative_final();
-        doTdvp(args);
+        evolve(); //doTdvp(args);
         rotateToNaturalOrbitals();
     }
 
@@ -67,35 +67,94 @@ struct Impurity_dyn {
     {
         int L=param.length();
         int nImp=param.nImp();
-        int p0=fb.nActive; //?
-        // arma::abs(Kip2).eval().clean(1e-6).print("Kip before f");
-        int p1=std::min(L-1,p0+2);
-        // if (out.to==L) p1=p0+1;
+        int p0=fb.nActive-1;                 // the position before Slater starts
+        int p1=std::min(L-1,p0+2*nChannel);  // the position of the last representative
         auto k12=Kip.submat(0,nImp,nImp-1,p1);
         arma::vec s;
         arma::Mat<cmpx> U, V;
         svd_econ(U,s,V,k12);
-        int nSv=arma::find(s>fb.tol*s[0]).eval().size();
+        int nSv=arma::find(s>fb.tol*s[0]).eval().size();  // it should be nSv==nChannel
         //std::cout<<"nSV="<<nSv<<std::endl;
         auto givens=GivensRotForRot_left(arma::conj(V.head_cols(nSv)).eval());
         for(auto& g:givens) g.b+=nImp;
-        // arma::cx_mat rot1(L, L, arma::fill::eye);
-        // rot1.cols(0,p1)=rot1.cols(0,p1).eval() * matrot_from_Givens(givens, k12.n_cols+nImp).st();
-        // Kip=(rot1.t()*Kip*rot1).eval();
-        // out.rot = out.rot * rot1;
         arma::cx_mat rot1=matrot_from_Givens(givens, k12.n_cols+nImp).st();
         Kip.cols(0,p1)=Kip.cols(0,p1).eval()*rot1;
         Kip.rows(0,p1)=rot1.t()*Kip.rows(0,p1).eval();
         fb.rot.cols(0,p1)=fb.rot.cols(0,p1)*rot1;
-        // V.head_cols(nSv).eval().clean(1e-6).print("V for f");
-        // arma::cx_mat(rot1).clean(1e-6).print("rot1 for f");
-        // std::cout<<"\n is rot = "<<arma::norm(rot1.t()*rot1-arma::eye(arma::size(rot1)))<<"\n";
-        // arma::abs(Kip-Kip2).eval().clean(1e-6).print("kip diff");
+
+        auto gates=Fermionic::NOGates(fb.sites,givens);
+        gateTEvol(gates,1,1,fb.psi,{"Cutoff",fb.tol,"Quiet",true, "Normalize",false,"ShowPercent",false});
+        fb.update_cc();
+    }
+
+    template<class T>
+    auto TrotterGatesExp(arma::Mat<T> const& Kip,int nTB,double dt) const
+    {
+        using namespace itensor;
+        using namespace arma;
+
+        mat22 Id(fill::eye),
+                N={{0,0},{0,1}},
+                C={{0,1},{0,0}},
+                Cdag=C.t();
+
+        auto to_itgate=[&](int i,cx_mat44 const& rot) {
+            int b=i+1;
+            auto s1 = itensor::dag(fb.sites(b));
+            auto s2 = itensor::dag(fb.sites(b+1));
+            auto s1p = prime(fb.sites(b));
+            auto s2p = prime(fb.sites(b+1));
+            itensor::ITensor hterm(s1,s2,s1p,s2p);
+            hterm.set(s1(1),s2(1),s1p(1),s2p(1), rot(0,0));
+            hterm.set(s1(2),s2(2),s1p(2),s2p(2), rot(3,3));
+            hterm.set(s1(2),s2(1),s1p(2),s2p(1), rot(1,1));
+            hterm.set(s1(2),s2(1),s1p(1),s2p(2), rot(1,2));
+            hterm.set(s1(1),s2(2),s1p(2),s2p(1), rot(2,1));
+            hterm.set(s1(1),s2(2),s1p(1),s2p(2), rot(2,2));
+            return BondGate(fb.sites,b,b+1,hterm);
+        };
+
+        auto mykron=[](mat22 const& A,mat22 const& B) { return mat44 {kron(B,A).st()}; };
+
+        auto gates = std::vector<BondGate>();
+
+        auto U=param.Umat(0,1);
+        //Create the gates exp(-i*tstep/2*hterm)
+        for(int i=0; i<nTB-1; ++i)
+        {
+            cx_mat44 hloc = Kip(i,i+1)*mykron(Cdag,C);
+            hloc += Kip(i+1,i)*mykron(C,Cdag);
+            hloc += Kip(i,i)*mykron(N,Id);
+            if (i==nTB-2) hloc += Kip(i+1,i+1)*mykron(Id,N);
+            if (i==0) hloc += T(U)*mykron(N,N);
+
+            cx_mat44 rot=expIH<T>(hloc * (0.5*dt));
+            gates.push_back(to_itgate(i,rot));
+        }
+        //Create the gates exp(-i*tstep/2*hterm) in reverse
+        for(int i = nTB-2; i>=0; --i)
+        {
+            cx_mat44 hloc = Kip(i,i+1)*mykron(Cdag,C);
+            hloc += Kip(i+1,i)*mykron(C,Cdag);
+            hloc += Kip(i,i)*mykron(N,Id);
+            if (i==nTB-2) hloc += Kip(i+1,i+1)*mykron(Id,N);
+            if (i==0) hloc += T(U)*mykron(N,N);
+
+            cx_mat44 rot=expIH<T>(hloc * (0.5*dt));
+            gates.push_back(to_itgate(i,rot));
+        }
+        return gates;
+    }
+
+    void evolve()
+    {
+        auto gates=TrotterGatesExp(Kip,3,dt);
+        gateTEvol(gates,1,1,fb.psi,{"Cutoff=",fb.tol,"Quiet=",true, "Normalize",false,"ShowPercent",false});
     }
 
     void doTdvp(TdvpParam args={})
     {
-        int localL=param.nImp()+nChannel;
+        int localL=fb.nActive; //param.nImp()+nChannel;
         auto mpo=fullHamiltonian( Kip.submat(0, 0, localL-1, localL-1) ); //TODO: fix this
         auto sweeps = itensor::Sweeps(1);
         sweeps.maxdim() = args.max_bond_dim;
@@ -116,7 +175,8 @@ struct Impurity_dyn {
         }
 
         energy = itensor::tdvp(fb.psi,mpo, -imag_1*dt, sweeps,          // TDVP sweep
-                               {"Truncate", true,
+                               {"MaxSite",fb.nActive,
+                                "Truncate", true,
                                 "DoNormalize", false,
                                 "Quiet", true,
                                 "Silent", true,
