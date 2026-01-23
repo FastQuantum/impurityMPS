@@ -9,6 +9,7 @@ struct Impurity_dyn {
     ImpurityParam param;
     double dt;
     arma::cx_mat exp_ih;
+    arma::cx_mat K0;
     int nChannel;            ///< the number of channels that connect the impurity with the bath
 
     /// these quantities are updated during the iterations
@@ -27,6 +28,7 @@ struct Impurity_dyn {
         exp_ih = arma::cx_mat(size(K), arma::fill::eye);
         exp_ih.submat(nImp,nImp, K.n_rows-1,K.n_rows-1)=expIH<cmpx>(K.submat(nImp,nImp, K.n_rows-1,K.n_rows-1) * dt);
         arma::vec s = arma::svd(K.submat(0, nImp, nImp-1, K.n_cols-1));
+        K0 = fb.rot * param.Kmat * fb.rot.t();
         nChannel = arma::find(s>fb.tol*s[0]).eval().size();
     }
 
@@ -36,8 +38,9 @@ struct Impurity_dyn {
         extract_representative(0);
         extract_representative(1);
         extract_representative_final();
-        evolve(); //doTdvp(args);
-        rotateToNaturalOrbitals();
+        // evolve();
+        doTdvp(args);
+        // rotateToNaturalOrbitals();
     }
 
     void rotateIntPicture()
@@ -45,7 +48,7 @@ struct Impurity_dyn {
         int L=K.n_cols;
         int nImp=param.nImp();
 
-        const auto& K0=K;
+        // const auto& K0=K;
         arma::cx_mat K1 = K0.submat(0, nImp, nImp-1, L-1) *
                 K0.submat(nImp,nImp,L-1, L-1) * arma::cx_double(0,-0.5*dt); //the commutator
         Kip=K0;

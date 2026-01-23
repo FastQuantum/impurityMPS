@@ -6,8 +6,8 @@ using namespace std;
 
 int main()
 {
-    int L=100;
-    double U=0.3;
+    int L=24;
+    double U=-0.2;
     arma::mat K(L,L, arma::fill::zeros);
     {
         for(auto i=1; i<L-1; i++)
@@ -23,13 +23,14 @@ int main()
     // force impurity ocupation |10>
     ek[0]=-10;
     ek[1]=10;
-    auto fb=Fb_mps<cmpx>::from_slater(ek, model.param.nPart(), model.param.nImp());
+    auto fb=Fb_mps<cmpx>::from_slater(model.param.rot*cmpx(1,0), ek, model.param.nPart(), model.param.nImp());
 
-    auto solver=Impurity_dyn(model,fb,0.1);
+    double dt=0.1;
+    auto solver=Impurity_dyn(model,fb,dt);
 
     cout<<"time nActive energy <n0> time\n"<<setprecision(12);
     itensor::cpu_time t0;
-    for(auto i=0;i<1000;i++){
+    for(auto i=0;i*dt<L;i++){
         solver.iterate();
         double n0 = solver.fb.correlator(0,0).real();
         cout<<(i+1)*solver.dt<<" "<<solver.fb.nActive<<" "<<solver.energy<<" "<<n0<<" "<<t0.sincemark().wall<<endl;
