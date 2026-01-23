@@ -1,4 +1,9 @@
-file(GLOB test_SRC CONFIGURE_DEPENDS "*.cpp")
+# file(GLOB test_SRC CONFIGURE_DEPENDS "*.cpp")
+
+list(APPEND test_SRC
+    impurity_gs_irlm.cpp
+    impurity_dyn_irlm.cpp
+)
 
 foreach (test ${test_SRC})
     get_filename_component (TName ${test} NAME_WE)
