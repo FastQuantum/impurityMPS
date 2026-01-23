@@ -45,13 +45,6 @@ struct Fb_mps
         return fb;
     }
 
-    /// Construct a Fb_mps as a Slater state. The rotation is taken as identity. @see `from_slater`.
-    static Fb_mps<T> from_slater(arma::vec const& ek, int nPart, int nActive)
-    {
-        auto rot=arma::Mat<T>(ek.size(), ek.size(), arma::fill::eye);
-        return from_slater(rot, ek, nPart, nActive);
-    }
-
     /// convert to complex values. There is an specialization for `double` below.
     Fb_mps<cmpx> to_complex() const { return *this; }
 

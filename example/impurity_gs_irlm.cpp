@@ -23,7 +23,7 @@ int main()
     // optional: force impurity ocupation |10>
     ek[0]=-10;
     ek[1]=10;
-    auto fb=Fb_mps<double>::from_slater(ek, model.param.nPart(), model.param.nImp());
+    auto fb=Fb_mps<double>::from_slater(model.param.rot, ek, model.param.nPart(), model.param.nImp());
 
     auto solver=Impurity_gs(model,fb);
 
