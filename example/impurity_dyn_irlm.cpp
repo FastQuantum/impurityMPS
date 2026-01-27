@@ -27,11 +27,10 @@ int main()
 
     double dt=0.1;
     auto solver=Impurity_dyn(model,fb,dt);
-    arma::real(solver.Kip0).eval().clean(1e-15).print("Kip0");
 
     cout<<"time nActive energy <n0> time\n"<<setprecision(12);
     itensor::cpu_time t0;
-    for(auto i=0;i*dt<L;i++){
+    for(auto i=0;i<150;i++){ //i*dt<L
         solver.iterate({.epsilonM=0});
         double n0 = solver.fb.correlator(0,0).real();
         cout<<(i+1)*solver.dt<<" "<<solver.fb.nActive<<" "<<solver.energy<<" "<<n0<<" "<<t0.sincemark().wall<<endl;

@@ -9,30 +9,29 @@ struct Impurity_dyn {
     ImpurityParam param;
     double dt;
     arma::cx_mat exp_ih;
-    arma::cx_mat K0, Kip0;
+    arma::cx_mat Kip0;
     int nChannel;            ///< the number of channels that connect the impurity with the bath
 
     /// these quantities are updated during the iterations
     Fb_mps<cmpx> fb;        ///< the current few body MPS
     arma::cx_mat K;         ///< the current Hamiltonian
-    arma::cx_mat Kip;       ///< the current Hamiltonian in the interaction picture of the bath
+    // arma::cx_mat Kip;       ///< the current Hamiltonian in the interaction picture of the bath
     double energy=-1000;
 
     explicit Impurity_dyn(Impurity const& imp, Fb_mps<cmpx> const& fb_, double dt_=0.1)
         : param(imp.param)
         , dt(dt_)
         , fb { fb_ }
-        , K { param.Kmat, arma::zeros(arma::size(param.Kmat)) } // convert to complex
     {
         int nImp=param.nImp();
-        int L=K.n_cols;
-        exp_ih = arma::cx_mat(size(K), arma::fill::eye);
-        exp_ih.submat(nImp,nImp, K.n_rows-1,K.n_rows-1)=expIH<cmpx>(K.submat(nImp,nImp, K.n_rows-1,K.n_rows-1) * dt);
-        arma::vec s = arma::svd(K.submat(0, nImp, nImp-1, K.n_cols-1));
+        int L=param.length();
+        exp_ih = arma::cx_mat(L,L, arma::fill::eye);
+        exp_ih.submat(nImp,nImp, L-1,L-1)=expIH<double>(param.Kmat.submat(nImp,nImp, L-1,L-1) * dt);
+        arma::vec s = arma::svd(param.Kmat.submat(0, nImp, nImp-1, L-1));
         nChannel = arma::find(s>fb.tol*s[0]).eval().size();
-        K0 = fb.rot * param.Kmat * fb.rot.t();
 
         // interaction picture
+        arma::cx_mat K0 = fb.rot * param.Kmat * fb.rot.t();
         arma::cx_mat K1 = K0.submat(0, nImp, nImp-1, L-1) *
                           K0.submat(nImp,nImp,L-1, L-1) * arma::cx_double(0,-0.5*dt); //the commutator
         Kip0=K0;
@@ -43,42 +42,41 @@ struct Impurity_dyn {
 
     void iterate(TdvpParam args={})
     {
-        rotateIntPicture();
-        arma::real(Kip).eval().clean(1e-15).print("Kip");
+        // rot.t()*K*rot
+        int nImp=param.nImp();
+        K=Kip0;
+        K.rows(0,nImp-1)=K.rows(0,nImp-1).eval()*fb.rot;
+        K.cols(0,nImp-1)=fb.rot.t()*K.cols(0,nImp-1).eval();
+        fb.rot=this->exp_ih*fb.rot;   // update of the interaction picture
+
+        //arma::abs(K).eval().clean(1e-15).print("Kip");
+
         extract_representative(0);
         extract_representative(1);
-        std::cout<<fb.nActive<<"\n";
-        arma::real(fb.cc.diag()).print("ni");
-        // extract_representative_final();
-        // evolve();
-        doTdvp(args);
-        arma::real(fb.cc.diag()).print("ni");
+        std::cout<<fb.nActive<<" after f0 f1\n";
+        arma::abs(K).eval().clean(1e-15).print("Kip after f0 f1");
+        // arma::abs(arma::cx_mat(fb.cc).diag()).print("ni after f0 f1");
+        extract_representative_final();
+        evolve();
+        //doTdvp(args);
+        std::cout<<fb.nActive<<" after tdvp\n";
+        arma::abs(arma::cx_mat(fb.cc).diag()).as_row().print("ni after tdvp");
         rotateToNaturalOrbitals();
-        arma::real(fb.cc.diag()).print("ni");
+        std::cout<<fb.nActive<<" after NOrb\n";
+        // arma::abs(arma::cx_mat(fb.cc).diag()).print("ni after NOrb");
 
-    }
-
-    void rotateIntPicture()
-    {
-        int nImp=param.nImp();
-        Kip=Kip0;
-        // rot.t()*Kip*rot
-        Kip.rows(0,nImp-1)=Kip.rows(0,nImp-1).eval()*fb.rot;
-        Kip.cols(0,nImp-1)=fb.rot.t()*Kip.cols(0,nImp-1).eval();
-
-        fb.rot=exp_ih*fb.rot;
     }
 
     /// extract representative orbital of the sites with ni=nRef where nRef can be 0 or 1
-    void extract_representative(int nRef){ fb.extract_representative(Kip,nRef); }
+    void extract_representative(int nRef){ fb.extract_representative(K,nRef); }
 
     void extract_representative_final()
     {
         int L=param.length();
         int nImp=param.nImp();
-        int p0=fb.nActive-1;                 // the position before Slater starts
-        int p1=std::min(L-1,p0+2*nChannel);  // the position of the last representative
-        auto k12=Kip.submat(0,nImp,nImp-1,p1);
+        // int p0=fb.nActive-1;                 // the position before Slater starts
+        int p1=std::min(L-1,fb.nActive-1);  // the position of the last representative
+        auto k12=K.submat(0,nImp,nImp-1,p1);
         arma::vec s;
         arma::Mat<cmpx> U, V;
         svd_econ(U,s,V,k12);
@@ -87,8 +85,8 @@ struct Impurity_dyn {
         auto givens=GivensRotForRot_left(arma::conj(V.head_cols(nSv)).eval());
         for(auto& g:givens) g.b+=nImp;
         arma::cx_mat rot1=matrot_from_Givens(givens, k12.n_cols+nImp).st();
-        Kip.cols(0,p1)=Kip.cols(0,p1).eval()*rot1;
-        Kip.rows(0,p1)=rot1.t()*Kip.rows(0,p1).eval();
+        K.cols(0,p1)=K.cols(0,p1).eval()*rot1;
+        K.rows(0,p1)=rot1.t()*K.rows(0,p1).eval();
         fb.rot.cols(0,p1)=fb.rot.cols(0,p1)*rot1;
 
         auto gates=Fermionic::NOGates(fb.sites,givens);
@@ -157,14 +155,14 @@ struct Impurity_dyn {
 
     void evolve()
     {
-        auto gates=TrotterGatesExp(Kip,3,dt);
+        auto gates=TrotterGatesExp(K,3,dt);
         gateTEvol(gates,1,1,fb.psi,{"Cutoff=",fb.tol,"Quiet=",true, "Normalize",false,"ShowPercent",false});
     }
 
     void doTdvp(TdvpParam args={})
     {
         int localL=fb.nActive; //param.nImp()+nChannel;
-        auto mpo=fullHamiltonian( Kip.submat(0, 0, localL-1, localL-1) ); //TODO: fix this
+        auto mpo=fullHamiltonian( K.submat(0, 0, localL-1, localL-1) ); //TODO: fix this
         auto sweeps = itensor::Sweeps(1);
         sweeps.maxdim() = args.max_bond_dim;
         sweeps.cutoff() = fb.tol;
@@ -184,7 +182,7 @@ struct Impurity_dyn {
         }
 
         energy = itensor::tdvp(fb.psi,mpo, -imag_1*dt, sweeps,          // TDVP sweep
-                               {"MaxSite",fb.nActive,
+                               {"MaxSite",localL,
                                 "Truncate", true,
                                 "DoNormalize", false,
                                 "Quiet", true,
