@@ -9,7 +9,7 @@ struct Impurity_dyn {
     ImpurityParam param;
     double dt;
     arma::cx_mat exp_ih;
-    arma::cx_mat K0;
+    arma::cx_mat K0, Kip0;
     int nChannel;            ///< the number of channels that connect the impurity with the bath
 
     /// these quantities are updated during the iterations
@@ -25,37 +25,43 @@ struct Impurity_dyn {
         , K { param.Kmat, arma::zeros(arma::size(param.Kmat)) } // convert to complex
     {
         int nImp=param.nImp();
+        int L=K.n_cols;
         exp_ih = arma::cx_mat(size(K), arma::fill::eye);
         exp_ih.submat(nImp,nImp, K.n_rows-1,K.n_rows-1)=expIH<cmpx>(K.submat(nImp,nImp, K.n_rows-1,K.n_rows-1) * dt);
         arma::vec s = arma::svd(K.submat(0, nImp, nImp-1, K.n_cols-1));
-        K0 = fb.rot * param.Kmat * fb.rot.t();
         nChannel = arma::find(s>fb.tol*s[0]).eval().size();
+        K0 = fb.rot * param.Kmat * fb.rot.t();
+
+        // interaction picture
+        arma::cx_mat K1 = K0.submat(0, nImp, nImp-1, L-1) *
+                          K0.submat(nImp,nImp,L-1, L-1) * arma::cx_double(0,-0.5*dt); //the commutator
+        Kip0=K0;
+        Kip0.submat(nImp, nImp, L-1, L-1).fill(0.0);
+        Kip0.submat(0, nImp, nImp-1, L-1)+=K1;
+        Kip0.submat(nImp, 0, L-1, nImp-1)+=K1.t();
     }
 
     void iterate(TdvpParam args={})
     {
         rotateIntPicture();
+        arma::real(Kip).eval().clean(1e-15).print("Kip");
         extract_representative(0);
         extract_representative(1);
-        extract_representative_final();
+        std::cout<<fb.nActive<<"\n";
+        arma::real(fb.cc.diag()).print("ni");
+        // extract_representative_final();
         // evolve();
         doTdvp(args);
-        // rotateToNaturalOrbitals();
+        arma::real(fb.cc.diag()).print("ni");
+        rotateToNaturalOrbitals();
+        arma::real(fb.cc.diag()).print("ni");
+
     }
 
     void rotateIntPicture()
     {
-        int L=K.n_cols;
         int nImp=param.nImp();
-
-        // const auto& K0=K;
-        arma::cx_mat K1 = K0.submat(0, nImp, nImp-1, L-1) *
-                K0.submat(nImp,nImp,L-1, L-1) * arma::cx_double(0,-0.5*dt); //the commutator
-        Kip=K0;
-        Kip.submat(nImp, nImp, L-1, L-1).fill(0.0);
-        Kip.submat(0, nImp, nImp-1, L-1)+=K1;
-        Kip.submat(nImp, 0, L-1, nImp-1)+=K1.t();
-
+        Kip=Kip0;
         // rot.t()*Kip*rot
         Kip.rows(0,nImp-1)=Kip.rows(0,nImp-1).eval()*fb.rot;
         Kip.cols(0,nImp-1)=fb.rot.t()*Kip.cols(0,nImp-1).eval();
