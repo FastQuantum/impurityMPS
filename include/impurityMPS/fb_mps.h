@@ -67,7 +67,7 @@ struct Fb_mps
         auto givens=GivensRotForRot_left(V.head_cols(nSv).eval());
         GivensDaggerInPlace(givens);
 
-        // 3. rotate K
+        // 3. rotate K and cc
         auto Kcol=K.cols(pos0).eval();
         applyGivens(Kcol,givens);
         K.cols(pos0)=Kcol;
@@ -110,6 +110,9 @@ struct Fb_mps
                 for(auto j=0u; j<ccz[i].size(); j++)
                     cc(i,j)=ccz.at(i).at(j);
         }
+
+        auto ni_bath = arma::vec( arma::real(cc.diag()).eval().rows(0,cc.n_rows-1).eval() );
+        nActive=arma::find(ni_bath>tol && ni_bath<1-tol).eval().back()+1;
     }
 
     /// Diagonalize the `cc` submatrix in the interval [start,nActive).
