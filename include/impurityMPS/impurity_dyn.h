@@ -25,19 +25,20 @@ struct Impurity_dyn {
     {
         int nImp=param.nImp();
         int L=param.length();
+        arma::cx_mat K0 = fb.rot * param.Kmat * fb.rot.t(); // original Hamiltonian matrix
         exp_ih = arma::cx_mat(L,L, arma::fill::eye);
-        exp_ih.submat(nImp,nImp, L-1,L-1)=expIH<double>(param.Kmat.submat(nImp,nImp, L-1,L-1) * dt);
+        exp_ih.submat(nImp,nImp, L-1,L-1)=expIH<cmpx>(K0.submat(nImp,nImp, L-1,L-1) * dt);
         arma::vec s = arma::svd(param.Kmat.submat(0, nImp, nImp-1, L-1));
         nChannel = arma::find(s>fb.tol*s[0]).eval().size();
 
         // interaction picture
-        arma::cx_mat K0 = fb.rot * param.Kmat * fb.rot.t();
         arma::cx_mat K1 = K0.submat(0, nImp, nImp-1, L-1) *
                           K0.submat(nImp,nImp,L-1, L-1) * arma::cx_double(0,-0.5*dt); //the commutator
         Kip0=K0;
         Kip0.submat(nImp, nImp, L-1, L-1).fill(0.0);
         Kip0.submat(0, nImp, nImp-1, L-1)+=K1;
         Kip0.submat(nImp, 0, L-1, nImp-1)+=K1.t();
+        //arma::abs(Kip0).eval().clean(1e-15).print("Kip0");
     }
 
     void iterate(TdvpParam args={})
@@ -53,16 +54,18 @@ struct Impurity_dyn {
 
         extract_representative(0);
         extract_representative(1);
-        std::cout<<fb.nActive<<" after f0 f1\n";
-        arma::abs(K).eval().clean(1e-15).print("Kip after f0 f1");
-        // arma::abs(arma::cx_mat(fb.cc).diag()).print("ni after f0 f1");
+        //arma::abs(K).eval().clean(1e-15).print("Kip after f0 f1");
         extract_representative_final();
-        evolve();
-        //doTdvp(args);
-        std::cout<<fb.nActive<<" after tdvp\n";
-        arma::abs(arma::cx_mat(fb.cc).diag()).as_row().print("ni after tdvp");
+        //arma::abs(arma::cx_mat(fb.cc).diag()).as_row().print("ni after f2");
+        //std::cout<<fb.nActive<<" after f0 f1\n";
+        //arma::abs(K).eval().clean(1e-15).print("Kip after f2");
+        // arma::abs(arma::cx_mat(fb.cc).diag()).print("ni after f0 f1");
+        // evolve();
+        doTdvp(args);
+        //std::cout<<fb.nActive<<" after tdvp\n";
+        //arma::abs(arma::cx_mat(fb.cc).diag()).as_row().print("ni after tdvp");
         rotateToNaturalOrbitals();
-        std::cout<<fb.nActive<<" after NOrb\n";
+        //std::cout<<fb.nActive<<" after NOrb\n";
         // arma::abs(arma::cx_mat(fb.cc).diag()).print("ni after NOrb");
 
     }
