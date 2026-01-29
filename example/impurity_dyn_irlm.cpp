@@ -6,7 +6,7 @@ using namespace std;
 
 int main()
 {
-    int L=24;
+    int L=100;
     double U=-0.2;
     arma::mat K(L,L, arma::fill::zeros);
     {
@@ -30,7 +30,7 @@ int main()
 
     cout<<"time nActive energy <n0> time\n"<<setprecision(12);
     itensor::cpu_time t0;
-    for(auto i=0;i<150;i++){ //i*dt<L
+    for(auto i=0;i*dt<L;i++){ //
         solver.iterate({.epsilonM=0});
         double n0 = solver.fb.correlator(0,0).real();
         cout<<(i+1)*solver.dt<<" "<<solver.fb.nActive<<" "<<solver.energy<<" "<<n0<<" "<<t0.sincemark().wall<<endl;

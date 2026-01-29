@@ -60,8 +60,8 @@ struct Impurity_dyn {
         //std::cout<<fb.nActive<<" after f0 f1\n";
         //arma::abs(K).eval().clean(1e-15).print("Kip after f2");
         // arma::abs(arma::cx_mat(fb.cc).diag()).print("ni after f0 f1");
-        // evolve();
-        doTdvp(args);
+        evolve();
+        // doTdvp(args);
         //std::cout<<fb.nActive<<" after tdvp\n";
         //arma::abs(arma::cx_mat(fb.cc).diag()).as_row().print("ni after tdvp");
         rotateToNaturalOrbitals();
@@ -164,7 +164,7 @@ struct Impurity_dyn {
 
     void doTdvp(TdvpParam args={})
     {
-        int localL=fb.nActive; //param.nImp()+nChannel;
+        int localL=param.nImp()+nChannel;
         auto mpo=fullHamiltonian( K.submat(0, 0, localL-1, localL-1) ); //TODO: fix this
         auto sweeps = itensor::Sweeps(1);
         sweeps.maxdim() = args.max_bond_dim;
@@ -192,6 +192,7 @@ struct Impurity_dyn {
                                 "Silent", true,
                                 "NumCenter", 2,
                                 "ErrGoal", args.err_goal});
+        fb.psi.orthogonalize({"Cutoff",fb.tol});
         energy += fb.SlaterEnergy(K);
         fb.update_cc();
     }
