@@ -52,19 +52,26 @@ struct Impurity_dyn {
 
         //arma::abs(K).eval().clean(1e-15).print("Kip");
 
+        auto ni = fb.occupations_ni().head_rows(fb.nActive).eval();
         extract_representative(0);
+        ni = fb.occupations_ni().head_rows(fb.nActive).eval();
         extract_representative(1);
+        ni = fb.occupations_ni().head_rows(fb.nActive).eval();
         //arma::abs(K).eval().clean(1e-15).print("Kip after f0 f1");
-        extract_representative_final();
+        //extract_representative_final();
+        //ni = fb.occupations_ni().as_col().eval().head_rows(fb.nActive).eval();
         //arma::abs(arma::cx_mat(fb.cc).diag()).as_row().print("ni after f2");
         //std::cout<<fb.nActive<<" after f0 f1\n";
         //arma::abs(K).eval().clean(1e-15).print("Kip after f2");
         // arma::abs(arma::cx_mat(fb.cc).diag()).print("ni after f0 f1");
-        evolve();
-        // doTdvp(args);
+        // evolve();
+        doTdvp(args);
+        ni = fb.occupations_ni().as_col().eval().head_rows(fb.nActive).eval();
+        cmpx n0=fb.cc(0,0);
         //std::cout<<fb.nActive<<" after tdvp\n";
         //arma::abs(arma::cx_mat(fb.cc).diag()).as_row().print("ni after tdvp");
         rotateToNaturalOrbitals();
+        ni = fb.occupations_ni().head_rows(fb.nActive);
         //std::cout<<fb.nActive<<" after NOrb\n";
         // arma::abs(arma::cx_mat(fb.cc).diag()).print("ni after NOrb");
 
@@ -73,29 +80,8 @@ struct Impurity_dyn {
     /// extract representative orbital of the sites with ni=nRef where nRef can be 0 or 1
     void extract_representative(int nRef){ fb.extract_representative(K,nRef); }
 
-    void extract_representative_final()
-    {
-        int L=param.length();
-        int nImp=param.nImp();
-        // int p0=fb.nActive-1;                 // the position before Slater starts
-        int p1=std::min(L-1,fb.nActive-1);  // the position of the last representative
-        auto k12=K.submat(0,nImp,nImp-1,p1);
-        arma::vec s;
-        arma::Mat<cmpx> U, V;
-        svd_econ(U,s,V,k12);
-        int nSv=arma::find(s>fb.tol*s[0]).eval().size();  // it should be nSv==nChannel
-        //std::cout<<"nSV="<<nSv<<std::endl;
-        auto givens=GivensRotForRot_left(arma::conj(V.head_cols(nSv)).eval());
-        for(auto& g:givens) g.b+=nImp;
-        arma::cx_mat rot1=matrot_from_Givens(givens, k12.n_cols+nImp).st();
-        K.cols(0,p1)=K.cols(0,p1).eval()*rot1;
-        K.rows(0,p1)=rot1.t()*K.rows(0,p1).eval();
-        fb.rot.cols(0,p1)=fb.rot.cols(0,p1)*rot1;
-
-        auto gates=Fermionic::NOGates(fb.sites,givens);
-        gateTEvol(gates,1,1,fb.psi,{"Cutoff",fb.tol,"Quiet",true, "Normalize",false,"ShowPercent",false});
-        fb.update_cc();
-    }
+    /// extract representative orbitals within the active sector
+    void extract_representative_final() { fb.extract_representative_final(K, param.nImp(), fb.nActive); }
 
     template<class T>
     auto TrotterGatesExp(arma::Mat<T> const& Kip,int nTB,double dt) const
@@ -160,11 +146,13 @@ struct Impurity_dyn {
     {
         auto gates=TrotterGatesExp(K,3,dt);
         gateTEvol(gates,1,1,fb.psi,{"Cutoff=",fb.tol,"Quiet=",true, "Normalize",false,"ShowPercent",false});
+        fb.update_cc();
     }
 
     void doTdvp(TdvpParam args={})
     {
-        int localL=param.nImp()+nChannel;
+        int localL=fb.nActive; //param.nImp()+nChannel;
+        arma::abs(K.submat(0, 0, localL-1, localL-1)).eval().clean(1e-10).print("K tdvp");
         auto mpo=fullHamiltonian( K.submat(0, 0, localL-1, localL-1) ); //TODO: fix this
         auto sweeps = itensor::Sweeps(1);
         sweeps.maxdim() = args.max_bond_dim;
@@ -187,7 +175,7 @@ struct Impurity_dyn {
         energy = itensor::tdvp(fb.psi,mpo, -imag_1*dt, sweeps,          // TDVP sweep
                                {"MaxSite",localL,
                                 "Truncate", true,
-                                "DoNormalize", false,
+                                "DoNormalize", true,
                                 "Quiet", true,
                                 "Silent", true,
                                 "NumCenter", 2,

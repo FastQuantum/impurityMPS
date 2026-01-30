@@ -240,6 +240,8 @@ int main()
             psi=sol.psi;
         }
         else {
+            // int localL=std::max((int)active.size(),2);
+            // arma::abs(hip.Kip.submat(0, 0, localL-1, localL-1)).eval().clean(1e-10).print("K tdvp");
             //Kip.clean(1e-13).print("Kip");
             //cout<<"U="<<model2_ip.irlm.U<<endl;
             auto gates=model2_ip.TrotterGatesExp(hip.Kip,3,dt);

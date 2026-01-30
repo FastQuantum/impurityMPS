@@ -332,6 +332,8 @@ struct IRLM_ip {
 
         }
 
+        int localL=std::max(p0+3,2);
+        arma::abs(Kip.submat(0, 0, localL-1, localL-1)).eval().clean(1e-10).print("K tdvp");
         // std::cout<<"f0 and f1:"<<t0.sincemark()<<std::endl;
         t0.mark();
 
