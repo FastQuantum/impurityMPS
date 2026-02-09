@@ -37,8 +37,7 @@ struct Impurity_dyn {
         Kip0=K0;
         Kip0.submat(nImp, nImp, L-1, L-1).fill(0.0);
         Kip0.submat(0, nImp, nImp-1, L-1)+=K1;
-        Kip0.submat(nImp, 0, L-1, nImp-1)+=K1.t();
-        //arma::abs(Kip0).eval().clean(1e-15).print("Kip0");
+        Kip0.submat(nImp, 0, L-1, nImp-1)+=K1.t();        
     }
 
     void iterate(TdvpParam args={})
@@ -50,35 +49,48 @@ struct Impurity_dyn {
         K.cols(0,nImp-1)=fb.rot.t()*K.cols(0,nImp-1).eval();
         fb.rot=this->exp_ih*fb.rot;   // update of the interaction picture
 
-        //arma::abs(K).eval().clean(1e-15).print("Kip");
+        arma::abs(K).eval().clean(1e-15).print("K rotated");
+        arma::imag(K).eval().clean(1e-15).print("K.i");
+        arma::real(fb.rot).eval().clean(1e-15).print("rot ip");
+        arma::imag(fb.rot).eval().clean(1e-15).print("rot.i");
 
-        auto ni = fb.occupations_ni().head_rows(fb.nActive).eval();
-        extract_representative(0);
-        ni = fb.occupations_ni().head_rows(fb.nActive).eval();
-        extract_representative(1);
-        ni = fb.occupations_ni().head_rows(fb.nActive).eval();
-        //arma::abs(K).eval().clean(1e-15).print("Kip after f0 f1");
-        //extract_representative_final();
-        //ni = fb.occupations_ni().as_col().eval().head_rows(fb.nActive).eval();
-        //arma::abs(arma::cx_mat(fb.cc).diag()).as_row().print("ni after f2");
-        //std::cout<<fb.nActive<<" after f0 f1\n";
-        //arma::abs(K).eval().clean(1e-15).print("Kip after f2");
-        // arma::abs(arma::cx_mat(fb.cc).diag()).print("ni after f0 f1");
-        // evolve();
-        doTdvp(args);
-        ni = fb.occupations_ni().as_col().eval().head_rows(fb.nActive).eval();
-        cmpx n0=fb.cc(0,0);
-        //std::cout<<fb.nActive<<" after tdvp\n";
-        //arma::abs(arma::cx_mat(fb.cc).diag()).as_row().print("ni after tdvp");
+        double nref=fb.cc(fb.nActive, fb.nActive).real();
+        int occ= nref+0.5;
+        extract_representative(occ);
+        extract_representative(1-occ);
+
+        arma::abs(K).eval().clean(1e-15).print("K f0 f1");
+        arma::imag(K).eval().clean(1e-15).print("K.i");
+        arma::real(fb.rot).eval().clean(1e-15).print("rot f0 f1");
+        arma::imag(fb.rot).eval().clean(1e-15).print("rot.i");
+
+        extract_representative_final();
+
+        arma::real(K).eval().clean(1e-15).print("K f2");
+        arma::imag(K).eval().clean(1e-15).print("K.i");
+        arma::real(fb.rot).eval().clean(1e-15).print("rot f2");
+        arma::imag(fb.rot).eval().clean(1e-15).print("rot.i");
+
+        arma::vec ni=fb.occupations_ni2(); //arma::real(cc.diag());
+        ni.print("ni before tdvp");
+
+        evolve();
+        // doTdvp(args);
+
+        ni=fb.occupations_ni2(); //arma::real(cc.diag());
+        ni.print("ni before NOrb");
+
         rotateToNaturalOrbitals();
-        ni = fb.occupations_ni().head_rows(fb.nActive);
-        //std::cout<<fb.nActive<<" after NOrb\n";
-        // arma::abs(arma::cx_mat(fb.cc).diag()).print("ni after NOrb");
 
+        arma::real(fb.rot).eval().clean(1e-15).print("rot after NOrb");
+        arma::imag(fb.rot).eval().clean(1e-15).print("rot.i");
+
+        ni=fb.occupations_ni2(); //arma::real(cc.diag());
+        ni.print("ni after NOrb");
     }
 
     /// extract representative orbital of the sites with ni=nRef where nRef can be 0 or 1
-    void extract_representative(int nRef){ fb.extract_representative(K,nRef); }
+    void extract_representative(int nRef){ fb.extract_representative(K,nRef,param.nImp()); }
 
     /// extract representative orbitals within the active sector
     void extract_representative_final() { fb.extract_representative_final(K, param.nImp(), fb.nActive); }
@@ -151,8 +163,7 @@ struct Impurity_dyn {
 
     void doTdvp(TdvpParam args={})
     {
-        int localL=fb.nActive; //param.nImp()+nChannel;
-        arma::abs(K.submat(0, 0, localL-1, localL-1)).eval().clean(1e-10).print("K tdvp");
+        int localL=param.nImp()+nChannel;
         auto mpo=fullHamiltonian( K.submat(0, 0, localL-1, localL-1) ); //TODO: fix this
         auto sweeps = itensor::Sweeps(1);
         sweeps.maxdim() = args.max_bond_dim;
@@ -180,7 +191,7 @@ struct Impurity_dyn {
                                 "Silent", true,
                                 "NumCenter", 2,
                                 "ErrGoal", args.err_goal});
-        fb.psi.orthogonalize({"Cutoff",fb.tol});
+        //fb.psi.orthogonalize({"Cutoff",fb.tol});
         energy += fb.SlaterEnergy(K);
         fb.update_cc();
     }

@@ -50,37 +50,49 @@ struct Fb_mps
 
     /// extract representative orbitals of the sites with ni=nRef where nRef can be 0 or 1.
     /// Return the Givens rotations used.
-    /*std::vector<GivensRot<T>>*/void extract_representative(arma::Mat<T>& K, int nRef)
+    void extract_representative(arma::Mat<T>& K, int nRef) { extract_representative(K,nRef,nActive); }
+
+    /// extract representative orbitals of the sites with ni=nRef where nRef can be 0 or 1,
+    /// @param start is the first site to consider
+    /// Return the Givens rotations used.
+    void extract_representative(arma::Mat<T>& K, int nRef, int nRows)
     {
         // 1. find the orbitals with the occupation nref
         auto ni_bath=arma::vec( arma::real( cc.diag().eval().rows(nActive, cc.n_rows-1) ) );
         arma::vec delta_n_bath=arma::abs(ni_bath-nRef);
         arma::uvec pos0=arma::find(delta_n_bath<0.5).eval()+nActive ;
+        pos0.print("pos0 f0 or f1");
         if (pos0.empty()) { std::cout<<"warning: no Slater?\n"; /*return {};*/ }
 
         // 2. find the Givens rotations for them
-        auto k12 = K.head_rows(nActive).eval().cols(pos0).eval();
+        auto k12 = K.head_rows(nRows).eval().cols(pos0).eval();
         arma::vec s;
         arma::Mat<T> U, V;
-        svd_econ(U,s,V, k12);
+        svd(U,s,V, k12);
         int nSv=arma::find(s>tol*s[0]).eval().size();
         auto givens=GivensRotForRot_left(arma::conj(V.head_cols(nSv)).eval());
-        GivensDaggerInPlace(givens);
+        //GivensDaggerInPlace(givens);
 
-        // 3. rotate K and cc
-        auto Kcol=K.cols(pos0).eval();
-        applyGivens(Kcol,givens);
-        K.cols(pos0)=Kcol;
-        {
-            arma::inplace_trans(K);
-            auto Kcol=K.cols(pos0).eval();
-            applyGivens(Kcol,givens);
-            K.cols(pos0)=Kcol;
-            arma::inplace_trans(K);
-        }
-        auto Rcol=rot.cols(pos0).eval();
-        applyGivens(Rcol,givens);
-        rot.cols(pos0)=Rcol;
+        arma::Mat<T> rot1=matrot_from_Givens(givens, k12.n_cols).st();
+        K.cols(pos0)=K.cols(pos0).eval()*V;
+        K.rows(pos0)=K.cols(pos0).t().eval();
+        rot.cols(pos0)=rot.cols(pos0)*V;
+
+        // // 3. rotate K and cc
+        // auto Kcol=K.cols(pos0).eval();
+        // applyGivens(Kcol,givens);
+        // K.cols(pos0)=Kcol;
+        // {
+        //     arma::inplace_trans(K);
+        //     auto Kcol=K.cols(pos0).eval();
+        //     applyGivens(Kcol,givens);
+        //     K.cols(pos0)=Kcol;
+        //     arma::inplace_trans(K);
+        // }
+        // auto Rcol=rot.cols(pos0).eval();
+        // applyGivens(Rcol,givens);
+        // rot.cols(pos0)=Rcol;
+
         // no need to update cc
         // 4. move the nSv representative orbitals to the beginning of the Slater
         for(auto i=0; i<nSv; i++) {
@@ -108,18 +120,18 @@ struct Fb_mps
         svd_econ(U,s,V,k12);
         int nSv=arma::find(s>tol*s[0]).eval().size();  // it should be nSv==nChannel
         auto givens=GivensRotForRot_left(arma::conj(V.head_cols(nSv)).eval());
-        //for(auto& g:givens) g.b+=p1;
 
         // 3. update K, rot and cc
         arma::cx_mat rot1=matrot_from_Givens(givens, k12.n_cols).st();
         K.cols(p1,p2)=K.cols(p1,p2).eval()*rot1;
         K.rows(p1,p2)=rot1.t()*K.rows(p1,p2).eval();
         rot.cols(p1,p2)=rot.cols(p1,p2)*rot1;
-        cc.cols(p1,p2)=cc.cols(p1,p2).eval()*rot1;
-        cc.rows(p1,p2)=rot1.t()*cc.rows(p1,p2).eval();
+        cc.cols(p1,p2)=cc.cols(p1,p2).eval()*rot1.st().t();
+        cc.rows(p1,p2)=rot1.st()*cc.rows(p1,p2).eval();
         // do not update nActive
 
         // 4. update the mps
+        for(auto& g:givens) g.b+=p1;
         auto gates=Fermionic::NOGates(sites,givens);
         gateTEvol(gates,1,1,psi,{"Cutoff",tol,"Quiet",true, "Normalize",false,"ShowPercent",false});
     }
@@ -169,7 +181,16 @@ struct Fb_mps
         return energy;
     }
 
-    arma::vec occupations_ni() const { return arma::vec( arma::real(cc.diag()) );}
+    // arma::vec occupations_ni() const { return arma::vec( arma::real(cc.diag()) );}
+
+    arma::vec occupations_ni2() const
+    {
+        arma::vec ni(cc.n_rows);
+        auto niv=itensor::expectC(psi,sites,"N");
+        for(auto i=0u; i<ni.size(); i++)
+            ni[i]=niv[i].real();
+        return ni;
+    }
 
     /// compute all the correlator <ci^ cj> where i and j are original sites (i.e. before the rotation).
     arma::Mat<T> correlator_all() const
