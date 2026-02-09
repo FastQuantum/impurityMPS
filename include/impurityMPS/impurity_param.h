@@ -36,9 +36,14 @@ struct ImpurityParam {
             rot.swap_cols(i,impPos[i]);
         }
         arma::mat Kbath=Kmat.submat(nImp,nImp,L-1,L-1).eval();
-        arma::mat evec;
-        arma::vec ek;
-        arma::eig_sym(ek,evec,Kbath);
+        arma::mat evec1;
+        arma::vec ek1;
+        arma::eig_sym(ek1,evec1,Kbath);
+
+        arma::uvec iek=arma::sort_index( arma::abs(ek1) );
+        arma::mat evec=evec1.cols(iek);
+        arma::vec ek=ek1.rows(iek);
+
         arma::mat vk=(Kmat.submat(0,nImp,nImp-1,L-1)*evec);
 
         arma::mat Kstar(L,L,arma::fill::zeros);
