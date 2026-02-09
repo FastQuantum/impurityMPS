@@ -49,10 +49,13 @@ struct Impurity_dyn {
         K.cols(0,nImp-1)=fb.rot.t()*K.cols(0,nImp-1).eval();
         fb.rot=this->exp_ih*fb.rot;   // update of the interaction picture
 
-        double nref=fb.cc(fb.nActive, fb.nActive).real();
-        int occ= nref+0.5;
-        extract_representative(occ);
-        extract_representative(1-occ);
+        if (fb.nActive+2*nChannel < param.length()) {
+            double nref=fb.cc(fb.nActive, fb.nActive).real();
+            int occ= nref+0.5;
+            extract_representative(occ);
+            extract_representative(1-occ);
+        }
+        else fb.nActive=param.length();
 
         extract_representative_final();
 

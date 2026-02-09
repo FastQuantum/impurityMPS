@@ -6,7 +6,7 @@ using namespace std;
 
 int main()
 {
-    int L=8;
+    int L=100;
     double U=-0.2;
     arma::mat K(L,L, arma::fill::zeros);
     {
@@ -33,7 +33,8 @@ int main()
     for(auto i=0; i*dt<L; i++){
         solver.iterate({.epsilonM=0});
         double n0 = solver.fb.correlator(0,0).real();
-        cout<<(i+1)*solver.dt<<" "<<solver.fb.nActive<<" "<<solver.energy<<" "<<n0<<" "<<t0.sincemark().wall<<endl;
+        double cd=2*solver.fb.correlator(0,1).real();
+        cout<<(i+1)*solver.dt<<" "<<solver.energy<<" "<<n0<<" "<<cd<<" "<<solver.fb.nActive<<endl;
         t0.mark();
     }
     return 0;
