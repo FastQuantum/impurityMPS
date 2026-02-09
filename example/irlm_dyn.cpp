@@ -186,7 +186,7 @@ int main()
     arma::uvec active=arma::find(ni>tolActivity && ni<1-tolActivity);
     out<<"0 "<< 0 <<" "<<maxLinkDim(psi)<<" "<<0<<" "<<n0<<" "<<cd<<" "<<active.size()<<endl;
     auto model2_ip=IRLM_ip{model};
-    for(auto i=0; i*dt<=len; i++) {
+    for(auto i=0; i<20; i++) {/*i*dt<=len*/
         if (verbose) cout<<"-------------------------- iteration "<<i+1<<" --------\n";
         itensor::cpu_time t0;
         int nImpIp=map<string,int> {{"circuit", circuit_nImp},
@@ -223,6 +223,10 @@ int main()
             if (verbose) cout<<"circuit-f:"<<t0.sincemark()<<endl;
             t0.mark();
         }
+
+        cc.submat(0,0,hip.from,hip.from)=Fermionic::cc_matrix(psi, hip.ham.sites, hip.from+1);
+        ni=arma::real(cc.diag());
+        ni.print("ni before tdvp");
 
         // if (verbose) arma::real(Fermionic::cc_matrix(psi, hip.ham.sites).diag()).print("ni after f");
 
@@ -275,6 +279,9 @@ int main()
         if (verbose) cout<<"cc computation:"<<t0.sincemark()<<endl;
         t0.mark();
 
+        ni=arma::real(cc.diag());
+        ni.print("ni before NOrb");
+
         if (std::abs(i*dt-std::round(i*dt/circuit_dt)*circuit_dt) < 0.5*dt) {
             auto givens=Fermionic::NOGivensRot(cc,circuit_nImp,circuit_nSite,tolActivity, hip.from);
 //            auto givens=Fermionic::GivensRotForMatrix(cc,circuit_nImp,20);
@@ -305,6 +312,10 @@ int main()
                     cout<<itensor::leftLinkIndex(psi,i+1).dim()<<" ";
                 cout<<endl;
             }
+
+            arma::real(rot).eval().clean(1e-15).print("rot after NOrb");
+            arma::imag(rot).eval().clean(1e-15).print("rot.i");
+            ni.print("ni after NOrb");
 
             // if (verbose) arma::real(Fermionic::cc_matrix(psi, hip.ham.sites).diag()).print("ni after circuit");
         }

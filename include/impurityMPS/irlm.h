@@ -244,13 +244,19 @@ struct IRLM_ip {
 
             // rot.t()*K*rot
             Kip.rows(0,nImp-1)=Kip.rows(0,nImp-1).eval()*rot;
-            Kip.cols(0,nImp-1)=rot.t()*Kip.cols(0,nImp-1).eval();
+            Kip.cols(0,nImp-1)=rot.t()*Kip.cols(0,nImp-1).eval();            
         }
 
         // std::cout<<"Kip:"<<t0.sincemark()<<std::endl;
         t0.mark();
 
         out.rot=this->exp_ih*rot; //this->rotIP(rot,nImp,dt);
+
+        arma::abs(Kip).eval().clean(1e-15).print("K rotated");
+        arma::imag(Kip).eval().clean(1e-15).print("K.i");
+        arma::real(out.rot).eval().clean(1e-15).print("rot ip");
+        arma::imag(out.rot).eval().clean(1e-15).print("rot.i");
+
         // std::cout<<"rotIP:"<<t0.sincemark()<<std::endl;
         t0.mark();
 
@@ -288,7 +294,7 @@ struct IRLM_ip {
             { // ni==0
                 arma::uvec pos0=arma::find(nSlater<0.5)+p0+1;
                 if (!pos0.empty()) {
-                    // pos0.print("empty");
+                    pos0.print("pos0 f0");
                     auto k12=Kip.submat(posImp,pos0).eval();
                     arma::vec s;
                     arma::Mat<T> U, V;
@@ -307,10 +313,12 @@ struct IRLM_ip {
                     //arma::abs(Kip).eval().clean(1e-6).print("kip empty");
                 }
             }
+
+
             { // ni==1  TODO: this should add a fermionic sign to the state --> det(V)
                 arma::uvec pos0=arma::find(nSlater>0.5)+p0+1;
                 if (!pos0.empty()) {
-                    // pos0.print("full");
+                    pos0.print("pos0 f1");
                     auto k12=Kip.submat(posImp,pos0).eval();
                     arma::vec s;
                     arma::Mat<T> U, V;
@@ -332,11 +340,13 @@ struct IRLM_ip {
 
         }
 
-        int localL=std::max(p0+3,2);
-        arma::abs(Kip.submat(0, 0, localL-1, localL-1)).eval().clean(1e-10).print("K tdvp");
+        arma::abs(Kip).eval().clean(1e-15).print("K f0 f1");
+        arma::imag(Kip).eval().clean(1e-15).print("K.i");
+        arma::real(out.rot).eval().clean(1e-15).print("rot f0 f1");
+        arma::imag(out.rot).eval().clean(1e-15).print("rot.i");
+
         // std::cout<<"f0 and f1:"<<t0.sincemark()<<std::endl;
         t0.mark();
-
         std::vector<GivensRot<T>> givens;
         if (extractf){// the circuit to extract f orbitals
             auto Kip2=Kip.eval();
@@ -364,6 +374,11 @@ struct IRLM_ip {
             // std::cout<<"\n is rot = "<<arma::norm(rot1.t()*rot1-arma::eye(arma::size(rot1)))<<"\n";
             // arma::abs(Kip-Kip2).eval().clean(1e-6).print("kip diff");
         }
+
+        arma::real(Kip).eval().clean(1e-15).print("K f2");
+        arma::imag(Kip).eval().clean(1e-15).print("K.i");
+        arma::real(out.rot).eval().clean(1e-15).print("rot f2");
+        arma::imag(out.rot).eval().clean(1e-15).print("rot.i");
 
         // std::cout<<"f final:"<<t0.sincemark()<<std::endl;
         t0.mark();
