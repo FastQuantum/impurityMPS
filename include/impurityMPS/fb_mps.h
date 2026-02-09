@@ -67,30 +67,30 @@ struct Fb_mps
         auto k12 = K.head_rows(nRows).eval().cols(pos0).eval();
         arma::vec s;
         arma::Mat<T> U, V;
-        svd(U,s,V, k12);
+        svd_econ(U,s,V, k12);
         int nSv=arma::find(s>tol*s[0]).eval().size();
-        auto givens=GivensRotForRot_left(arma::conj(V.head_cols(nSv)).eval());
-        //GivensDaggerInPlace(givens);
+        auto givens=GivensRotForRot_left(V.head_cols(nSv).eval());
+        GivensDaggerInPlace(givens);
 
-        arma::Mat<T> rot1=matrot_from_Givens(givens, k12.n_cols).st();
-        K.cols(pos0)=K.cols(pos0).eval()*V;
-        K.rows(pos0)=K.cols(pos0).t().eval();
-        rot.cols(pos0)=rot.cols(pos0)*V;
+        // arma::Mat<T> rot1=matrot_from_Givens(givens, k12.n_cols)/*.st()*/;
+        // K.cols(pos0)=K.cols(pos0).eval()*rot1;
+        // K.rows(pos0)=rot1.t()*K.rows(pos0).eval();
+        // rot.cols(pos0)=rot.cols(pos0)*rot1;
 
-        // // 3. rotate K and cc
-        // auto Kcol=K.cols(pos0).eval();
-        // applyGivens(Kcol,givens);
-        // K.cols(pos0)=Kcol;
-        // {
-        //     arma::inplace_trans(K);
-        //     auto Kcol=K.cols(pos0).eval();
-        //     applyGivens(Kcol,givens);
-        //     K.cols(pos0)=Kcol;
-        //     arma::inplace_trans(K);
-        // }
-        // auto Rcol=rot.cols(pos0).eval();
-        // applyGivens(Rcol,givens);
-        // rot.cols(pos0)=Rcol;
+        // 3. rotate K and cc
+        auto Kcol=K.cols(pos0).eval();
+        applyGivens(Kcol,givens);
+        K.cols(pos0)=Kcol;
+        {
+            arma::inplace_trans(K);
+            auto Kcol=K.cols(pos0).eval();
+            applyGivens(Kcol,givens);
+            K.cols(pos0)=Kcol;
+            arma::inplace_trans(K);
+        }
+        auto Rcol=rot.cols(pos0).eval();
+        applyGivens(Rcol,givens);
+        rot.cols(pos0)=Rcol;
 
         // no need to update cc
         // 4. move the nSv representative orbitals to the beginning of the Slater
@@ -118,10 +118,11 @@ struct Fb_mps
         arma::Mat<cmpx> U, V;
         svd_econ(U,s,V,k12);
         int nSv=arma::find(s>tol*s[0]).eval().size();  // it should be nSv==nChannel
-        auto givens=GivensRotForRot_left(arma::conj(V.head_cols(nSv)).eval());
+        auto givens=GivensRotForRot_left(V.head_cols(nSv).eval());
+        GivensDaggerInPlace(givens);
 
         // 3. update K, rot and cc
-        arma::cx_mat rot1=matrot_from_Givens(givens, k12.n_cols).st();
+        arma::cx_mat rot1=matrot_from_Givens(givens, k12.n_cols)/*.st()*/;
         K.cols(p1,p2)=K.cols(p1,p2).eval()*rot1;
         K.rows(p1,p2)=rot1.t()*K.rows(p1,p2).eval();
         rot.cols(p1,p2)=rot.cols(p1,p2)*rot1;
@@ -131,7 +132,7 @@ struct Fb_mps
 
         // 4. update the mps
         for(auto& g:givens) g.b+=p1;
-        auto gates=Fermionic::NOGates(sites,givens);
+        auto gates=Fermionic::NOGates(sites, GivensDagger(givens));
         gateTEvol(gates,1,1,psi,{"Cutoff",tol,"Quiet",true, "Normalize",false,"ShowPercent",false});
     }
 
