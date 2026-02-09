@@ -61,7 +61,6 @@ struct Fb_mps
         auto ni_bath=arma::vec( arma::real( cc.diag().eval().rows(nActive, cc.n_rows-1) ) );
         arma::vec delta_n_bath=arma::abs(ni_bath-nRef);
         arma::uvec pos0=arma::find(delta_n_bath<0.5).eval()+nActive ;
-        pos0.print("pos0 f0 or f1");
         if (pos0.empty()) { std::cout<<"warning: no Slater?\n"; /*return {};*/ }
 
         // 2. find the Givens rotations for them

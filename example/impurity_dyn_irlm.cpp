@@ -28,12 +28,12 @@ int main()
     double dt=0.1;
     auto solver=Impurity_dyn(model,fb,dt);
 
-    // cout<<"time nActive energy <n0> time\n"<<setprecision(12);
+    cout<<"time nActive energy <n0> time\n"<<setprecision(12);
     itensor::cpu_time t0;
-    for(auto i=0;i<20/*i*dt<L*/;i++){ //
+    for(auto i=0; i*dt<L; i++){
         solver.iterate({.epsilonM=0});
         double n0 = solver.fb.correlator(0,0).real();
-        // cout<<(i+1)*solver.dt<<" "<<solver.fb.nActive<<" "<<solver.energy<<" "<<n0<<" "<<t0.sincemark().wall<<endl;
+        cout<<(i+1)*solver.dt<<" "<<solver.fb.nActive<<" "<<solver.energy<<" "<<n0<<" "<<t0.sincemark().wall<<endl;
         t0.mark();
     }
     return 0;

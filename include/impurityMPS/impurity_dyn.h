@@ -42,51 +42,24 @@ struct Impurity_dyn {
 
     void iterate(TdvpParam args={})
     {
-        // rot.t()*K*rot
+        // rotate from scratch
         int nImp=param.nImp();
         K=Kip0;
         K.rows(0,nImp-1)=K.rows(0,nImp-1).eval()*fb.rot;
         K.cols(0,nImp-1)=fb.rot.t()*K.cols(0,nImp-1).eval();
         fb.rot=this->exp_ih*fb.rot;   // update of the interaction picture
 
-        arma::abs(K).eval().clean(1e-15).print("K rotated");
-        arma::imag(K).eval().clean(1e-15).print("K.i");
-        arma::real(fb.rot).eval().clean(1e-15).print("rot ip");
-        arma::imag(fb.rot).eval().clean(1e-15).print("rot.i");
-
         double nref=fb.cc(fb.nActive, fb.nActive).real();
         int occ= nref+0.5;
         extract_representative(occ);
         extract_representative(1-occ);
 
-        arma::abs(K).eval().clean(1e-15).print("K f0 f1");
-        arma::imag(K).eval().clean(1e-15).print("K.i");
-        arma::real(fb.rot).eval().clean(1e-15).print("rot f0 f1");
-        arma::imag(fb.rot).eval().clean(1e-15).print("rot.i");
-
         extract_representative_final();
-
-        arma::real(K).eval().clean(1e-15).print("K f2");
-        arma::imag(K).eval().clean(1e-15).print("K.i");
-        arma::real(fb.rot).eval().clean(1e-15).print("rot f2");
-        arma::imag(fb.rot).eval().clean(1e-15).print("rot.i");
-
-        arma::vec ni=fb.occupations_ni2(); //arma::real(cc.diag());
-        ni.print("ni before tdvp");
 
         evolve();
         // doTdvp(args);
 
-        ni=fb.occupations_ni2(); //arma::real(cc.diag());
-        ni.print("ni before NOrb");
-
         rotateToNaturalOrbitals();
-
-        arma::real(fb.rot).eval().clean(1e-15).print("rot after NOrb");
-        arma::imag(fb.rot).eval().clean(1e-15).print("rot.i");
-
-        ni=fb.occupations_ni2(); //arma::real(cc.diag());
-        ni.print("ni after NOrb");
     }
 
     /// extract representative orbital of the sites with ni=nRef where nRef can be 0 or 1
