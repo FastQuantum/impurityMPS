@@ -301,7 +301,7 @@ struct IRLM_ip {
                     // Kip.rows(pos0)=V.t()*Kip.rows(pos0).eval();
 
                     Kip.submat(posImp,pos0).fill(0);
-                    Kip.submat(0,pos0[0],nImp-1,pos0[0])=U*s.cols(0,0);
+                    Kip.submat(0,pos0[0],nImp-1,pos0[0])=U.head_cols(s.size())*s;
                     Kip.submat(pos0,posImp)=Kip.submat(posImp,pos0).t();
                     out.rot.cols(pos0)=out.rot.cols(pos0)*V;
                     //arma::abs(Kip).eval().clean(1e-6).print("kip empty");
@@ -323,7 +323,7 @@ struct IRLM_ip {
                     // Kip.rows(pos0)=V.t()*Kip.rows(pos0).eval();
 
                     Kip.submat(posImp,pos0).fill(0);
-                    Kip.submat(0,pos0[0],nImp-1,pos0[0])=U*s.cols(0,0);
+                    Kip.submat(0,pos0[0],nImp-1,pos0[0])=U.head_cols(s.size())*s;
                     Kip.submat(pos0,posImp)=Kip.submat(posImp,pos0).t();
                     out.rot.cols(pos0)=out.rot.cols(pos0)*V;
                     //arma::abs(Kip).eval().clean(1e-6).print("kip full");
