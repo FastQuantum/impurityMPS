@@ -71,8 +71,8 @@ struct GivensRot {
     /// return transpose conjugate
     GivensRot<T> dagger() const;
 
-    /// element-wise complex conjugate
-    GivensRot<T> conj() const;
+    /// return transpose
+    GivensRot<T> transpose() const;
 };
 
 template<class T>
@@ -142,7 +142,7 @@ template<>
 GivensRot<double> GivensRot<double>::dagger() const { return {.b=b, .c=c, .s=-s}; }
 
 template<>
-GivensRot<double> GivensRot<double>::conj() const { return *this; }
+GivensRot<double> GivensRot<double>::transpose() const { return {.b=b, .c=c, .s=-s}; }
 
 template<>
 GivensRot<cmpx> GivensRot<cmpx>::createFromPair(size_t b, cmpx p, cmpx q, bool go_right, cmpx *r)
@@ -216,7 +216,7 @@ template<>
 GivensRot<cmpx> GivensRot<cmpx>::dagger() const { return {.b=b, .c=std::conj(c), .s=-s}; }
 
 template<>
-GivensRot<cmpx> GivensRot<cmpx>::conj() const { return {.b=b, .c=std::conj(c), .s=std::conj(s)}; }
+GivensRot<cmpx> GivensRot<cmpx>::transpose() const { return {.b=b, .c=c, .s=-std::conj(s)}; }
 
 
 //------------------------- set of Givens rotations -----------------------------------------
@@ -317,6 +317,14 @@ std::vector<GivensRot<T>> GivensDagger(std::vector<GivensRot<T>> const& givens)
     auto out=givens;
     GivensDaggerInPlace(out);
     return out;
+}
+
+template<class T>
+std::vector<GivensRot<T>> GivensTranspose(std::vector<GivensRot<T>> givens)
+{
+    std::reverse(givens.begin(),givens.end());
+    for(auto& g:givens) g=g.transpose();
+    return givens;
 }
 
 
