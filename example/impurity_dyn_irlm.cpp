@@ -7,7 +7,7 @@ using namespace std;
 int main()
 {
     int L=100;
-    double U=-0.2;
+    double U=0.2;
     arma::mat K(L,L, arma::fill::zeros);
     {
         for(auto i=1; i<L-1; i++)

@@ -132,7 +132,7 @@ struct Fb_mps
 
         // 4. update the mps
         for(auto& g:givens) g.b+=p1;
-        auto gates=Fermionic::NOGates(sites, GivensDagger(givens));
+        auto gates=Fermionic::NOGates(sites, GivensTranspose(givens));
         gateTEvol(gates,1,1,psi,{"Cutoff",tol,"Quiet",true, "Normalize",false,"ShowPercent",false});
     }
 
