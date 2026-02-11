@@ -24,8 +24,9 @@ int main()
     ek[0]=-10;
     ek[1]=10;
     auto fb=Fb_mps<cmpx>::from_slater(model.param.rot*cmpx(1,0), ek, model.param.nPart(), model.param.nImp());
+    fb.tol=1e-12;
 
-    double dt=0.1;
+    double dt=0.01;
     auto solver=Impurity_dyn(model,fb,dt);
 
     cout<<"time nActive energy <n0> time\n"<<setprecision(12);
