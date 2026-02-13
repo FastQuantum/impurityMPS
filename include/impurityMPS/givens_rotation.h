@@ -273,16 +273,16 @@ static std::vector<GivensRot<T>> GivensRotForRot_left(arma::Mat<T> rot)
 
 // return a list of local 2-site gates: see fig5a of PRB 92, 075132 (2015)
 template<class T>
-std::vector<GivensRot<T>> GivensRotForCC_right(arma::Mat<T> cc, int pfinal=-1)
+std::vector<GivensRot<T>> GivensRotForCC_right(arma::Mat<T> cc, int depth=-1, int pfinal=-1)
 {
     if (pfinal==-1 || pfinal>cc.n_rows-1) pfinal=cc.n_rows-1;
+    if (depth==-1) depth=cc.n_rows;
     using namespace arma;
     std::vector<GivensRot<T>> givens;
     arma::Mat<T> evec;
     arma::vec eval;
-    size_t d=cc.n_rows;
     for(auto p2=pfinal; p2>0u; p2--) {
-        size_t p1= (p2+1>d) ? p2+1-d : 0u ;
+        size_t p1= (p2+1>depth) ? p2+1-depth : 0u ;
         if(p2+4>pfinal) p1=0;
         arma::Mat<T> cc2=cc.submat(p1,p1,p2,p2);
         arma::eig_sym(eval,evec,cc2);

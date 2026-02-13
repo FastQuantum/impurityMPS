@@ -16,6 +16,7 @@ struct Fb_mps
     arma::Mat<T> rot;           ///< the actual rotation frame
     arma::SpMat<T> cc;          ///< the correlation matrix or one-particle density matrix
     int nActive;                ///< the number of active orbitals (the rest nActive...sites.length() is considered Slater)
+    int natOrbDepth=-1;         ///< the depth of the circuit used to extract the natural orbitals (-1 means the to use an exact circuit)
     double tol=1e-10;           ///< the tolerance used for both applying the gates and defining active orbitals.
 
 
@@ -159,7 +160,7 @@ struct Fb_mps
     arma::Mat<T> rotateToNaturalOrbitals(int start)
     {
         auto cc1 = arma::Mat<T>( cc.submat(start,start,nActive-1, nActive-1).eval() );
-        auto givens=GivensRotForCC_right(cc1);
+        auto givens=GivensRotForCC_right(cc1, natOrbDepth);
         for(auto& g:givens) g.b+=start;
         auto gates=Fermionic::NOGates(sites,givens);
         gateTEvol(gates,1,1,psi,{"Cutoff",tol,"Quiet",true, "Normalize",false,"ShowPercent",false});

@@ -3,6 +3,8 @@
 list(APPEND test_SRC
     impurity_gs_irlm.cpp
     impurity_dyn_irlm.cpp
+    impurity_gs_siam.cpp
+    impurity_dyn_siam.cpp
     irlm_dyn.cpp
 )
 

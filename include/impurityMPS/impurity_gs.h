@@ -21,10 +21,14 @@ struct Impurity_gs {
 
     void iterate(DmrgParam args={})
     {
+        itensor::cpu_time t0;
         extract_representative(0);
         extract_representative(1);
+        std::cout<<"representatives "<<t0.sincemark().wall; t0.mark();
         doDmrg(args);
+        std::cout<<" dmrg "<<t0.sincemark().wall; t0.mark();
         rotateToNaturalOrbitals();
+        std::cout<<" NatOrb "<<t0.sincemark().wall<<"\n";
     }
 
     /// extract representative orbital of the sites with ni=nRef where nRef can be 0 or 1
