@@ -283,12 +283,46 @@ std::vector<GivensRot<T>> GivensRotForCC_right(arma::Mat<T> cc, int depth=-1, in
     arma::vec eval;
     for(auto p2=pfinal; p2>0u; p2--) {
         size_t p1= (p2+1>depth) ? p2+1-depth : 0u ;
-        if(p2+4>pfinal) p1=0;
+        if(p2+depth>pfinal) p1=0;
         arma::Mat<T> cc2=cc.submat(p1,p1,p2,p2);
         arma::eig_sym(eval,evec,cc2);
         // select the less active
         size_t pos=0;
         if (1-eval.back()<eval(0)) pos=eval.size()-1;
+        arma::Col<T> v=evec.col(pos);
+        std::vector<GivensRot<T>> gs1;
+        for(auto i=0u; i+1<v.size(); i++)
+        {
+            auto b=i+p1;
+            auto g=GivensRot<T>::createFromPair(b,v[i],v[i+1],true, &v[i+1]);
+            gs1.push_back(g);
+        }
+        auto rot1=matrot_from_Givens(gs1,p2+1);
+        cc.submat(0,0,p2,p2)=rot1*cc.submat(0,0,p2,p2)*rot1.t();
+        for(auto g : gs1) givens.push_back(g);
+    }
+    return givens;
+}
+
+// return a list of local 2-site gates: see fig5a of PRB 92, 075132 (2015)
+template<class T>
+std::vector<GivensRot<T>> GivensRotForCC_right_inactive(arma::Mat<T> cc, double tol)
+{
+    int pfinal=cc.n_rows-1;
+    int depth=cc.n_rows;
+    using namespace arma;
+    std::vector<GivensRot<T>> givens;
+    arma::Mat<T> evec;
+    arma::vec eval;
+    for(auto p2=pfinal; p2>0u; p2--) {
+        size_t p1= (p2+1>depth) ? p2+1-depth : 0u ;
+        if(p2+depth>pfinal) p1=0;
+        arma::Mat<T> cc2=cc.submat(p1,p1,p2,p2);
+        arma::eig_sym(eval,evec,cc2);
+        // select the less active
+        size_t pos=0;
+        if (1-eval.back()<eval(0)) pos=eval.size()-1;
+        if (eval(pos)>tol && eval(pos)<1-tol) break;
         arma::Col<T> v=evec.col(pos);
         std::vector<GivensRot<T>> gs1;
         for(auto i=0u; i+1<v.size(); i++)

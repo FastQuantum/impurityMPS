@@ -160,16 +160,58 @@ struct Fb_mps
     arma::Mat<T> rotateToNaturalOrbitals(int start)
     {
         auto cc1 = arma::Mat<T>( cc.submat(start,start,nActive-1, nActive-1).eval() );
-        auto givens=GivensRotForCC_right(cc1, natOrbDepth);
-        for(auto& g:givens) g.b+=start;
-        auto gates=Fermionic::NOGates(sites,givens);
-        gateTEvol(gates,1,1,psi,{"Cutoff",tol,"Quiet",true, "Normalize",false,"ShowPercent",false});
+        auto givens=GivensRotForCC_right_inactive(cc1,tol);
+        if (!givens.empty()) {
+            for(auto& g:givens) g.b+=start;
+            // auto gates=Fermionic::NOGates(sites,givens);
+            // itensor::gateTEvol(gates,1,1,psi,{"Cutoff",tol,"MaxDim",512,"Quiet",true, "Normalize",false,"ShowPercent",false});
+        }        
+
         auto rot1=matrot_from_Givens(givens,nActive);
         rot.cols(0,nActive-1)=rot.cols(0,nActive-1).eval()*rot1.st();
         cc.cols(0,nActive-1)=cc.cols(0,nActive-1).eval()*rot1.t();
         cc.rows(0,nActive-1)=rot1*cc.rows(0,nActive-1).eval();
         auto ni_bath = arma::vec( arma::real(cc.diag()).eval().rows(start,cc.n_rows-1).eval() );
-        nActive=arma::find(ni_bath>tol && ni_bath<1-tol).eval().size()+start;
+        int nActive_new= ni_bath.empty() ? start+1 : arma::find(ni_bath>tol && ni_bath<1-tol).eval().back()+1+start;
+        // for(int i=ni_bath.size()-1; i>=0; i--)
+        //     //if (itensor::leftLinkIndex(psi,i+1).dim()>1) { nActive=i+1; break; }
+        //     if (ni_bath[i]>tol && ni_bath[i]<1-tol) { nActive=i+1+start; break; }
+
+        std::cout<<"\ndelta nA "<<nActive_new-nActive<<"\n";
+        if (true && nActive_new<nActive) { // find compatible mps
+            auto init=itensor::InitState(sites,"0");
+            for(int i=0; i<sites.length(); i++){
+                double ni = cmpx(cc(i,i)).real();
+                int n=i+1;
+
+                if (ni>0.5) init.set(n,"1");
+                else if (ni==0.5) {
+                    if (i%2==0) init.set(n,"1");
+                }
+
+                psi=itensor::MPS(init);
+
+                // auto wf = itensor::ITensor(si);
+                // if (i==0){
+                //     wf.set(si(1)(1),si(2)(1), sqrt(1-ni));
+                //     wf.set(si(1)(2),si(2)(1), sqrt(ni));
+                // }
+                // else if (i==sites.length()-1)
+                // {
+                //     wf.set(si(1)(1),si(2)(1), sqrt(1-ni));
+                //     wf.set(si(1)(2),si(2)(1), sqrt(ni));
+                // }
+                // else
+                // {
+                //     wf.set(si(1)(1),si(2)(1),si(3)(1), sqrt(1-ni));
+                //     wf.set(si(1)(1),si(2)(2),si(3)(1), sqrt(ni));
+                // }
+                // psi.setA(n,wf);
+            }
+        }
+
+        nActive=nActive_new;
+        if (nActive<natOrbDepth) nActive+=2;
         return rot1.st();
     }
 
@@ -191,6 +233,15 @@ struct Fb_mps
         for(auto i=0u; i<ni.size(); i++)
             ni[i]=niv[i].real();
         return ni;
+    }
+
+    void print_bond_dims(std::string_view msg="") const
+    {
+        arma::cout<<msg<<arma::endl;
+        arma::cout<<"active: "<<nActive<<arma::endl;
+        for(auto i=0; i+1<psi.length(); i++)
+            arma::cout<<itensor::leftLinkIndex(psi,i+1).dim()<<" ";
+        arma::cout<<arma::endl;
     }
 
     /// compute all the correlator <ci^ cj> where i and j are original sites (i.e. before the rotation).

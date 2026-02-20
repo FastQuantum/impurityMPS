@@ -24,16 +24,19 @@ int main()
     ek[0]=-10;
     ek[1]=10;
     auto fb=Fb_mps<double>::from_slater(model.param.rot, ek, model.param.nPart(), model.param.nImp());
+    fb.natOrbDepth=10;
+    fb.tol=1e-10;
 
     auto solver=Impurity_gs(model,fb);
 
     cout<<"iteration nActive energy time\n"<<setprecision(12);
     itensor::cpu_time t0;
-    for(auto i=0;i<30;i++){
+    for(auto i=0;i<100;i++){
         solver.extract_representative(0);
         solver.extract_representative(1);
         solver.doDmrg();
         solver.rotateToNaturalOrbitals();
+        for (auto i=0;i<10;i++) solver.doDmrg();
         cout<<i+1<<" "<<solver.fb.nActive<<" "<<solver.energy<<" "<<t0.sincemark().wall<<endl;
         t0.mark();
     }

@@ -24,11 +24,16 @@ struct Impurity_gs {
         itensor::cpu_time t0;
         extract_representative(0);
         extract_representative(1);
+        // fb.print_bond_dims("after repr");
         std::cout<<"representatives "<<t0.sincemark().wall; t0.mark();
         doDmrg(args);
+        // fb.print_bond_dims("after dmrg");
         std::cout<<" dmrg "<<t0.sincemark().wall; t0.mark();
         rotateToNaturalOrbitals();
+        // fb.print_bond_dims("after nat orb");
         std::cout<<" NatOrb "<<t0.sincemark().wall<<"\n";
+
+        for(auto i=0;i<10;i++) doDmrg(args);
     }
 
     /// extract representative orbital of the sites with ni=nRef where nRef can be 0 or 1
