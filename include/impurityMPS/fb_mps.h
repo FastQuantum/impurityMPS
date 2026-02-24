@@ -107,6 +107,68 @@ struct Fb_mps
         //return givens; // TODO: wrong, we need to add swap gates
     }
 
+    bool extract_representative(int sv_index,arma::Mat<T>& K, int nRef, int nRows)
+    {
+        // 1. find the orbitals with the occupation nref
+        auto ni_bath=arma::vec( arma::real( cc.diag().eval().rows(nActive, cc.n_rows-1) ) );
+        arma::vec delta_n_bath=arma::abs(ni_bath-nRef);
+        arma::uvec pos0=arma::find(delta_n_bath<0.5).eval()+nActive ;
+        if (pos0.empty()) { std::cout<<"warning: no Slater?\n"; /*return {};*/ }
+
+        // 2. find the Givens rotations for them
+        auto k12 = K.head_rows(nRows).eval().cols(pos0).eval();
+        arma::vec s;
+        arma::Mat<T> U, V;
+        svd_econ(U,s,V, k12);
+        int nSv=arma::find(s>tol*s[0]).eval().size();
+        std::vector<GivensRot<T>> givens;
+        if (true || nSv==1) {
+            if (sv_index>=nSv) return false;
+            givens=GivensRotForRot_left(V.cols(sv_index,sv_index).eval());
+            GivensDaggerInPlace(givens);
+        }
+        else {
+            std::cout<<"\nnSv>1\n";
+            std::terminate();
+            if (sv_index+1>=nSv) return false;
+            givens=GivensRotForRot_left(V.cols(sv_index,sv_index+1).eval());
+            GivensDaggerInPlace(givens);
+        }
+
+        // arma::Mat<T> rot1=matrot_from_Givens(givens, k12.n_cols)/*.st()*/;
+        // K.cols(pos0)=K.cols(pos0).eval()*rot1;
+        // K.rows(pos0)=rot1.t()*K.rows(pos0).eval();
+        // rot.cols(pos0)=rot.cols(pos0)*rot1;
+
+        // 3. rotate K and cc
+        auto Kcol=K.cols(pos0).eval();
+        applyGivens(Kcol,givens);
+        K.cols(pos0)=Kcol;
+        {
+            arma::inplace_trans(K);
+            auto Kcol=K.cols(pos0).eval();
+            applyGivens(Kcol,givens);
+            K.cols(pos0)=Kcol;
+            arma::inplace_trans(K);
+        }
+        auto Rcol=rot.cols(pos0).eval();
+        applyGivens(Rcol,givens);
+        rot.cols(pos0)=Rcol;
+
+        // no need to update cc
+        // 4. move the nSv representative orbitals to the beginning of the Slater
+        for(auto i=0; i<1/*nSv*/; i++) {
+            SlaterWaveFunctionSwap (nActive,pos0.at(i));
+            K.swap_cols(nActive,pos0.at(i));
+            K.swap_rows(nActive,pos0.at(i));
+            rot.swap_cols(nActive,pos0.at(i));
+            cc.swap_cols(nActive,pos0.at(i));
+            cc.swap_rows(nActive,pos0.at(i));
+            nActive++;
+        }
+        return true;
+    }
+
     void extract_representative_final(arma::Mat<T>& K, int start, int end )
     {
         // 1. find the interval for the transformation
@@ -160,11 +222,11 @@ struct Fb_mps
     arma::Mat<T> rotateToNaturalOrbitals(int start)
     {
         auto cc1 = arma::Mat<T>( cc.submat(start,start,nActive-1, nActive-1).eval() );
-        auto givens=GivensRotForCC_right_inactive(cc1,tol);
+        auto givens=GivensRotForCC_right(cc1,natOrbDepth);
         if (!givens.empty()) {
             for(auto& g:givens) g.b+=start;
-            // auto gates=Fermionic::NOGates(sites,givens);
-            // itensor::gateTEvol(gates,1,1,psi,{"Cutoff",tol,"MaxDim",512,"Quiet",true, "Normalize",false,"ShowPercent",false});
+            auto gates=Fermionic::NOGates(sites,givens);
+            itensor::gateTEvol(gates,1,1,psi,{"Cutoff",tol,"MaxDim",512,"Quiet",true, "Normalize",false,"ShowPercent",false});
         }        
 
         auto rot1=matrot_from_Givens(givens,nActive);
@@ -172,13 +234,13 @@ struct Fb_mps
         cc.cols(0,nActive-1)=cc.cols(0,nActive-1).eval()*rot1.t();
         cc.rows(0,nActive-1)=rot1*cc.rows(0,nActive-1).eval();
         auto ni_bath = arma::vec( arma::real(cc.diag()).eval().rows(start,cc.n_rows-1).eval() );
-        int nActive_new= ni_bath.empty() ? start+1 : arma::find(ni_bath>tol && ni_bath<1-tol).eval().back()+1+start;
+        arma::uvec pos_active=arma::find(ni_bath>tol && ni_bath<1-tol).eval();
+        int nActive_new= pos_active.empty() ? start+1 : pos_active.back()+1+start;
         // for(int i=ni_bath.size()-1; i>=0; i--)
         //     //if (itensor::leftLinkIndex(psi,i+1).dim()>1) { nActive=i+1; break; }
         //     if (ni_bath[i]>tol && ni_bath[i]<1-tol) { nActive=i+1+start; break; }
 
-        std::cout<<"\ndelta nA "<<nActive_new-nActive<<"\n";
-        if (true && nActive_new<nActive) { // find compatible mps
+        if (false && nActive_new<nActive) { // find compatible mps
             auto init=itensor::InitState(sites,"0");
             for(int i=0; i<sites.length(); i++){
                 double ni = cmpx(cc(i,i)).real();
@@ -211,7 +273,7 @@ struct Fb_mps
         }
 
         nActive=nActive_new;
-        if (nActive<natOrbDepth) nActive+=2;
+        // if (nActive<natOrbDepth) nActive+=2;
         return rot1.st();
     }
 

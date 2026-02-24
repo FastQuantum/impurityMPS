@@ -33,11 +33,28 @@ struct Impurity_gs {
         // fb.print_bond_dims("after nat orb");
         std::cout<<" NatOrb "<<t0.sincemark().wall<<"\n";
 
-        for(auto i=0;i<10;i++) doDmrg(args);
+        // for(auto i=0;i<10;i++) doDmrg(args);
+    }
+
+    void iterate2(DmrgParam args={})
+    {
+        itensor::cpu_time t0;
+        for(int i=0; ; i+=1) {
+            bool r0=extract_representative2(i,0);
+            bool r1=extract_representative2(i,1);
+            if (!r0 && !r1) break;
+            doDmrg(args);
+            std::cout<<i<<" "<< itensor::maxLinkDim(fb.psi)<<" "<<fb.nActive<<" "<<t0.sincemark().wall; t0.mark();
+            rotateToNaturalOrbitals();
+            std::cout<<" "<<t0.sincemark().wall<<"\n"; std::cout.flush(); t0.mark();
+        }
     }
 
     /// extract representative orbital of the sites with ni=nRef where nRef can be 0 or 1
-    void extract_representative(int nRef){ fb.extract_representative(K,nRef); }
+    void extract_representative(int nRef){ fb.extract_representative(K,nRef,fb.nActive); }
+
+    /// extract representative orbital of the sites with ni=nRef where nRef can be 0 or 1
+    bool extract_representative2(int sv_index,int nRef){ return fb.extract_representative(sv_index,K,nRef,fb.nActive); }
 
     void doDmrg(DmrgParam args={})
     {

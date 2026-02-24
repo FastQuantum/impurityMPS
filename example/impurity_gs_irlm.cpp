@@ -32,11 +32,7 @@ int main()
     cout<<"iteration nActive energy time\n"<<setprecision(12);
     itensor::cpu_time t0;
     for(auto i=0;i<100;i++){
-        solver.extract_representative(0);
-        solver.extract_representative(1);
-        solver.doDmrg();
-        solver.rotateToNaturalOrbitals();
-        for (auto i=0;i<10;i++) solver.doDmrg();
+        solver.iterate2();
         cout<<i+1<<" "<<solver.fb.nActive<<" "<<solver.energy<<" "<<t0.sincemark().wall<<endl;
         t0.mark();
     }
