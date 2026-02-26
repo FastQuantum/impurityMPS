@@ -6,6 +6,7 @@ list(APPEND test_SRC
     impurity_gs_siam.cpp
     impurity_dyn_siam.cpp
     irlm_dyn.cpp
+    siam_star_gs.cpp
 )
 
 foreach (test ${test_SRC})

@@ -14,7 +14,7 @@ int main()
             K(i,i+2)=K(i+2,i)=0.5;
         K(0,0)=-U/2;
         K(1,1)=-U/2;
-        K(0,2)=K(2,0)=K(1,3)=K(3,1)=0.2;
+        K(0,2)=K(2,0)=K(1,3)=K(3,1)=0.5;
     }
     arma::mat Umat={{0,U},{0,0}};
     auto model = Impurity {{.Kmat=K, .Umat=Umat}};
