@@ -44,9 +44,9 @@ struct Impurity_gs {
             bool r1=extract_representative2(i,1);
             if (!r0 && !r1) break;
             doDmrg(args);
-            std::cout<<i<<" "<< itensor::maxLinkDim(fb.psi)<<" "<<fb.nActive<<" "<<t0.sincemark().wall; t0.mark();
+            // std::cout<<i<<" "<< itensor::maxLinkDim(fb.psi)<<" "<<fb.nActive<<" "<<t0.sincemark().wall; t0.mark();
             rotateToNaturalOrbitals();
-            std::cout<<" "<<t0.sincemark().wall<<"\n"; std::cout.flush(); t0.mark();
+            // std::cout<<" "<<t0.sincemark().wall<<"\n"; std::cout.flush(); t0.mark();
         }
     }
 
