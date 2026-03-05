@@ -226,7 +226,7 @@ struct Fb_mps
         if (!givens.empty()) {
             for(auto& g:givens) g.b+=start;
             auto gates=Fermionic::NOGates(sites,givens);
-            itensor::gateTEvol(gates,1,1,psi,{"Cutoff",tol,"MaxDim",512,"Quiet",true, "Normalize",false,"ShowPercent",false});
+            itensor::gateTEvol(gates,1,1,psi,{"Cutoff",tol/*,"MaxDim",512*/,"Quiet",true, "Normalize",false,"ShowPercent",false});
         }        
 
         auto rot1=matrot_from_Givens(givens,nActive);

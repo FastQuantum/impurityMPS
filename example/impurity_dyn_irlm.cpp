@@ -24,15 +24,15 @@ int main()
     ek[0]=-10;
     ek[1]=10;
     auto fb=Fb_mps<cmpx>::from_slater(model.param.rot*cmpx(1,0), ek, model.param.nPart(), model.param.nImp());
-    fb.tol=1e-12;
+    fb.tol=1e-10;
 
-    double dt=0.01;
+    double dt=0.1;
     auto solver=Impurity_dyn(model,fb,dt);
 
     cout<<"time nActive energy <n0> time\n"<<setprecision(12);
     itensor::cpu_time t0;
     for(auto i=0; i*dt<L; i++){
-        solver.iterate({.epsilonM=0});
+        solver.iterate(/*{.epsilonM=0}*/);
         double n0 = solver.fb.correlator(0,0).real();
         double cd=2*solver.fb.correlator(0,1).real();
         cout<<(i+1)*solver.dt<<" "<<solver.energy<<" "<<n0<<" "<<cd<<" "<<solver.fb.nActive<<endl;

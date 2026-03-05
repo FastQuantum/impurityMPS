@@ -46,7 +46,8 @@ int main()
     itensor::cpu_time t0;
     for(auto i=0;i<100;i++){
         double energy=itensor::dmrg(fb.psi,mpo,sweeps, {/*"MaxSite",fb.nActive,*/"Quiet", true, "Silent", true});
-        cout<<i+1<<" "<<maxLinkDim(fb.psi)<<" -1 "<<energy<<" "<<t0.sincemark().wall<<endl;
+        double n0=itensor::expect(fb.psi,fb.sites,"N",{1})[0];
+        cout<<i+1<<" "<<maxLinkDim(fb.psi)<<" "<<n0<<" "<<energy<<" "<<t0.sincemark().wall<<endl;
         t0.mark();
     }
     return 0;

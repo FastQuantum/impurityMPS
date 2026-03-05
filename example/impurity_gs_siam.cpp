@@ -33,7 +33,9 @@ int main()
     itensor::cpu_time t0;
     for(auto i=0;i<100;i++){
         solver.iterate2(/*{.max_bond_dim=128}*/);
-        cout<<i+1<<" "<<maxLinkDim(solver.fb.psi)<<" "<<solver.fb.nActive<<" "<<solver.energy<<" "<<t0.sincemark().wall<<endl;
+        double n0 = solver.fb.correlator(0,0);
+        double cd=2*solver.fb.correlator(0,1);
+        cout<<i+1<<" "<<maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<cd<<" "<<solver.fb.nActive<<" "<<solver.energy<<" "<<t0.sincemark().wall<<endl;
         t0.mark();
     }
     return 0;
