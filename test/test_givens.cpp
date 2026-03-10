@@ -216,6 +216,36 @@ TEST_CASE("set of Givens")
         }
     }
 
+    SECTION("diagonalize")
+    {
+        int len=8;
+        cx_mat x(len,len,fill::randn);
+        cx_mat A= (x.t()*x).eval();
+        vec eval;
+        cx_mat evec;
+        eig_sym(eval,evec,A);
+        SECTION("left stair") {
+            auto givens=GivensRotForRot_left(evec.head_cols(2).eval());
+            GivensDaggerInPlace(givens);
+
+            eval.as_row().eval().print("eval");
+            auto k1=A;
+            applyGivens(k1,givens);
+            applyGivens(GivensDagger(givens),k1);
+            k1.clean(1e-13).print("A after rot with Givens");
+        }
+        SECTION("right stair") {
+            auto givens=GivensRotForRot_right(evec.head_cols(3).eval());
+            GivensDaggerInPlace(givens);
+
+            eval.as_row().eval().print("eval");
+            auto k1=A;
+            applyGivens(k1,givens);
+            applyGivens(GivensDagger(givens),k1);
+            k1.clean(1e-13).print("A after rot with Givens");
+        }
+    }
+
     SECTION( "sparse" )
     {
         int L=10;

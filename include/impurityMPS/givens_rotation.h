@@ -252,7 +252,7 @@ arma::Mat<T> matrot_from_Givens(std::vector<GivensRot<T>> const& gates, size_t n
 }
 
 
-/// generate the corresponding Givens rotations: every column is one layer of gates
+/// generate the corresponding Givens rotations: every column is one (left-stair-like) layer of gates
 template<class T>
 static std::vector<GivensRot<T>> GivensRotForRot_left(arma::Mat<T> rot)
 {
@@ -263,6 +263,25 @@ static std::vector<GivensRot<T>> GivensRotForRot_left(arma::Mat<T> rot)
         for(int i=v.size()-2; i>=j; i--)
         {
             auto g=GivensRot<T>::createFromPair(i,v[i],v[i+1], false, &v[i]);
+            gs1.push_back(g);
+        }
+        applyGivens(gs1,rot);
+        for(auto g : gs1) givens.push_back(g);
+    }
+    return givens;
+}
+
+/// generate the corresponding Givens rotations: every column is one (right-stair-like) layer of gates
+template<class T>
+static std::vector<GivensRot<T>> GivensRotForRot_right(arma::Mat<T> rot)
+{
+    std::vector<GivensRot<T>> givens;
+    for(int j=0u; j<rot.n_cols; j++) {
+        arma::Col<T> v=rot.col(j);
+        std::vector<GivensRot<T>> gs1;
+        for(int i=0u; i+1+j<v.size(); i++)
+        {
+            auto g=GivensRot<T>::createFromPair(i,v[i],v[i+1], true, &v[i+1]);
             gs1.push_back(g);
         }
         applyGivens(gs1,rot);
