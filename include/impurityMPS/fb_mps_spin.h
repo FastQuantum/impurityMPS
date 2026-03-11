@@ -233,8 +233,26 @@ struct Fb_mps_spin
     /// @return the rotation Q applied: ci=Qij*dj (where ci are the old orbitals)
     arma::Mat<T> rotateToNaturalOrbitals(int start)
     {
-        auto cc1 = arma::Mat<T>( cc.submat(start,start,nActive-1, nActive-1).eval() );
-        auto givens=GivensRotForCC_right(cc1,natOrbDepth);
+        std::vector<GivensRot<T>> givens; //=GivensRotForCC_right(cc1,natOrbDepth);
+        {
+            auto cc1 = arma::Mat<T>( cc.submat(start,start,nActive-1, nActive-1).eval() );
+            arma::Mat<T> rotation(arma::size(cc1), arma::fill::zeros);
+            for(auto spin : {0,1}) { // find nat orb by block
+                int L_spin=cc1.n_rows/2;
+                arma::uvec pos0(L_spin);
+                for(auto i=0u; i<L_spin; i++) pos0[i]=2*i+spin;
+                auto cc2=cc1(pos0,pos0);
+                arma::vec eval;
+                arma::Mat<T> evec;
+                arma::eig_sym(eval,evec,cc2);
+                arma::vec activity=eval;
+                for(auto &x : activity) x=std::min(x,1-x);
+                arma::uvec iek=arma::sort_index(activity);
+                arma::Mat<T> rot=evec.cols(iek);
+                rotation(pos0,pos0)=rot;
+            }
+            givens=GivensRotForRot_right(rotation);
+        }
         if (!givens.empty()) {
             for(auto& g:givens) g.b+=start;
             auto gates=Fermionic::NOGates(sites,givens);
@@ -251,39 +269,6 @@ struct Fb_mps_spin
         // for(int i=ni_bath.size()-1; i>=0; i--)
         //     //if (itensor::leftLinkIndex(psi,i+1).dim()>1) { nActive=i+1; break; }
         //     if (ni_bath[i]>tol && ni_bath[i]<1-tol) { nActive=i+1+start; break; }
-
-        if (false && nActive_new<nActive) { // find compatible mps
-            auto init=itensor::InitState(sites,"0");
-            for(int i=0; i<sites.length(); i++){
-                double ni = cmpx(cc(i,i)).real();
-                int n=i+1;
-
-                if (ni>0.5) init.set(n,"1");
-                else if (ni==0.5) {
-                    if (i%2==0) init.set(n,"1");
-                }
-
-                psi=itensor::MPS(init);
-
-                // auto wf = itensor::ITensor(si);
-                // if (i==0){
-                //     wf.set(si(1)(1),si(2)(1), sqrt(1-ni));
-                //     wf.set(si(1)(2),si(2)(1), sqrt(ni));
-                // }
-                // else if (i==sites.length()-1)
-                // {
-                //     wf.set(si(1)(1),si(2)(1), sqrt(1-ni));
-                //     wf.set(si(1)(2),si(2)(1), sqrt(ni));
-                // }
-                // else
-                // {
-                //     wf.set(si(1)(1),si(2)(1),si(3)(1), sqrt(1-ni));
-                //     wf.set(si(1)(1),si(2)(2),si(3)(1), sqrt(ni));
-                // }
-                // psi.setA(n,wf);
-            }
-        }
-
         nActive=nActive_new;
         // if (nActive<natOrbDepth) nActive+=2;
         return rot1.st();
