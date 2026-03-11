@@ -222,7 +222,17 @@ struct Fb_mps
     arma::Mat<T> rotateToNaturalOrbitals(int start)
     {
         auto cc1 = arma::Mat<T>( cc.submat(start,start,nActive-1, nActive-1).eval() );
-        auto givens=GivensRotForCC_right(cc1,natOrbDepth);
+        std::vector<GivensRot<T>> givens;//=GivensRotForCC_right(cc1,natOrbDepth);
+        { // find the Givens
+            arma::vec eval;
+            arma::Mat<T> evec;
+            arma::eig_sym(eval,evec,cc1);
+            arma::vec activity=eval;
+            for(auto &x : activity) x=std::min(x,1-x);
+            arma::uvec iek=arma::sort_index(activity);
+            arma::Mat<T> rotation=evec.cols(iek);
+            givens=GivensRotForRot_right(rotation);
+        }
         if (!givens.empty()) {
             for(auto& g:givens) g.b+=start;
             auto gates=Fermionic::NOGates(sites,givens);
@@ -275,71 +285,7 @@ struct Fb_mps
         nActive=nActive_new;
         // if (nActive<natOrbDepth) nActive+=2;
         return rot1.st();
-    }
-
-    /// Diagonalize the `cc` submatrix in the interval [start,nActive).
-    /// Rotate `psi`, and update the `nActive`, accordingly.
-    /// @return the rotation Q applied: ci=Qij*dj (where ci are the old orbitals)
-    arma::Mat<T> rotateToNaturalOrbitals2(int start)
-    {
-        auto cc1 = arma::Mat<T>( cc.submat(start,start,nActive-1, nActive-1).eval() );
-        auto givens=GivensRotForCC_right(cc1,natOrbDepth);
-        { // find the Givens
-
-        }
-        if (!givens.empty()) {
-            for(auto& g:givens) g.b+=start;
-            auto gates=Fermionic::NOGates(sites,givens);
-            itensor::gateTEvol(gates,1,1,psi,{"Cutoff",tol/*,"MaxDim",512*/,"Quiet",true, "Normalize",false,"ShowPercent",false});
-        }
-
-        auto rot1=matrot_from_Givens(givens,nActive);
-        rot.cols(0,nActive-1)=rot.cols(0,nActive-1).eval()*rot1.st();
-        cc.cols(0,nActive-1)=cc.cols(0,nActive-1).eval()*rot1.t();
-        cc.rows(0,nActive-1)=rot1*cc.rows(0,nActive-1).eval();
-        auto ni_bath = arma::vec( arma::real(cc.diag()).eval().rows(start,cc.n_rows-1).eval() );
-        arma::uvec pos_active=arma::find(ni_bath>tol && ni_bath<1-tol).eval();
-        int nActive_new= pos_active.empty() ? start+1 : pos_active.back()+1+start;
-        // for(int i=ni_bath.size()-1; i>=0; i--)
-        //     //if (itensor::leftLinkIndex(psi,i+1).dim()>1) { nActive=i+1; break; }
-        //     if (ni_bath[i]>tol && ni_bath[i]<1-tol) { nActive=i+1+start; break; }
-
-        if (false && nActive_new<nActive) { // find compatible mps
-            auto init=itensor::InitState(sites,"0");
-            for(int i=0; i<sites.length(); i++){
-                double ni = cmpx(cc(i,i)).real();
-                int n=i+1;
-
-                if (ni>0.5) init.set(n,"1");
-                else if (ni==0.5) {
-                    if (i%2==0) init.set(n,"1");
-                }
-
-                psi=itensor::MPS(init);
-
-                // auto wf = itensor::ITensor(si);
-                // if (i==0){
-                //     wf.set(si(1)(1),si(2)(1), sqrt(1-ni));
-                //     wf.set(si(1)(2),si(2)(1), sqrt(ni));
-                // }
-                // else if (i==sites.length()-1)
-                // {
-                //     wf.set(si(1)(1),si(2)(1), sqrt(1-ni));
-                //     wf.set(si(1)(2),si(2)(1), sqrt(ni));
-                // }
-                // else
-                // {
-                //     wf.set(si(1)(1),si(2)(1),si(3)(1), sqrt(1-ni));
-                //     wf.set(si(1)(1),si(2)(2),si(3)(1), sqrt(ni));
-                // }
-                // psi.setA(n,wf);
-            }
-        }
-
-        nActive=nActive_new;
-        // if (nActive<natOrbDepth) nActive+=2;
-        return rot1.st();
-    }
+    }    
 
     /// Energy of the Slater part. K is the kinetic energy matrix
     double SlaterEnergy(arma::Mat<T> const& K) const
