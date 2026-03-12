@@ -40,6 +40,64 @@ std::pair<arma::cx_vec,arma::cx_mat> eig_unitary(const arma::Mat<T>& A)
     return {eval2,Q};
 }
 
+/// assuming horizontal rectangular matrix K, and even/odd for spin up/down
+template<class T>
+void svd_spin(arma::Mat<T> &U, arma::vec &s, arma::Mat<T>&V, arma::Mat<T> K)
+{
+    int L1=K.n_rows;
+    int L2=K.n_cols;
+    U=arma::Mat<cmpx>(L1,L1,arma::fill::zeros);
+    s=arma::vec(L1);
+    V=arma::Mat<cmpx>(L2,L2,arma::fill::zeros);
+    for(auto spin : {0,1}) {
+        arma::uvec pos1(L1/2);
+        for(auto i=0u; i<pos1.size(); i++) pos1[i]=2*i+spin;
+        arma::uvec pos2(L2/2);
+        for(auto i=0u; i<pos2.size(); i++) pos2[i]=2*i+spin;
+        auto k12=K.submat(pos1,pos2);
+        arma::vec s0;
+        arma::Mat<cmpx> U0, V0;
+        svd_econ(U0,s0,V0,k12);
+        U(pos1,pos1)=U0;
+        s.rows(pos1)=s0;
+        V(pos2,pos2)=V0;
+    }
+}
+
+/// assuming even/odd for spin up/down
+template<class T>
+void eig_sym_spin(arma::vec &eval, arma::Mat<T> &evec, arma::Mat<T> A)
+{
+    eval=arma::vec(A.n_rows);
+    evec=arma::Mat<T>(arma::size(A), arma::fill::zeros);
+    for(auto spin : {0,1}) {
+        int L_spin=A.n_rows/2;
+        arma::uvec pos0(L_spin);
+        for(auto i=0; i<L_spin; i++) pos0[i]=2*i+spin;
+        auto A0=A(pos0,pos0);
+        arma::vec eval0;
+        arma::Mat<T> evec0;
+        arma::eig_sym(eval0,evec0,A0);
+        eval(pos0)=eval0;
+        evec(pos0,pos0)=evec0;
+    }
+}
+
+arma::uvec sort_index_spin(arma::vec const& x)
+{
+    arma::uvec idx(x.size());
+    for(auto spin : {0,1}) {
+        int L_spin=x.size()/2;
+        arma::uvec pos0(L_spin);
+        for(auto i=0; i<L_spin; i++) pos0[i]=2*i+spin;
+        auto x0=x(pos0);
+        arma::uvec idx0=arma::sort_index(x0);
+        idx(pos0)=idx0;
+    }
+    return idx;
+}
+
+
 template<class T=double>
 struct GivensRot {
     using matrix22=typename arma::Mat<T>::template fixed<2,2>;
