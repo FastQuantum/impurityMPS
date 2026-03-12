@@ -178,14 +178,14 @@ struct Fb_mps
         // 2. find the Givens rotations
         auto k12=K.submat(0,p1,p1-1,p2);
         arma::vec s;
-        arma::Mat<cmpx> U, V;
+        arma::Mat<T> U, V;
         svd_econ(U,s,V,k12);
         int nSv=arma::find(s>tol*s[0]).eval().size();  // it should be nSv==nChannel
         auto givens=GivensRotForRot_left(V.head_cols(nSv).eval());
         GivensDaggerInPlace(givens);
 
         // 3. update K, rot and cc
-        arma::cx_mat rot1=matrot_from_Givens(givens, k12.n_cols)/*.st()*/;
+        arma::Mat<T> rot1=matrot_from_Givens(givens, k12.n_cols)/*.st()*/;
         K.cols(p1,p2)=K.cols(p1,p2).eval()*rot1;
         K.rows(p1,p2)=rot1.t()*K.rows(p1,p2).eval();
         rot.cols(p1,p2)=rot.cols(p1,p2)*rot1;
