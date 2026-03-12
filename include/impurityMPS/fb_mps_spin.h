@@ -7,7 +7,8 @@
 #include <armadillo>
 #include <itensor/all.h>
 
-/// This class stores a few body state.
+
+/// This class stores a few body state with spni up/down en even/odd positions.
 template<class T>
 struct Fb_mps_spin
 {
@@ -61,49 +62,48 @@ struct Fb_mps_spin
         // 1. find the orbitals with the occupation nref
         auto ni_bath=arma::vec( arma::real( cc.diag().eval().rows(nActive, cc.n_rows-1) ) );
         arma::vec delta_n_bath=arma::abs(ni_bath-nRef);
-        arma::uvec pos=arma::find(delta_n_bath<0.5).eval() ; // relative to the bath
-        if (pos.empty()) { std::cout<<"warning: no Slater?\n"; }
+        arma::uvec pos0=arma::find(delta_n_bath<0.5).eval()+nActive ;
+        if (pos0.empty()) { std::cout<<"warning: no Slater?\n"; /*return {};*/ }
 
-        for(auto spin : {0,1}) {
-            int L_spin=(pos.size())/2;
-            arma::uvec pos0(L_spin);
-            for(auto i=0u; i<L_spin; i++) pos0[i]=pos[2*i]+nActive;
+        // 2. find the Givens rotations for them
+        auto k12 = K.head_rows(nRows).eval().cols(pos0).eval();
+        arma::vec s;
+        arma::Mat<T> U, V;
+        svd_spin(U,s,V, k12);
+        int nSv=arma::find(s>tol*s[0]).eval().size();
+        auto givens=GivensRotForRot_left(V.head_cols(nSv).eval());
+        GivensDaggerInPlace(givens);
 
-            // 2. find the Givens rotations for them
-            auto k12 = K.head_rows(nRows).eval().cols(pos0).eval();
-            arma::vec s;
-            arma::Mat<T> U, V;
-            svd_econ(U,s,V, k12);
-            int nSv=arma::find(s>tol*s[0]).eval().size();
-            auto givens=GivensRotForRot_left(V.head_cols(nSv).eval());
-            GivensDaggerInPlace(givens);
+        // arma::Mat<T> rot1=matrot_from_Givens(givens, k12.n_cols)/*.st()*/;
+        // K.cols(pos0)=K.cols(pos0).eval()*rot1;
+        // K.rows(pos0)=rot1.t()*K.rows(pos0).eval();
+        // rot.cols(pos0)=rot.cols(pos0)*rot1;
 
-            // 3. rotate K and cc
+        // 3. rotate K and cc
+        auto Kcol=K.cols(pos0).eval();
+        applyGivens(Kcol,givens);
+        K.cols(pos0)=Kcol;
+        {
+            arma::inplace_trans(K);
             auto Kcol=K.cols(pos0).eval();
             applyGivens(Kcol,givens);
             K.cols(pos0)=Kcol;
-            {
-                arma::inplace_trans(K);
-                auto Kcol=K.cols(pos0).eval();
-                applyGivens(Kcol,givens);
-                K.cols(pos0)=Kcol;
-                arma::inplace_trans(K);
-            }
-            auto Rcol=rot.cols(pos0).eval();
-            applyGivens(Rcol,givens);
-            rot.cols(pos0)=Rcol;
+            arma::inplace_trans(K);
+        }
+        auto Rcol=rot.cols(pos0).eval();
+        applyGivens(Rcol,givens);
+        rot.cols(pos0)=Rcol;
 
-            // no need to update cc
-            // 4. move the nSv representative orbitals to the beginning of the Slater
-            for(auto i=0; i<nSv; i++) {
-                SlaterWaveFunctionSwap (nActive,pos0.at(i));
-                K.swap_cols(nActive,pos0.at(i));
-                K.swap_rows(nActive,pos0.at(i));
-                rot.swap_cols(nActive,pos0.at(i));
-                cc.swap_cols(nActive,pos0.at(i));
-                cc.swap_rows(nActive,pos0.at(i));
-                nActive++;
-            }
+        // no need to update cc
+        // 4. move the nSv representative orbitals to the beginning of the Slater
+        for(auto i=0; i<nSv; i++) {
+            SlaterWaveFunctionSwap (nActive,pos0.at(i));
+            K.swap_cols(nActive,pos0.at(i));
+            K.swap_rows(nActive,pos0.at(i));
+            rot.swap_cols(nActive,pos0.at(i));
+            cc.swap_cols(nActive,pos0.at(i));
+            cc.swap_rows(nActive,pos0.at(i));
+            nActive++;
         }
         //return givens; // TODO: wrong, we need to add swap gates
     }
@@ -120,7 +120,7 @@ struct Fb_mps_spin
         auto k12 = K.head_rows(nRows).eval().cols(pos0).eval();
         arma::vec s;
         arma::Mat<T> U, V;
-        svd_econ(U,s,V, k12);
+        svd_spin(U,s,V, k12);
         int nSv=arma::find(s>tol*s[0]).eval().size();
         std::vector<GivensRot<T>> givens;
         if (true || nSv==1) {
@@ -175,29 +175,18 @@ struct Fb_mps_spin
         // 1. find the interval for the transformation
         int p1=start;  // first position
         int p2=end-1;  // last position
-        int L=end-start;
 
         // 2. find the Givens rotations
         auto k12=K.submat(0,p1,p1-1,p2);
-        arma::vec s(L);
-        arma::Mat<cmpx> V(L,L,arma::fill::zeros);
-        for(auto spin : {0,1}) { // do svd by block
-            int L_spin=L/2;
-            arma::uvec pos0(L_spin);
-            for(auto i=0u; i<L_spin; i++) pos0[i]=2*i+spin;
-            auto k12_0=k12.submat(pos0,pos0);
-            arma::vec s0;
-            arma::Mat<cmpx> _U0, V0;
-            svd_econ(_U0,s0,V0,k12_0);
-            s.rows(pos0)=s0;
-            V(pos0,pos0)=V0;
-        }
+        arma::vec s;
+        arma::Mat<T> U,V;
+        svd_spin(U,s,V,k12);
         int nSv=arma::find(s>tol*s[0]).eval().size();  // it should be nSv==nChannel
         auto givens=GivensRotForRot_left(V.head_cols(nSv).eval());
         GivensDaggerInPlace(givens);
 
         // 3. update K, rot and cc
-        arma::cx_mat rot1=matrot_from_Givens(givens, k12.n_cols)/*.st()*/;
+        arma::Mat<T> rot1=matrot_from_Givens(givens, k12.n_cols)/*.st()*/;
         K.cols(p1,p2)=K.cols(p1,p2).eval()*rot1;
         K.rows(p1,p2)=rot1.t()*K.rows(p1,p2).eval();
         rot.cols(p1,p2)=rot.cols(p1,p2)*rot1;
@@ -233,24 +222,16 @@ struct Fb_mps_spin
     /// @return the rotation Q applied: ci=Qij*dj (where ci are the old orbitals)
     arma::Mat<T> rotateToNaturalOrbitals(int start)
     {
-        std::vector<GivensRot<T>> givens; //=GivensRotForCC_right(cc1,natOrbDepth);
-        {
-            auto cc1 = arma::Mat<T>( cc.submat(start,start,nActive-1, nActive-1).eval() );
-            arma::Mat<T> rotation(arma::size(cc1), arma::fill::zeros);
-            for(auto spin : {0,1}) { // find nat orb by block
-                int L_spin=cc1.n_rows/2;
-                arma::uvec pos0(L_spin);
-                for(auto i=0u; i<L_spin; i++) pos0[i]=2*i+spin;
-                auto cc2=cc1(pos0,pos0);
-                arma::vec eval;
-                arma::Mat<T> evec;
-                arma::eig_sym(eval,evec,cc2);
-                arma::vec activity=eval;
-                for(auto &x : activity) x=std::min(x,1-x);
-                arma::uvec iek=arma::sort_index(activity);
-                arma::Mat<T> rot=evec.cols(iek);
-                rotation(pos0,pos0)=rot;
-            }
+        auto cc1 = arma::Mat<T>( cc.submat(start,start,nActive-1, nActive-1).eval() );
+        std::vector<GivensRot<T>> givens;//=GivensRotForCC_right(cc1,natOrbDepth);
+        { // find the Givens
+            arma::vec eval;
+            arma::Mat<T> evec;
+            eig_sym_spin(eval,evec,cc1);
+            arma::vec activity=eval;
+            for(auto &x : activity) x=std::min(x,1-x);
+            arma::uvec iek=sort_index_spin(activity);
+            arma::Mat<T> rotation=evec.cols(iek);
             givens=GivensRotForRot_right(rotation);
         }
         if (!givens.empty()) {
