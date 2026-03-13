@@ -16,6 +16,7 @@ struct Fb_mps
     arma::Mat<T> rot;           ///< the actual rotation frame
     arma::SpMat<T> cc;          ///< the correlation matrix or one-particle density matrix
     int nActive;                ///< the number of active orbitals (the rest nActive...sites.length() is considered Slater)
+    bool spin=false;            ///< whether the sites can be splitted in even/odd for cc
     int natOrbDepth=-1;         ///< the depth of the circuit used to extract the natural orbitals (-1 means the to use an exact circuit)
     double tol=1e-10;           ///< the tolerance used for both applying the gates and defining active orbitals.
 
@@ -28,13 +29,13 @@ struct Fb_mps
      * @param nActive is the (for now artifitially imposed) number of active orbitals.
      *        the part that will not rotated later
      */
-    static Fb_mps<T> from_slater(arma::Mat<T> const& rot,arma::vec const& ek, int nPart, int nActive)
+    static Fb_mps<T> from_slater(arma::Mat<T> const& rot,arma::vec const& ek, int nPart, int nActive, bool spin)
     {
         Fb_mps<T> fb;
         fb.sites=itensor::Fermion(ek.size(), {"ConserveNf",true});
         fb.cc=arma::Mat<T>(ek.size(), ek.size(), arma::fill::zeros);
         auto state = itensor::InitState(fb.sites,"0");
-        arma::uvec iek=arma::sort_index(ek);
+        arma::uvec iek=my_sort_index(ek,spin);
         for(int j = 0; j < nPart; j++) {
             int k=iek[j];
             state.set(k+1,"1");
@@ -43,6 +44,7 @@ struct Fb_mps
         fb.psi=itensor::MPS(state);
         fb.rot=rot;
         fb.nActive=nActive;
+        fb.spin=spin;
         return fb;
     }
 
@@ -68,7 +70,7 @@ struct Fb_mps
         auto k12 = K.head_rows(nRows).eval().cols(pos0).eval();
         arma::vec s;
         arma::Mat<T> U, V;
-        svd_econ(U,s,V, k12);
+        my_svd(U,s,V, k12, spin);
         int nSv=arma::find(s>tol*s[0]).eval().size();
         auto givens=GivensRotForRot_left(V.head_cols(nSv).eval());
         GivensDaggerInPlace(givens);
@@ -119,7 +121,7 @@ struct Fb_mps
         auto k12 = K.head_rows(nRows).eval().cols(pos0).eval();
         arma::vec s;
         arma::Mat<T> U, V;
-        svd_econ(U,s,V, k12);
+        my_svd(U,s,V, k12,spin);
         int nSv=arma::find(s>tol*s[0]).eval().size();
         std::vector<GivensRot<T>> givens;
         if (true || nSv==1) {
@@ -176,10 +178,10 @@ struct Fb_mps
         int p2=end-1;  // last position
 
         // 2. find the Givens rotations
-        auto k12=K.submat(0,p1,p1-1,p2);
+        arma::Mat<T> k12=K.submat(0,p1,p1-1,p2);
         arma::vec s;
         arma::Mat<T> U, V;
-        svd_econ(U,s,V,k12);
+        my_svd(U,s,V,k12,spin);
         int nSv=arma::find(s>tol*s[0]).eval().size();  // it should be nSv==nChannel
         auto givens=GivensRotForRot_left(V.head_cols(nSv).eval());
         GivensDaggerInPlace(givens);
@@ -226,10 +228,10 @@ struct Fb_mps
         { // find the Givens
             arma::vec eval;
             arma::Mat<T> evec;
-            arma::eig_sym(eval,evec,cc1);
+            my_eig_sym(eval,evec,cc1,spin);
             arma::vec activity=eval;
             for(auto &x : activity) x=std::min(x,1-x);
-            arma::uvec iek=arma::sort_index(activity);
+            arma::uvec iek=my_sort_index(activity,spin);
             arma::Mat<T> rotation=evec.cols(iek);
             givens=GivensRotForRot_right(rotation);
         }
@@ -246,44 +248,7 @@ struct Fb_mps
         auto ni_bath = arma::vec( arma::real(cc.diag()).eval().rows(start,cc.n_rows-1).eval() );
         arma::uvec pos_active=arma::find(ni_bath>tol && ni_bath<1-tol).eval();
         int nActive_new= pos_active.empty() ? start+1 : pos_active.back()+1+start;
-        // for(int i=ni_bath.size()-1; i>=0; i--)
-        //     //if (itensor::leftLinkIndex(psi,i+1).dim()>1) { nActive=i+1; break; }
-        //     if (ni_bath[i]>tol && ni_bath[i]<1-tol) { nActive=i+1+start; break; }
-
-        if (false && nActive_new<nActive) { // find compatible mps
-            auto init=itensor::InitState(sites,"0");
-            for(int i=0; i<sites.length(); i++){
-                double ni = cmpx(cc(i,i)).real();
-                int n=i+1;
-
-                if (ni>0.5) init.set(n,"1");
-                else if (ni==0.5) {
-                    if (i%2==0) init.set(n,"1");
-                }
-
-                psi=itensor::MPS(init);
-
-                // auto wf = itensor::ITensor(si);
-                // if (i==0){
-                //     wf.set(si(1)(1),si(2)(1), sqrt(1-ni));
-                //     wf.set(si(1)(2),si(2)(1), sqrt(ni));
-                // }
-                // else if (i==sites.length()-1)
-                // {
-                //     wf.set(si(1)(1),si(2)(1), sqrt(1-ni));
-                //     wf.set(si(1)(2),si(2)(1), sqrt(ni));
-                // }
-                // else
-                // {
-                //     wf.set(si(1)(1),si(2)(1),si(3)(1), sqrt(1-ni));
-                //     wf.set(si(1)(1),si(2)(2),si(3)(1), sqrt(ni));
-                // }
-                // psi.setA(n,wf);
-            }
-        }
-
         nActive=nActive_new;
-        // if (nActive<natOrbDepth) nActive+=2;
         return rot1.st();
     }    
 

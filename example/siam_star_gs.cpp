@@ -8,6 +8,7 @@ int main()
 {
     int L=1000;
     double U=2.0;
+    bool spin=false;
     arma::mat K(L,L, arma::fill::zeros);
     {
         for(auto i=0; i<L-2; i++)
@@ -23,7 +24,7 @@ int main()
     // optional: force impurity ocupation |10>
     ek[0]=-10;
     ek[1]=10;
-    auto fb=Fb_mps<double>::from_slater(model.param.rot, ek, model.param.nPart(), model.param.nImp());
+    auto fb=Fb_mps<double>::from_slater(model.param.rot, ek, model.param.nPart(), model.param.nImp(), spin);
     // fb.natOrbDepth=10;
     itensor::AutoMPO h(fb.sites);
     for(auto i=0; i<model.param.nImp(); i++)
@@ -47,7 +48,7 @@ int main()
     for(auto i=0;i<100;i++){
         double energy=itensor::dmrg(fb.psi,mpo,sweeps, {/*"MaxSite",fb.nActive,*/"Quiet", true, "Silent", true});
         double n0=itensor::expect(fb.psi,fb.sites,"N",{1})[0];
-        cout<<i+1<<" "<<maxLinkDim(fb.psi)<<" "<<n0<<" "<<energy<<" "<<t0.sincemark().wall<<endl;
+        cout<<i+1<<" "<<itensor::maxLinkDim(fb.psi)<<" "<<n0<<" "<<energy<<" "<<t0.sincemark().wall<<endl;
         t0.mark();
     }
     return 0;

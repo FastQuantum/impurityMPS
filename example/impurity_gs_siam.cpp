@@ -8,6 +8,7 @@ int main()
 {
     int L=1000;
     double U=2.0;
+    bool spin=true;
     arma::mat K(L,L, arma::fill::zeros);
     {
         for(auto i=0; i<L-2; i++)
@@ -23,7 +24,7 @@ int main()
     // optional: force impurity ocupation |10>
     ek[0]=-10;
     ek[1]=10;
-    auto fb=Fb_mps<double>::from_slater(model.param.rot, ek, model.param.nPart(), model.param.nImp());
+    auto fb=Fb_mps<double>::from_slater(model.param.rot, ek, model.param.nPart(), model.param.nImp(), spin);
     // fb.natOrbDepth=10;
     fb.tol=1e-10;
 
@@ -35,7 +36,7 @@ int main()
         solver.iterate2(/*{.max_bond_dim=128}*/);
         double n0 = solver.fb.correlator(0,0);
         double cd=2*solver.fb.correlator(0,1);
-        cout<<i+1<<" "<<maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<cd<<" "<<solver.fb.nActive<<" "<<solver.energy<<" "<<t0.sincemark().wall<<endl;
+        cout<<i+1<<" "<<itensor::maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<cd<<" "<<solver.fb.nActive<<" "<<solver.energy<<" "<<t0.sincemark().wall<<endl;
         t0.mark();
     }
     return 0;

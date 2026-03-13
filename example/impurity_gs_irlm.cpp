@@ -8,6 +8,7 @@ int main()
 {
     int L=1000;
     double U=0.5;
+    bool spin=false;
     arma::mat K(L,L, arma::fill::zeros);
     {
         for(auto i=1; i<L-1; i++)
@@ -23,7 +24,7 @@ int main()
     // optional: force impurity ocupation |10>
     ek[0]=-10;
     ek[1]=10;
-    auto fb=Fb_mps<double>::from_slater(model.param.rot, ek, model.param.nPart(), model.param.nImp());
+    auto fb=Fb_mps<double>::from_slater(model.param.rot, ek, model.param.nPart(), model.param.nImp(),spin);
     fb.natOrbDepth=10;
     fb.tol=1e-10;
 

@@ -9,6 +9,7 @@ int main()
     int L=1000;
     double U=0.2;
     double V=0.1;
+    bool spin=false;
     arma::mat K(L,L, arma::fill::zeros);
     {
         for(auto i=0; i<L-2; i++)
@@ -35,7 +36,7 @@ int main()
         // force impurity ocupation |1100>
         ek[0]=ek[1]=-10;
         ek[2]=ek[3]=10;
-        fb=Fb_mps<cmpx>::from_slater(model.param.rot*cmpx(1,0), ek, model.param.nPart(), model.param.nImp());
+        fb=Fb_mps<cmpx>::from_slater(model.param.rot*cmpx(1,0), ek, model.param.nPart(), model.param.nImp(),spin);
     }
 
     arma::mat Umat(4,4,arma::fill::zeros);
