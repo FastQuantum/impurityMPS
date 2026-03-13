@@ -10,6 +10,56 @@ TEST_CASE("arma") {
     //A.print("A=");
 }
 
+TEST_CASE( "spin" )
+{
+    int L=8;
+    arma::mat K(L,L, arma::fill::zeros);
+    {
+        for(auto i=0; i<L-2; i++)
+            K(i,i+2)=K(i+2,i)=0.5;
+        K(0,0)=-1;
+        K(1,1)=-1;
+        K(0,2)=K(2,0)=K(1,3)=K(3,1)=0.5;
+    }
+    SECTION( "diagonalize" )
+    {
+        arma::vec evalk;
+        arma::mat eveck;
+        my_eig_sym(evalk,eveck,K,false);
+
+        arma::vec evals;
+        arma::mat evecs;
+        my_eig_sym(evals,evecs,K,true);
+
+        evalk.as_row().eval().print("evalk");
+        evals.as_row().eval().print("evals");
+
+        eveck.clean(1e-10).print("eveck");
+        evecs.clean(1e-10).print("evecs");
+
+        arma::uvec iek=my_sort_index(arma::abs(evals), true);
+        evals(iek).as_row().eval().print("evals sorted");
+    }
+
+    SECTION( "svd" )
+    {
+        auto k12=K.head_rows(2).eval().tail_cols(L-2).eval();
+
+        arma::mat Uk,Vk;
+        arma::vec sk;
+        my_svd(Uk,sk,Vk,k12,false);
+
+        arma::mat Us,Vs;
+        arma::vec ss;
+        my_svd(Us,ss,Vs,k12,true);
+
+        sk.as_row().eval().print("singular v k");
+        ss.as_row().eval().print("singular v s");
+
+        Vk.clean(1e-10).print("Vk");
+        Vs.clean(1e-10).print("Vs");
+    }
+}
 
 TEST_CASE( "GivensRotation real" )
 {
