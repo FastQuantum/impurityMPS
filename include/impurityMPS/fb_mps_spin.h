@@ -8,7 +8,7 @@
 #include <itensor/all.h>
 
 
-/// This class stores a few body state with spni up/down en even/odd positions.
+/// This class stores a few body state with spin up/down on the left/right of the active orbitals.
 template<class T>
 struct Fb_mps_spin
 {
@@ -19,12 +19,12 @@ struct Fb_mps_spin
     int nActive;                ///< the number of active orbitals (the rest nActive...sites.length() is considered Slater)
     int natOrbDepth=-1;         ///< the depth of the circuit used to extract the natural orbitals (-1 means the to use an exact circuit)
     double tol=1e-10;           ///< the tolerance used for both applying the gates and defining active orbitals.
-
+    int p1, p2;                 ///< the active orbitals are in [p1,p2)
 
     /**
      * @brief Construct a Fb_mps as a Slater state.
      * @param rot is the rotation to get the ek
-     * @param ek is the energy of every site,
+     * @param ek is the energy of every site, should be like: |spin_up|--|impurity|---|spin_dw|
      * @param nPart is the number of particles,
      * @param nActive is the (for now artifitially imposed) number of active orbitals.
      *        the part that will not rotated later
@@ -44,11 +44,43 @@ struct Fb_mps_spin
         fb.psi=itensor::MPS(state);
         fb.rot=rot;
         fb.nActive=nActive;
+        fb.p1=(fb.length()-fb.nActive)/2;
+        fb.p2=(fb.length()+fb.nActive)/2;
         return fb;
+    }
+
+    int length() const { return sites.length(); }
+
+    /// return interval [a,b) of the slater part
+    std::array<int,2> interval_slater(bool is_up) const
+    {
+        int a = is_up ? 0 : p2;
+        int b = is_up ? p1 : length();
+        return {a,b};
+    }
+
+    /// return interval [a,b) of the active part
+    std::array<int,2> interval_active_full() const { return {p1,p2}; }
+
+    /// return interval [a,b) of the active part
+    std::array<int,2> interval_active(bool is_up) const
+    {
+        int a = is_up ? p1 : length()/2-1;
+        int b = is_up ? length()/2 : p2;
+        return {a,b};
+    }
+
+    /// return interval [a,b) of the impurity part, given its size
+    std::array<int,2> interval_impurity(bool is_up, int imp_size) const
+    {
+        int a = is_up ? (length()-imp_size)/2 : length()/2-1;
+        int b = is_up ? length()/2 : (length()+imp_size)/2;
+        return {a,b};
     }
 
     /// convert to complex values. There is an specialization for `double` below.
     Fb_mps_spin<cmpx> to_complex() const { return *this; }
+
 
     /// extract representative orbitals of the sites with ni=nRef where nRef can be 0 or 1.
     /// Return the Givens rotations used.
@@ -56,54 +88,55 @@ struct Fb_mps_spin
 
     /// extract representative orbitals of the sites with ni=nRef where nRef can be 0 or 1,
     /// @param start is the first site to consider
-    /// Return the Givens rotations used.
-    void extract_representative(arma::Mat<T>& K, int nRef, int nRows)
+    /// @param nSites is the number of central sites = the size of the impurity
+    void extract_representative(arma::Mat<T>& K, int nRef, int nSites)
     {
-        // 1. find the orbitals with the occupation nref
-        auto ni_bath=arma::vec( arma::real( cc.diag().eval().rows(nActive, cc.n_rows-1) ) );
-        arma::vec delta_n_bath=arma::abs(ni_bath-nRef);
-        arma::uvec pos0=arma::find(delta_n_bath<0.5).eval()+nActive ;
-        if (pos0.empty()) { std::cout<<"warning: no Slater?\n"; /*return {};*/ }
+        for(auto spin : {0,1}) {
 
-        // 2. find the Givens rotations for them
-        auto k12 = K.head_rows(nRows).eval().cols(pos0).eval();
-        arma::vec s;
-        arma::Mat<T> U, V;
-        svd_spin(U,s,V, k12);
-        int nSv=arma::find(s>tol*s[0]).eval().size();
-        auto givens=GivensRotForRot_left(V.head_cols(nSv).eval());
-        GivensDaggerInPlace(givens);
+            // 1. find the orbitals with the occupation nref
+            arma::uvec pos0; {
+                auto [a,b]=interval_slater(spin);
+                auto ni_bath=arma::vec( arma::real( cc.diag().eval().rows(a,b-1) ) );
+                arma::vec delta_n_bath=arma::abs(ni_bath-nRef);
+                arma::uvec pos0=arma::find(delta_n_bath<0.5).eval()+a ;
+                if (pos0.empty()) { std::cout<<"warning: no Slater?\n"; return; }
+            }
 
-        // arma::Mat<T> rot1=matrot_from_Givens(givens, k12.n_cols)/*.st()*/;
-        // K.cols(pos0)=K.cols(pos0).eval()*rot1;
-        // K.rows(pos0)=rot1.t()*K.rows(pos0).eval();
-        // rot.cols(pos0)=rot.cols(pos0)*rot1;
+            // 2. find the Givens rotations
+            int nSv; // number of singular values
+            arma::Mat<T> rot1; // rotation of the slater
+            {
+                auto [a,b]=interval_impurity(spin,nSites);
+                auto k12 = K.rows(a,b-1).eval().cols(pos0).eval();
+                arma::vec s;
+                arma::Mat<T> U, V;
+                svd_spin(U,s,V, k12);
+                nSv=arma::find(s>tol*s[0]).eval().size();
+                arma::Mat<T> V_slater=V.head_cols(nSv).eval();
+                auto givens=GivensRotForRot_left(V_slater);         // TODO <-------------
+                GivensDaggerInPlace(givens);
+                rot1=matrot_from_Givens(givens, k12.n_cols)/*.st()*/;
+            }
 
-        // 3. rotate K and cc
-        auto Kcol=K.cols(pos0).eval();
-        applyGivens(Kcol,givens);
-        K.cols(pos0)=Kcol;
-        {
-            arma::inplace_trans(K);
-            auto Kcol=K.cols(pos0).eval();
-            applyGivens(Kcol,givens);
-            K.cols(pos0)=Kcol;
-            arma::inplace_trans(K);
-        }
-        auto Rcol=rot.cols(pos0).eval();
-        applyGivens(Rcol,givens);
-        rot.cols(pos0)=Rcol;
+            // 3. update K, rot and cc
+            K.cols(pos0)=K.cols(pos0).eval()*rot1;
+            K.rows(pos0)=rot1.t()*K.rows(pos0).eval();
+            rot.cols(pos0)=rot.cols(pos0)*rot1;
+            // no need to update cc
 
-        // no need to update cc
-        // 4. move the nSv representative orbitals to the beginning of the Slater
-        for(auto i=0; i<nSv; i++) {
-            SlaterWaveFunctionSwap (nActive,pos0.at(i));
-            K.swap_cols(nActive,pos0.at(i));
-            K.swap_rows(nActive,pos0.at(i));
-            rot.swap_cols(nActive,pos0.at(i));
-            cc.swap_cols(nActive,pos0.at(i));
-            cc.swap_rows(nActive,pos0.at(i));
-            nActive++;
+            // 4. move the nSv representative orbitals to the closest-to-impurity site of the Slater
+            for(auto i=0; i<nSv; i++) {
+                auto [a,b]=interval_active_full();
+                int p1 = spin ? b : a-1;
+                int p2 = spin ? pos0[i] : pos0[pos0.size()-1-i]; //notice the reflection
+                SlaterWaveFunctionSwap (p1,p2);
+                K.swap_cols(p1,p2);
+                K.swap_rows(p1,p2);
+                rot.swap_cols(p1,p2);
+                cc.swap_cols(p1,p2);
+                cc.swap_rows(p1,p2);
+                nActive++;
+            }
         }
         //return givens; // TODO: wrong, we need to add swap gates
     }
@@ -321,9 +354,11 @@ private:
     void SlaterWaveFunctionSwap(int i,int j)
     {
         if (i==j) return;
-        if (i<nActive || j<nActive) throw std::runtime_error("SlaterSwap for active orbitals");
+        auto [a,b]=interval_active_full();
+        if (i>=a && i<b) throw std::invalid_argument("SlaterSwap for active orbital i");
+        if (j>=a && j<b) throw std::invalid_argument("SlaterSwap for active orbital j");
         T ni=cc(i,i), nj=cc(j,j);
-        if (std::abs(ni-nj)<0.5) throw std::runtime_error("SlaterSwap for equal occupations");
+        if (std::abs(ni-nj)<0.5) throw std::invalid_argument("SlaterSwap for equal occupations");
 
         auto flip=[&](int p) {
             T np=cc(p,p);
