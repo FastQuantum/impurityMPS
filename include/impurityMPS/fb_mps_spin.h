@@ -26,8 +26,7 @@ struct Fb_mps_spin
      * @param rot is the rotation to get the ek
      * @param ek is the energy of every site, should be like: |spin_up|--|impurity|---|spin_dw|
      * @param nPart is the number of particles,
-     * @param nActive is the (for now artifitially imposed) number of active orbitals.
-     *        the part that will not rotated later
+     * @param nActive is the size of the central sites that will not be rotated later
      */
     static Fb_mps_spin<T> from_slater(arma::Mat<T> const& rot,arma::vec const& ek, int nPart, int nActive)
     {
@@ -53,9 +52,8 @@ struct Fb_mps_spin
     /// return interval [a,b) of the slater part
     std::array<int,2> interval_slater(bool is_up) const
     {
-        int a = is_up ? 0 : p2;
-        int b = is_up ? p1 : length();
-        return {a,b};
+        if (is_up) return {0,p1};
+        else       return {p2,length()};
     }
 
     /// return interval [a,b) of the active part
@@ -64,31 +62,28 @@ struct Fb_mps_spin
     /// return interval [a,b) of the active part
     std::array<int,2> interval_active(bool is_up) const
     {
-        int a = is_up ? p1 : length()/2;
-        int b = is_up ? length()/2 : p2;
-        return {a,b};
+        if (is_up) return {p1,length()/2};
+        else       return {length()/2,p2};
     }
 
     /// return interval [a,b) of the impurity part, given its size
     std::array<int,2> interval_impurity(bool is_up, int imp_size) const
     {
-        int a = is_up ? (length()-imp_size)/2 : length()/2;
-        int b = is_up ? length()/2 : (length()+imp_size)/2;
-        return {a,b};
+        if (is_up) return {(length()-imp_size)/2, length()/2};
+        else       return {length()/2, (length()+imp_size)/2};
     }
 
     /// convert to complex values. There is an specialization for `double` below.
     Fb_mps_spin<cmpx> to_complex() const { return *this; }
 
 
-    /// extract representative orbitals of the sites with ni=nRef where nRef can be 0 or 1.
-    /// Return the Givens rotations used.
-    void extract_representative(arma::Mat<T>& K, int nRef) { extract_representative(K,nRef,p2-p1); }
+    // void extract_representative(arma::Mat<T>& K, int nRef) { extract_representative(K,nRef,p2-p1); }
 
     /// extract representative orbitals of the sites with ni=nRef where nRef can be 0 or 1,
-    /// @param start is the first site to consider
-    /// @param nSites is the number of central sites = the size of the impurity
-    void extract_representative(arma::Mat<T>& K, int p_ini, int p_fin, int nRef, int nSites)
+    /// @param K is the matrix to extract the subspace
+    /// @param imp_size is the number of central sites to take, i.e, the size of the impurity.
+    /// -1 means to take the active space instead
+    void extract_representative(arma::Mat<T>& K, int nRef, int imp_size=-1)
     {
         for(auto spin : {0,1}) {
 
@@ -105,7 +100,9 @@ struct Fb_mps_spin
             int nSv; // number of singular values
             arma::Mat<T> rot1; // rotation of the slater
             {
-                auto [a,b]=interval_impurity(spin,nSites);
+                auto [a,b]=imp_size==-1 ?
+                            interval_active(spin) :
+                            interval_impurity(spin,imp_size);
                 auto k12 = K.rows(a,b-1).eval().cols(pos0).eval();
                 arma::vec s;
                 arma::Mat<T> U, V;
@@ -140,13 +137,14 @@ struct Fb_mps_spin
         } // for spin
     }
 
+    /*
     bool extract_representative(int sv_index,arma::Mat<T>& K, int nRef, int nRows)
     {
         // 1. find the orbitals with the occupation nref
         auto ni_bath=arma::vec( arma::real( cc.diag().eval().rows(nActive, cc.n_rows-1) ) );
         arma::vec delta_n_bath=arma::abs(ni_bath-nRef);
         arma::uvec pos0=arma::find(delta_n_bath<0.5).eval()+nActive ;
-        if (pos0.empty()) { std::cout<<"warning: no Slater?\n"; /*return {};*/ }
+        if (pos0.empty()) { std::cout<<"warning: no Slater?\n"; return false; }
 
         // 2. find the Givens rotations for them
         auto k12 = K.head_rows(nRows).eval().cols(pos0).eval();
@@ -168,7 +166,7 @@ struct Fb_mps_spin
             GivensDaggerInPlace(givens);
         }
 
-        // arma::Mat<T> rot1=matrot_from_Givens(givens, k12.n_cols)/*.st()*/;
+        // arma::Mat<T> rot1=matrot_from_Givens(givens, k12.n_cols);
         // K.cols(pos0)=K.cols(pos0).eval()*rot1;
         // K.rows(pos0)=rot1.t()*K.rows(pos0).eval();
         // rot.cols(pos0)=rot.cols(pos0)*rot1;
@@ -190,7 +188,7 @@ struct Fb_mps_spin
 
         // no need to update cc
         // 4. move the nSv representative orbitals to the beginning of the Slater
-        for(auto i=0; i<1/*nSv*/; i++) {
+        for(auto i=0; i<1; i++) {
             SlaterWaveFunctionSwap (nActive,pos0.at(i));
             K.swap_cols(nActive,pos0.at(i));
             K.swap_rows(nActive,pos0.at(i));
@@ -201,6 +199,7 @@ struct Fb_mps_spin
         }
         return true;
     }
+    */
 
     void extract_representative_final(arma::Mat<T>& K, int start, int end )
     {
