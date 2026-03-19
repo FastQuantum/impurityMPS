@@ -16,7 +16,7 @@ struct Fb_mps_spin
     itensor::MPS psi;           ///< the mps state
     arma::Mat<T> rot;           ///< the actual rotation frame
     arma::SpMat<T> cc;          ///< the correlation matrix or one-particle density matrix
-    int nActive;                ///< the number of active orbitals (the rest nActive...sites.length() is considered Slater)
+    // int nActive;                ///< the number of active orbitals (the rest nActive...sites.length() is considered Slater)
     int natOrbDepth=-1;         ///< the depth of the circuit used to extract the natural orbitals (-1 means the to use an exact circuit)
     double tol=1e-10;           ///< the tolerance used for both applying the gates and defining active orbitals.
     int p1, p2;                 ///< the active orbitals are in [p1,p2)
@@ -43,9 +43,8 @@ struct Fb_mps_spin
         }
         fb.psi=itensor::MPS(state);
         fb.rot=rot;
-        fb.nActive=nActive;
-        fb.p1=(fb.length()-fb.nActive)/2;
-        fb.p2=(fb.length()+fb.nActive)/2;
+        fb.p1=(fb.length()-nActive)/2;
+        fb.p2=(fb.length()+nActive)/2;
         return fb;
     }
 
@@ -65,7 +64,7 @@ struct Fb_mps_spin
     /// return interval [a,b) of the active part
     std::array<int,2> interval_active(bool is_up) const
     {
-        int a = is_up ? p1 : length()/2-1;
+        int a = is_up ? p1 : length()/2;
         int b = is_up ? length()/2 : p2;
         return {a,b};
     }
@@ -73,7 +72,7 @@ struct Fb_mps_spin
     /// return interval [a,b) of the impurity part, given its size
     std::array<int,2> interval_impurity(bool is_up, int imp_size) const
     {
-        int a = is_up ? (length()-imp_size)/2 : length()/2-1;
+        int a = is_up ? (length()-imp_size)/2 : length()/2;
         int b = is_up ? length()/2 : (length()+imp_size)/2;
         return {a,b};
     }
@@ -84,12 +83,12 @@ struct Fb_mps_spin
 
     /// extract representative orbitals of the sites with ni=nRef where nRef can be 0 or 1.
     /// Return the Givens rotations used.
-    void extract_representative(arma::Mat<T>& K, int nRef) { extract_representative(K,nRef,nActive); }
+    void extract_representative(arma::Mat<T>& K, int nRef) { extract_representative(K,nRef,p2-p1); }
 
     /// extract representative orbitals of the sites with ni=nRef where nRef can be 0 or 1,
     /// @param start is the first site to consider
     /// @param nSites is the number of central sites = the size of the impurity
-    void extract_representative(arma::Mat<T>& K, int nRef, int nSites)
+    void extract_representative(arma::Mat<T>& K, int p_ini, int p_fin, int nRef, int nSites)
     {
         for(auto spin : {0,1}) {
 
@@ -110,7 +109,7 @@ struct Fb_mps_spin
                 auto k12 = K.rows(a,b-1).eval().cols(pos0).eval();
                 arma::vec s;
                 arma::Mat<T> U, V;
-                svd_spin(U,s,V, k12);
+                svd_econ(U,s,V, k12);
                 nSv=arma::find(s>tol*s[0]).eval().size();
                 arma::Mat<T> V_slater=V.head_cols(nSv).eval();
                 auto givens=GivensRotForRot_left(V_slater);         // TODO <-------------
@@ -128,17 +127,17 @@ struct Fb_mps_spin
             for(auto i=0; i<nSv; i++) {
                 auto [a,b]=interval_active_full();
                 int p1 = spin ? b : a-1;
-                int p2 = spin ? pos0[i] : pos0[pos0.size()-1-i]; //notice the reflection
+                int p2 = spin ? pos0[i] : pos0[pos0.size()-1-i]; //notice the reflection,check convention <------------- TODO
                 SlaterWaveFunctionSwap (p1,p2);
                 K.swap_cols(p1,p2);
                 K.swap_rows(p1,p2);
                 rot.swap_cols(p1,p2);
                 cc.swap_cols(p1,p2);
                 cc.swap_rows(p1,p2);
-                nActive++;
+                if (spin) p2++; else p1--;
             }
-        }
-        //return givens; // TODO: wrong, we need to add swap gates
+
+        } // for spin
     }
 
     bool extract_representative(int sv_index,arma::Mat<T>& K, int nRef, int nRows)
@@ -253,39 +252,48 @@ struct Fb_mps_spin
     /// Diagonalize the `cc` submatrix in the interval [start,nActive).
     /// Rotate `psi`, and update the `nActive`, accordingly.
     /// @return the rotation Q applied: ci=Qij*dj (where ci are the old orbitals)
-    arma::Mat<T> rotateToNaturalOrbitals(int start)
+    arma::Mat<T> rotateToNaturalOrbitals()
     {
-        auto cc1 = arma::Mat<T>( cc.submat(start,start,nActive-1, nActive-1).eval() );
-        std::vector<GivensRot<T>> givens;//=GivensRotForCC_right(cc1,natOrbDepth);
-        { // find the Givens
-            arma::vec eval;
-            arma::Mat<T> evec;
-            eig_sym_spin(eval,evec,cc1);
-            arma::vec activity=eval;
-            for(auto &x : activity) x=std::min(x,1-x);
-            arma::uvec iek=sort_index_spin(activity);
-            arma::Mat<T> rotation=evec.cols(iek);
-            givens=GivensRotForRot_right(rotation);
-        }
-        if (!givens.empty()) {
-            for(auto& g:givens) g.b+=start;
+        arma::Mat<T> rot_update(length(), length(), arma::fill::eye);
+        for(auto spin:{0,1}) {
+            auto [a,b]=interval_active(spin);
+            auto cc1 = arma::Mat<T>( cc.submat(a,a,b-1, b-1).eval() );
+
+            // 1. find the Givens that diagonalize cc
+            std::vector<GivensRot<T>> givens;//=GivensRotForCC_right(cc1,natOrbDepth);
+            {
+                arma::vec eval;
+                arma::Mat<T> evec;
+                eig_sym(eval,evec,cc1);
+                arma::vec activity=eval;
+                for(auto &x : activity) x=std::min(x,1-x);
+                arma::uvec iek=arma::stable_sort_index(activity);
+                arma::Mat<T> rotation=evec.cols(iek);
+                givens=GivensRotForRot_right(rotation);  // TODO <----------------------------------
+            }
+            if (givens.empty()) continue;
+
+            // 2. apply the corresponding quantum gates
+            if (spin) for(auto& g:givens) g.b+=b;
             auto gates=Fermionic::NOGates(sites,givens);
             itensor::gateTEvol(gates,1,1,psi,{"Cutoff",tol/*,"MaxDim",512*/,"Quiet",true, "Normalize",false,"ShowPercent",false});
-        }        
 
-        auto rot1=matrot_from_Givens(givens,nActive);
-        rot.cols(0,nActive-1)=rot.cols(0,nActive-1).eval()*rot1.st();
-        cc.cols(0,nActive-1)=cc.cols(0,nActive-1).eval()*rot1.t();
-        cc.rows(0,nActive-1)=rot1*cc.rows(0,nActive-1).eval();
-        auto ni_bath = arma::vec( arma::real(cc.diag()).eval().rows(start,cc.n_rows-1).eval() );
-        arma::uvec pos_active=arma::find(ni_bath>tol && ni_bath<1-tol).eval();
-        int nActive_new= pos_active.empty() ? start+1 : pos_active.back()+1+start;
-        // for(int i=ni_bath.size()-1; i>=0; i--)
-        //     //if (itensor::leftLinkIndex(psi,i+1).dim()>1) { nActive=i+1; break; }
-        //     if (ni_bath[i]>tol && ni_bath[i]<1-tol) { nActive=i+1+start; break; }
-        nActive=nActive_new;
-        // if (nActive<natOrbDepth) nActive+=2;
-        return rot1.st();
+            // 3. rotate rot, cc
+            auto rot1=matrot_from_Givens(givens,nActive);
+            rot.cols(0,nActive-1)=rot.cols(0,nActive-1).eval()*rot1.st();
+            cc.cols(0,nActive-1)=cc.cols(0,nActive-1).eval()*rot1.t();
+            cc.rows(0,nActive-1)=rot1*cc.rows(0,nActive-1).eval();
+
+            // 4. find the new active orbitals
+            auto ni_bath = arma::vec( arma::real(cc.diag()).eval().rows(a,b-1).eval() );
+            int nActive_old=p2-p1;
+            int nActive_new= arma::find(ni_bath>tol && ni_bath<1-tol).eval().size();
+            int delta=nActive_old - nActive_new;  // should be positive
+            if (spin) p2-=delta;
+            else      p1+=delta;
+            rot.submat(a,a,b-1,b-1)= rot1.st();
+        } // for spin
+        return rot;
     }
 
     /// Energy of the Slater part. K is the kinetic energy matrix
