@@ -11,7 +11,6 @@ struct ImpurityParam {
     std::vector<int> impPos;  ///< (default => {0,1,...,nImp-1}) the positions of interacting sites
     double filling=0.5;       ///< number of electrons per site
     arma::mat rot;            ///< (default => identity) the actual frame, such that F*Kmat*F.t() gives the original Kmat (in real space)
-    bool spin=false;
 
     int length() const { return Kmat.n_rows; }
     int nImp() const { return Umat.n_rows; }
@@ -40,9 +39,9 @@ struct ImpurityParam {
         arma::mat Kbath=Kmat.submat(nImp,nImp,L-1,L-1).eval();
         arma::mat evec1;
         arma::vec ek1;
-        my_eig_sym(ek1,evec1,Kbath,spin);
+        eig_sym(ek1,evec1,Kbath);
 
-        arma::uvec iek=my_sort_index(arma::abs(ek1), spin);
+        arma::uvec iek=arma::stable_sort_index(arma::abs(ek1));
         arma::mat evec=evec1.cols(iek);
         arma::vec ek=ek1.rows(iek);
 
