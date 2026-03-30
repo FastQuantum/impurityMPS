@@ -48,7 +48,7 @@ struct ImpurityParamSpin {
         ImpurityParam half={.Kmat=Kmat(pos0,pos0), .Umat=Umat};
         half.toStar();
 
-        split.print("split");
+        // split.print("split");
 
 
         // duplicate non-spin by reflexion

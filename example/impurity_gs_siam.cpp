@@ -30,7 +30,7 @@ int main()
     fb.tol=1e-10;
 
     auto solver=Impurity_gs_spin(model,fb);
-    solver.param.Kmat.print("Kmat");
+    // solver.param.Kmat.print("Kmat");
 
     cout<<"iteration m nActive energy time\n"<<setprecision(12);
     itensor::cpu_time t0;

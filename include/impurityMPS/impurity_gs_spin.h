@@ -22,21 +22,21 @@ struct Impurity_gs_spin {
     void iterate(DmrgParam args={})
     {
         itensor::cpu_time t0;
-        std::cout<<fb.p2-fb.p1<<" nActive\n";
-        fb.occupations_ni2().as_row().eval().print("before repr");
-        fb.occupations_ni().as_row().eval().print("before repr cc");
+        // std::cout<<fb.p2-fb.p1<<" nActive\n";
+        // fb.occupations_ni2().as_row().eval().print("before repr");
+        // fb.occupations_ni().as_row().eval().print("before repr cc");
         extract_representative(0);
         extract_representative(1);
-        std::cout<<fb.p2-fb.p1<<" nActive afte repr\n";
+        // std::cout<<fb.p2-fb.p1<<" nActive afte repr\n";
         // std::cout<<"representatives "<<t0.sincemark().wall; t0.mark();
 
-        fb.occupations_ni2().as_row().eval().print("before dmrg");
-        fb.occupations_ni().as_row().eval().print("before repr cc");
+        // fb.occupations_ni2().as_row().eval().print("before dmrg");
+        // fb.occupations_ni().as_row().eval().print("before repr cc");
         doDmrg(args);
         // fb.print_bond_dims("after dmrg");
         // std::cout<<" dmrg "<<t0.sincemark().wall; t0.mark();
-        fb.occupations_ni2().as_row().eval().print("before nat orb");
-        fb.occupations_ni().as_row().eval().print("before repr cc");
+        // fb.occupations_ni2().as_row().eval().print("before nat orb");
+        // fb.occupations_ni().as_row().eval().print("before repr cc");
         rotateToNaturalOrbitals();
         // fb.print_bond_dims("after nat orb");
         // std::cout<<" NatOrb "<<t0.sincemark().wall<<"\n";
@@ -90,7 +90,6 @@ struct Impurity_gs_spin {
     /// return the mpo of the Hamiltoninan given by himp and the kinetic energy kin
     itensor::MPO fullHamiltonian(arma::mat const& kin, int a) const
     {
-        kin.print("kin at fullH");
         itensor::AutoMPO h(fb.sites);
         for(auto i=0; i<param.nImp(); i++)
             for(auto j=0; j<param.nImp(); j++) {
