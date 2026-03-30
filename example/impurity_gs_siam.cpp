@@ -7,7 +7,7 @@ using namespace std;
 
 int main()
 {
-    int L=12;
+    int L=1000;
     double U=2.0;
     bool spin=false;
     arma::mat K(L,L, arma::fill::zeros);
@@ -34,7 +34,7 @@ int main()
 
     cout<<"iteration m nActive energy time\n"<<setprecision(12);
     itensor::cpu_time t0;
-    for(auto i=0;i<10;i++){
+    for(auto i=0;i<100;i++){
         solver.iterate(/*{.max_bond_dim=128}*/);
         double n0 = solver.fb.correlator(0,0);
         double cd=2*solver.fb.correlator(0,1);
