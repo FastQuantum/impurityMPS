@@ -32,28 +32,23 @@ inline std::vector<int> set_diff(int n, std::vector<int> Iset)
     return diff;
 }
 
-inline std::vector<std::vector<int>> find_islands(arma::mat const& K)
+namespace impl {
+inline void set_label(arma::mat const& K, int node0, int label, std::vector<int> &out)
 {
-    using namespace std;
-    int L=K.n_cols;
-    set<int> remainder;
-    for(int i=0; i<L; i++) remainder.insert(i);
-    vector<vector<int>> out;
-    for(auto l=0; l<K.size(); l++) {
-        vector<int> out_local;
-        vector<int> current= {*remainder.begin()};
-        while (true) {
-            for(auto x:out_local)
-                for(auto y:remainder)
-                    if(K(x,y)>1e-15) current.push_back(y);
-            for(auto x:current) {
-                out_local.push_back(x);
-                remainder.erase(x);
-            }
-            out.push_back(out_local);
-        }
-    }
-    return {};
+    out.at(node0)=label;
+    for(auto i=0;i<K.n_rows;i++)
+        if (std::abs(K(node0,i))>1e-10) set_label(K,i,label,out);
+}
+}
+
+inline std::vector<int> find_islands(arma::mat const& K)
+{
+    int L=K.n_rows;
+    std::vector<int> out(L,-1);
+    int label=0;
+    for(auto i=0;i<L;i++)
+        if (out[i]!=-1) impl::set_label(K,i,label++,out);
+    return out;
 }
 
 inline std::vector<int> find_islands(arma::mat const& K, std::vector<int> &xset)
