@@ -90,11 +90,12 @@ struct Impurity_gs_spin {
     /// return the mpo of the Hamiltoninan given by himp and the kinetic energy kin
     itensor::MPO fullHamiltonian(arma::mat const& kin, int a) const
     {
+        auto impPos=param.impPos();
         itensor::AutoMPO h(fb.sites);
         for(auto i=0; i<param.nImp(); i++)
             for(auto j=0; j<param.nImp(); j++) {
-                int ii=param.impPos[i];
-                int jj=param.impPos[j];
+                int ii=impPos[i];
+                int jj=impPos[j];
                 if (std::abs(param.Umat(i,j))>1e-15)
                     h += param.Umat(i,j), "N", ii+1, "N", jj+1;
             }
