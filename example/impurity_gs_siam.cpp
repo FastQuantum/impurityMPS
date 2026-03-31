@@ -30,10 +30,13 @@ int main()
     fb.tol=1e-10;
 
     auto solver=Impurity_gs_spin(model,fb);
-    // solver.param.Kmat.print("Kmat");
 
     cout<<"iteration m nActive energy time\n"<<setprecision(12);
     itensor::cpu_time t0;
+    double n0 = solver.fb.correlator(0,0);
+    double cd=2*solver.fb.correlator(0,1);
+    cout<<0<<" "<<itensor::maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<cd<<" "<<solver.fb.p2-solver.fb.p1<<" "<<solver.energy<<" "<<t0.sincemark().wall<<endl;
+
     for(auto i=0;i<100;i++){
         solver.iterate(/*{.max_bond_dim=128}*/);
         double n0 = solver.fb.correlator(0,0);
