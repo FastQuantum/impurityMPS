@@ -354,14 +354,14 @@ struct Fb_mps_spin
     /// compute all the correlator <ci^ cj> where i and j are original sites (i.e. before the rotation).
     arma::Mat<T> correlator_all() const
     {
-        arma::Mat<T> Qinv=rot.st().t();
+        arma::Mat<T> Qinv=rot.st()/*.t()*/;
         return Qinv.t() * cc * Qinv;
     }
 
     /// compute the correlator <ci^ cj> where i and j are original sites (i.e. before the rotation).
     T correlator(int i, int j) const
     {
-        arma::Mat<T> Qinv=rot.st().t();
+        arma::Mat<T> Qinv=rot.st()/*.t()*/;
         arma::Col<T> ccQinv=cc*Qinv.col(j);
         return arma::cdot(Qinv.col(i), ccQinv);
     }
@@ -369,7 +369,7 @@ struct Fb_mps_spin
     /// compute the correlator <ci^ cj> for all i, where i and j are original sites (i.e. before the rotation).
     arma::Col<T> correlator_all_i(int j) const
     {
-        arma::Mat<T> Qinv=rot.st().t();
+        arma::Mat<T> Qinv=rot.st()/*.t()*/;
         arma::Col<T> ccQinv=cc*Qinv.col(j);
         return Qinv.t() * ccQinv;
     }
@@ -377,7 +377,7 @@ struct Fb_mps_spin
     /// compute the correlator <ci^ cj> for all j, where i and j are original sites (i.e. before the rotation).
     arma::Col<T> correlator_all_j(int i) const
     {
-        arma::Mat<T> Qinv=rot.st().t();
+        arma::Mat<T> Qinv=rot.st()/*.t()*/;
         arma::Col<T> Qinv_t_cc=Qinv.col(i).t()*cc;
         return Qinv_t_cc*Qinv;
     }
