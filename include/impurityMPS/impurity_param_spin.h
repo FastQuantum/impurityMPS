@@ -2,14 +2,14 @@
 #define IMPURITY_PARAM_SPIN_H
 
 #include "impurity_param.h"
-#include "impurityMPS/fermionic.h"
 #include <armadillo>
 #include <itensor/all.h>
 
 struct ImpurityParamSpin {
     arma::mat Kmat;           ///< the kinetic energy coefficient matrix
     arma::mat Umat;           ///< the Coulomb interaction coeff: U(i,j) ni nj
-    std::vector<int> impPos;  ///< (default => {0,1,...,nImp-1}) the positions of interacting sites
+    std::vector<int> impPos_up;  ///< (default => {0,2,...,nImp-2}) the positions of interacting sites
+    std::vector<int> impPos_dw;  ///< (default => {1,3,...,nImp-1}) the positions of interacting sites
     double filling=0.5;       ///< number of electrons per site
     arma::mat rot;            ///< (default => identity) the actual frame, such that F*Kmat*F.t() gives the original Kmat (in real space)
 
@@ -17,54 +17,81 @@ struct ImpurityParamSpin {
     int nImp() const { return Umat.n_rows; }
     int nPart() const { return filling*length()+0.5; }
 
-    void initializeDefault()
+    void validate()
     {
         //TODO : verify correctness
         if (rot.empty()) rot=arma::mat(length(),length(), arma::fill::eye);
-        if (impPos.empty()) impPos=iota(nImp());
+        if (impPos_up.size() != impPos_dw.size()) throw std::invalid_argument("ImpurityParamSpin: impPos_up != impPos_dw");
+        if (impPos_up.empty()) {
+            for(auto i=0; i<nImp()/2; i++) {
+                impPos_up.push_back(2*i);
+                impPos_dw.push_back(2*i+1);
+            }
+        }
     }
 
-    arma::umat split_sites() const // TODO <--------- general disconnected components
+    /// return all (up first) the positions of the impurity
+    std::vector<int> impPos() const
+    {
+        std::vector<int> out;
+        for(auto p : impPos_up) out.push_back(p);
+        for(auto p : impPos_dw) out.push_back(p);
+        return out;
+    }
+
+    /// return the positions of each spin up/dw in columns 0/1
+    /// The impurity will be at beginning of the positions
+    arma::umat split_sites() const // TODO <--------- general disconnected components. Use impPos to classify up/dw
     {
         int L=length();
+        // TODO this block will be replaced by graph algorithm
         arma::umat out(L/2,2);
         for(auto i=0; i<L/2; i++) {
             out(i,0)=2*i;
             out(i,1)=2*i+1;
         }
+
+        // put the impurity at the beginning of the positions
+        // TODO: take Umat as a graph instead
+        for(auto i=0; i<nImp()/2; i++)
+        {
+            int id_up=arma::find_unique(out.col(0).eval(), impPos_up[i]).eval()[0];
+            int id_dw=arma::find_unique(out.col(1).eval(), impPos_dw[i]).eval()[0];
+            out.col(0).swap_rows(id_up,i);
+            out.col(1).swap_rows(id_dw,i);
+        }
+
         return out;
     }
 
     /// transform Kmat to star geometry (Hbath is diagonal)
     void toStar()
     {
-        initializeDefault();        
+        validate();
         // TODO : if the matrix is already in star then return *this;
+        int L=length();
+        { // reorganize the sites
+            arma::umat split=split_sites();
+            arma::uvec pos_all=arma::join_vert(arma::reverse(split.col(0)),split.col(1));
+            Kmat=Kmat.submat(pos_all,pos_all).eval();
+            rot=rot.cols(pos_all).eval();
+            for(auto i=0; i<nImp()/2; i++) {
+                impPos_up[i]=L/2-i-1;
+                impPos_dw[i]=L/2+i;
+            }
+        }
 
-        //create a non-spin version
-        arma::umat split=split_sites();
-        arma::uvec pos0=split.col(0);
-        arma::mat Umat(1,1);
-        ImpurityParam half={.Kmat=Kmat(pos0,pos0), .Umat=Umat};
+        // build an artificial impurity with one of the spin
+        arma::mat Umat(nImp()/2,nImp()/2);
+        ImpurityParam half={.Kmat=Kmat.submat(L/2,L/2,L-1,L-1), .Umat=Umat};
         half.toStar();
 
-        // split.print("split");
-
-
-        // duplicate non-spin by reflexion
-        int L=length();
-        arma::mat Kstar(L,L,arma::fill::zeros);
-        Kstar.submat(L/2,L/2,L-1,L-1)=half.Kmat;
-        auto i_left=iota(L/2);
-        std::reverse(i_left.begin(), i_left.end());
-        auto iset=arma::conv_to<arma::uvec>::from(i_left);
-        Kstar.submat(iset,iset)=half.Kmat;
-
-        Kmat=Kstar;
-        impPos[0]=L/2-1;
-        impPos[1]=L/2;
-        //TODO: update the rotation using split
-
+        // duplicate the artificial impurity by reflexion
+        auto irev=arma::regspace<arma::uvec>(L/2-1,0);
+        Kmat.submat(L/2,L/2,L-1,L-1)=half.Kmat;
+        Kmat.submat(irev,irev)=half.Kmat;
+        rot.cols(L/2,L-1)=rot.cols(L/2,L-1).eval()*half.rot;
+        rot.cols(irev)=rot.cols(irev).eval()*half.rot;
     }
 };
 
