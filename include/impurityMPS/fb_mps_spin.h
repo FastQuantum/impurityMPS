@@ -36,7 +36,7 @@ struct Fb_mps_spin
         fb.sites=itensor::Fermion(ek.size(), {"ConserveNf",true});
         fb.cc=arma::Mat<T>(ek.size(), ek.size(), arma::fill::zeros);
         auto state = itensor::InitState(fb.sites,"0");
-        arma::uvec iek=arma::sort_index(ek);
+        arma::uvec iek=arma::stable_sort_index(ek);
         for(int j = 0; j < nPart; j++) {
             int k=iek[j];
             state.set(k+1,"1");
@@ -52,21 +52,13 @@ struct Fb_mps_spin
     int length() const { return sites.length(); }
 
     /// return interval [a,b) of the slater part
-    std::pair<int,int> interval_slater(Spin s) const
-    {
-        if (s==up) return {0,p1};
-        else       return {p2,length()};
-    }
+    std::pair<int,int> interval_slater(Spin s) const { if (s==up) return {0,p1}; else return {p2,length()}; }
 
     /// return interval [a,b) of the active part
     std::pair<int,int> interval_active_full() const { return {p1,p2}; }
 
     /// return interval [a,b) of the active part
-    std::pair<int,int> interval_active(Spin s) const
-    {
-        if (s==up) return {p1,length()/2};
-        else       return {length()/2,p2};
-    }
+    std::pair<int,int> interval_active(Spin s) const { if (s==up) return {p1,length()/2}; else return {length()/2,p2}; }
 
     /// return interval [a,b) of the impurity part
     std::pair<int,int> interval_impurity_full() const { return {(length()-imp_size)/2, (length()+imp_size)/2}; }
@@ -74,8 +66,9 @@ struct Fb_mps_spin
     /// return interval [a,b) of the impurity part
     std::pair<int,int> interval_impurity(Spin s) const
     {
-        if (s==up) return {(length()-imp_size)/2, length()/2};
-        else       return {length()/2, (length()+imp_size)/2};
+        int L=length(), d=imp_size;
+        if (s==up) return {(L-d)/2, L/2};
+        else       return {L/2, (L+d)/2};
     }
 
     /// return interval [a,b) that can be rotated
@@ -87,11 +80,8 @@ struct Fb_mps_spin
         else       return {b0,b1};
     }
 
-
-
     /// convert to complex values. There is an specialization for `double` below.
     Fb_mps_spin<cmpx> to_complex() const { return *this; }
-
 
     // void extract_representative(arma::Mat<T>& K, int nRef) { extract_representative(K,nRef,p2-p1); }
 
@@ -105,11 +95,11 @@ struct Fb_mps_spin
             // 1. find the orbitals with the occupation nref
             arma::uvec pos0; {
                 auto [a,b]=interval_slater(spin);
-                if (a>=b) { std::cout<<"warning: no Slater?\n"; return; }
+                if (a>=b) return; // no Slater
                 arma::vec ni_bath=occupations_ni().rows(a,b-1);
                 arma::vec delta_n_bath=arma::abs(ni_bath-nRef);
                 pos0=arma::find(delta_n_bath<0.5).eval()+a ;
-                if (pos0.empty()) { std::cout<<"warning: no Slater?\n"; return; }
+                if (pos0.empty()) return;
             }
 
             // 2. find the Givens rotations
@@ -218,6 +208,7 @@ struct Fb_mps_spin
     }
     */
 
+    /// TODO: update using extract_representative()
     void extract_representative_final(arma::Mat<T>& K, int start, int end ) //TODO
     {
         // 1. find the interval for the transformation
@@ -290,7 +281,7 @@ struct Fb_mps_spin
                 for(auto &x : activity) x=std::min(x,1-x);
                 arma::uvec iek=arma::stable_sort_index(activity);
                 arma::Mat<T> rotation=evec.cols(iek);
-                if (spin==dw) givens=GivensRotForRot_right(rotation); // TODO <----------------------------------
+                if (spin==dw) givens=GivensRotForRot_right(rotation);
                 else          givens=GivensRotForRot_left(rotation);
             }
             if (givens.empty()) continue;
