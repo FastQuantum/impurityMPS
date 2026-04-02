@@ -55,9 +55,9 @@ inline std::vector<int> find_islands(arma::umat const& K)
 /// return the island label of each index
 inline std::vector<int> find_islands(arma::mat const& K, double tol=1e-12)
 {
-    arma::uvec Kbool = arma::find(arma::abs(K)>tol);
-    Kbool.reshape(size(K));
-    return find_islands(Kbool);
+    arma::umat vec_bool = arma::find(arma::abs(K)>tol).eval();
+    arma::umat K_bool=arma::reshape(vec_bool, arma::size(K));
+    return find_islands(K_bool);
 }
 
 } // end namespace graph
