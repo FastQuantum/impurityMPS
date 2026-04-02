@@ -55,8 +55,9 @@ inline std::vector<int> find_islands(arma::umat const& K)
 /// return the island label of each index
 inline std::vector<int> find_islands(arma::mat const& K, double tol=1e-12)
 {
-    arma::umat vec_bool = arma::find(arma::abs(K)>tol).eval();
-    arma::umat K_bool=arma::reshape(vec_bool, arma::size(K));
+    arma::umat pos = arma::find(arma::abs(K)>tol).eval();
+    arma::umat K_bool(size(K), arma::fill::zeros);
+    K_bool(pos).fill(1);
     return find_islands(K_bool);
 }
 
