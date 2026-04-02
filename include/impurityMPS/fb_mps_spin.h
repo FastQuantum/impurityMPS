@@ -211,32 +211,43 @@ struct Fb_mps_spin
     /// TODO: update using extract_representative()
     void extract_representative_final(arma::Mat<T>& K, int start, int end ) //TODO
     {
-        // 1. find the interval for the transformation
-        int p1=start;  // first position
-        int p2=end-1;  // last position
+        for(auto spin:{up,dw}) {
+            // 1. find the interval for the transformation
+            auto [a,b]=interval_rotating(spin);
+            if (a==b) continue;
 
-        // 2. find the Givens rotations
-        auto k12=K.submat(0,p1,p1-1,p2);
-        arma::vec s;
-        arma::Mat<T> U,V;
-        svd_econ(U,s,V,k12);
-        int nSv=arma::find(s>tol*s[0]).eval().size();  // it should be nSv==nChannel
-        auto givens=GivensRotForRot_left(V.head_cols(nSv).eval());
-        GivensDaggerInPlace(givens);
+            // 2. find the Givens rotations
+            std::vector<GivensRot<T>> givens;
+            {
+                auto k12=K.submat(0,a,a-1,b-1);
+                arma::vec s;
+                arma::Mat<T> U,V;
+                svd_econ(U,s,V,k12);
+                int nSv=arma::find(s>tol*s[0]).eval().size();  // it should be nSv==nChannel
+                arma::Mat<T> V_eff=V.head_cols(nSv);
+                if (spin==dw) givens=GivensRotForRot_left(V_eff);
+                else          givens=GivensRotForRot_right(V_eff);
+                GivensDaggerInPlace(givens);
+            }
 
-        // 3. update K, rot and cc
-        arma::Mat<T> rot1=matrot_from_Givens(givens, k12.n_cols)/*.st()*/;
-        K.cols(p1,p2)=K.cols(p1,p2).eval()*rot1;
-        K.rows(p1,p2)=rot1.t()*K.rows(p1,p2).eval();
-        rot.cols(p1,p2)=rot.cols(p1,p2)*rot1;
-        cc.cols(p1,p2)=cc.cols(p1,p2).eval()*rot1.st().t();
-        cc.rows(p1,p2)=rot1.st()*cc.rows(p1,p2).eval();
-        // do not update nActive
+            // 3. update K, rot and cc
+            {
+                arma::Mat<T> rot1=matrot_from_Givens(givens, b-a)/*.st()*/;
+                K.cols(a,b-1)=K.cols(a,b-1).eval()*rot1;
+                K.rows(a,b-1)=rot1.t()*K.rows(a,b-1).eval();
+                rot.cols(a,b-1)=rot.cols(a,b-1)*rot1;
+                cc.cols(a,b-1)=cc.cols(a,b-1).eval()*rot1.st().t();
+                cc.rows(a,b-1)=rot1.st()*cc.rows(a,b-1).eval();
+                // do not update nActive
+            }
 
-        // 4. update the mps
-        for(auto& g:givens) g.b+=p1;
-        auto gates=Fermionic::NOGates(sites, GivensTranspose(givens));
-        gateTEvol(gates,1,1,psi,{"Cutoff",tol,"Quiet",true, "Normalize",false,"ShowPercent",false});
+            // 4. update the mps
+            {
+                for(auto& g:givens) g.b+=a;
+                auto gates=Fermionic::NOGates(sites, GivensTranspose(givens));
+                gateTEvol(gates,1,1,psi,{"Cutoff",tol,"Quiet",true, "Normalize",false,"ShowPercent",false});
+            }
+        }
     }
 
     /// update the cc in the active sector using the psi
