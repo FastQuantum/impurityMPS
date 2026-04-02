@@ -97,7 +97,7 @@ void my_eig_sym(arma::vec &eval, arma::Mat<T> &evec, arma::Mat<T> const& A, bool
     else arma::eig_sym(eval,evec,A);
 }
 
-arma::uvec sort_index_spin(arma::vec const& x)
+inline arma::uvec sort_index_spin(arma::vec const& x)
 {
     return arma::stable_sort_index(x);
     arma::uvec idx(x.size());
@@ -112,7 +112,7 @@ arma::uvec sort_index_spin(arma::vec const& x)
     return idx;
 }
 
-arma::uvec my_sort_index(arma::vec const& x, bool spin)
+inline arma::uvec my_sort_index(arma::vec const& x, bool spin)
 {
     if (spin) return sort_index_spin(x);
     else return arma::sort_index(x);
@@ -169,7 +169,7 @@ void applyGivens(arma::Mat<T>& A, GivensRot<T> const& g)
 
 
 template<>
-GivensRot<double> GivensRot<double>::createFromPair(size_t b, double p,  double q, bool go_right, double *r)
+inline GivensRot<double> GivensRot<double>::createFromPair(size_t b, double p,  double q, bool go_right, double *r)
 {
     using Scalar=double;
     using std::sqrt;
@@ -214,16 +214,16 @@ GivensRot<double> GivensRot<double>::createFromPair(size_t b, double p,  double 
 }
 
 template<>
-GivensRot<double>::matrix22 GivensRot<double>::matrix() const { return {{c, -s},{s, c}}; }
+inline GivensRot<double>::matrix22 GivensRot<double>::matrix() const { return {{c, -s},{s, c}}; }
 
 template<>
-GivensRot<double> GivensRot<double>::dagger() const { return {.b=b, .c=c, .s=-s}; }
+inline GivensRot<double> GivensRot<double>::dagger() const { return {.b=b, .c=c, .s=-s}; }
 
 template<>
-GivensRot<double> GivensRot<double>::transpose() const { return {.b=b, .c=c, .s=-s}; }
+inline GivensRot<double> GivensRot<double>::transpose() const { return {.b=b, .c=c, .s=-s}; }
 
 template<>
-GivensRot<cmpx> GivensRot<cmpx>::createFromPair(size_t b, cmpx p, cmpx q, bool go_right, cmpx *r)
+inline GivensRot<cmpx> GivensRot<cmpx>::createFromPair(size_t b, cmpx p, cmpx q, bool go_right, cmpx *r)
 {
     using Scalar=cmpx;
     using RealScalar=double;
@@ -288,13 +288,13 @@ GivensRot<cmpx> GivensRot<cmpx>::createFromPair(size_t b, cmpx p, cmpx q, bool g
 }
 
 template<>
-GivensRot<cmpx>::matrix22 GivensRot<cmpx>::matrix() const { return {{std::conj(c), -std::conj(s)},{s, c}}; }
+inline GivensRot<cmpx>::matrix22 GivensRot<cmpx>::matrix() const { return {{std::conj(c), -std::conj(s)},{s, c}}; }
 
 template<>
-GivensRot<cmpx> GivensRot<cmpx>::dagger() const { return {.b=b, .c=std::conj(c), .s=-s}; }
+inline GivensRot<cmpx> GivensRot<cmpx>::dagger() const { return {.b=b, .c=std::conj(c), .s=-s}; }
 
 template<>
-GivensRot<cmpx> GivensRot<cmpx>::transpose() const { return {.b=b, .c=c, .s=-std::conj(s)}; }
+inline GivensRot<cmpx> GivensRot<cmpx>::transpose() const { return {.b=b, .c=c, .s=-std::conj(s)}; }
 
 
 //------------------------- set of Givens rotations -----------------------------------------

@@ -399,7 +399,7 @@ private:
 };
 
 template<>
-Fb_mps_spin<cmpx> Fb_mps_spin<double>::to_complex() const
+inline Fb_mps_spin<cmpx> Fb_mps_spin<double>::to_complex() const
 {
     Fb_mps_spin<cmpx> fb;
     fb.sites = sites;
