@@ -32,30 +32,35 @@ inline std::vector<int> set_diff(int n, std::vector<int> Iset)
     return diff;
 }
 
-namespace impl {
-inline void set_label(arma::mat const& K, int node0, int label, std::vector<int> &out)
+namespace graph {
+static void set_label(arma::umat const& K, int i0, int label, std::vector<int> &out)
 {
-    out.at(node0)=label;
+    if (out[i0]!=-1) return;
+    out.at(i0)=label;
     for(auto i=0;i<K.n_rows;i++)
-        if (std::abs(K(node0,i))>1e-10) set_label(K,i,label,out);
-}
+        if (K(i0,i) != 0) set_label(K,i,label,out);
 }
 
-inline std::vector<int> find_islands(arma::mat const& K)
+/// return the island label of each index
+inline std::vector<int> find_islands(arma::umat const& K)
 {
     int L=K.n_rows;
     std::vector<int> out(L,-1);
     int label=0;
     for(auto i=0;i<L;i++)
-        if (out[i]!=-1) impl::set_label(K,i,label++,out);
+        if (out[i]==-1) set_label(K,i,label++,out);
     return out;
 }
 
-inline std::vector<int> find_islands(arma::mat const& K, std::vector<int> &xset)
+/// return the island label of each index
+inline std::vector<int> find_islands(arma::mat const& K, double tol=1e-12)
 {
-    return {};
+    arma::uvec Kbool = arma::find(arma::abs(K)>tol);
+    Kbool.reshape(size(K));
+    return find_islands(Kbool);
 }
 
+} // end namespace graph
 
 inline std::pair<arma::vec,arma::mat> FullDiagonalizeTridiagonal(arma::vec an, arma::vec bn)
 {
