@@ -29,12 +29,12 @@ struct Impurity_gs_spin {
     }
 
     /// extract representative orbital of the sites with ni=nRef where nRef can be 0 or 1
-    void extract_representative(int nRef){ fb.extract_representative(K,nRef,true); }
+    void extract_representative(int nRef){ fb.extract_representative(K,nRef,/*use_active=*/true); }
 
     void doDmrg(DmrgParam args={})
     {
         auto [a,b]=fb.interval_active_full();
-        auto mpo=fullHamiltonian( K.submat(a,a,b-1,b-1), a);
+        auto mpo=fullHamiltonian(a,b);
         auto sweeps = itensor::Sweeps(1);
         sweeps.maxdim() = args.max_bond_dim;
         sweeps.cutoff() = fb.tol;
@@ -55,10 +55,10 @@ struct Impurity_gs_spin {
     }
 
     /// return the mpo of the Hamiltoninan given by himp and the kinetic energy kin
-    itensor::MPO fullHamiltonian(arma::mat const& kin, int a) const
+    itensor::MPO fullHamiltonian(int a,int b) const
     {
-        auto impPos=param.impPos();
         itensor::AutoMPO h(fb.sites);
+        auto impPos=param.impPos();
         for(auto i=0; i<param.nImp(); i++)
             for(auto j=0; j<param.nImp(); j++) {
                 int ii=impPos[i];
@@ -66,10 +66,11 @@ struct Impurity_gs_spin {
                 if (std::abs(param.Umat(i,j))>1e-15)
                     h += param.Umat(i,j), "N", ii+1, "N", jj+1;
             }
-        for(auto i=0; i<kin.n_rows; i++)
-            for(auto j=0; j<kin.n_cols; j++)
-                if (std::abs(kin(i,j))>fb.tol)
-                    h += kin(i,j),"Cdag",a+i+1,"C",a+j+1;
+
+        for(auto i=a; i<b; i++)
+            for(auto j=a; j<b; j++)
+                if (std::abs(K(i,j))>fb.tol)
+                    h += K(i,j),"Cdag",i+1,"C",j+1;
         return itensor::toMPO(h);
     }
 };
