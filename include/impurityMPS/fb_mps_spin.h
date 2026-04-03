@@ -95,11 +95,11 @@ struct Fb_mps_spin
             // 1. find the orbitals with the occupation nref
             arma::uvec pos0; {
                 auto [a,b]=interval_slater(spin);
-                if (a>=b) return; // no Slater
+                if (a>=b) continue; // no Slater
                 arma::vec ni_bath=occupations_ni().rows(a,b-1);
                 arma::vec delta_n_bath=arma::abs(ni_bath-nRef);
                 pos0=arma::find(delta_n_bath<0.5).eval()+a ;
-                if (pos0.empty()) return;
+                if (pos0.empty()) continue;
             }
 
             // 2. find the Givens rotations
@@ -209,7 +209,7 @@ struct Fb_mps_spin
     */
 
     /// TODO: update using extract_representative()
-    void extract_representative_final(arma::Mat<T>& K, int start, int end ) //TODO
+    void extract_representative_final(arma::Mat<T>& K) //TODO
     {
         for(auto spin:{up,dw}) {
             // 1. find the interval for the transformation
