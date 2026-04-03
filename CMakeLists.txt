@@ -19,9 +19,10 @@ add_library(${PROJECT_NAME} STATIC
     empty.cpp
     README.md
     include/impurityMPS/impurity_param.h
-     include/impurityMPS/fb_mps_spin.h
-     include/impurityMPS/impurity_gs_spin.h
-     include/impurityMPS/impurity_param_spin.h
+    include/impurityMPS/fb_mps_spin.h
+    include/impurityMPS/impurity_gs_spin.h
+    include/impurityMPS/impurity_param_spin.h
+    include/impurityMPS/impurity_dyn_spin.h
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC
