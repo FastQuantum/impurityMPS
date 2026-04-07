@@ -3,10 +3,11 @@
 list(APPEND test_SRC
     impurity_gs_irlm.cpp
     impurity_gs_siam.cpp
-    siam_star_gs.cpp
+    chain_gs_siam.cpp
     impurity_dyn_irlm.cpp
     impurity_dyn_siam.cpp
     irlm_dyn.cpp
+    chain_dyn_siam.cpp
 )
 
 foreach (test ${test_SRC})

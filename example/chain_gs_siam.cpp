@@ -1,4 +1,5 @@
-#include "impurityMPS/impurity_gs.h"
+#include "impurityMPS/fb_mps.h"
+#include "impurityMPS/impurity_param.h"
 #include <iostream>
 #include <iomanip>
 
