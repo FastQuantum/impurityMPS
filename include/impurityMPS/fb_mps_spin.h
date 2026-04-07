@@ -71,6 +71,14 @@ struct Fb_mps_spin
         else       return {L/2, (L+d)/2};
     }
 
+    /// return interval [a,b) of the impurity part
+    std::pair<int,int> interval_bath(Spin s) const
+    {
+        auto [a,b] = interval_impurity(s);
+        if (s==up) return {0,a};
+        else       return {b,length()};
+    }
+
     /// return interval [a,b) that can be rotated
     std::pair<int,int> interval_rotating(Spin s) const
     {
