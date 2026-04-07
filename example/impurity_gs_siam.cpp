@@ -38,6 +38,8 @@ int main()
     cout<<0<<" "<<itensor::maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<cd<<" "<<solver.fb.p2-solver.fb.p1<<" "<<solver.energy<<" "<<t0.sincemark().wall<<endl;
 
     for(auto i=0;i<100;i++){
+        auto [a,b]=solver.fb.interval_active_full();
+        solver.fb.occupations_ni().as_row().eval().cols(a,b-1).eval().print("ni");
         solver.iterate(/*{.max_bond_dim=128}*/);
         double n0 = solver.fb.correlator(0,0);
         double cd=2*solver.fb.correlator(0,1);
