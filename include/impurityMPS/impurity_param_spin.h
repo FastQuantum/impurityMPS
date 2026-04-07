@@ -55,8 +55,8 @@ struct ImpurityParamSpin {
         // TODO: take Umat as a graph instead
         for(auto i=0; i<nImp()/2; i++)
         {
-            int id_up=arma::find_unique(out.col(0).eval(), impPos_up[i]).eval()[0];
-            int id_dw=arma::find_unique(out.col(1).eval(), impPos_dw[i]).eval()[0];
+            int id_up=arma::find(out.col(0).eval() == impPos_up[i]).eval()[0];
+            int id_dw=arma::find(out.col(1).eval() == impPos_dw[i]).eval()[0];
             out.col(0).swap_rows(id_up,i);
             out.col(1).swap_rows(id_dw,i);
         }
@@ -72,6 +72,7 @@ struct ImpurityParamSpin {
         int L=length();
         { // reorganize the sites
             arma::umat split=split_sites();
+            split.print("split");
             arma::uvec pos_all=arma::join_vert(arma::reverse(split.col(0)),split.col(1));
             Kmat=Kmat.submat(pos_all,pos_all).eval();
             rot=rot.cols(pos_all).eval();
@@ -97,6 +98,7 @@ struct ImpurityParamSpin {
 
 struct ImpuritySpin {
     ImpurityParamSpin param;
+    ImpuritySpin()=default;
     ImpuritySpin(ImpurityParamSpin const& param_) : param(param_) { param.toStar(); }
 };
 
