@@ -11,8 +11,8 @@ struct Impurity_dyn {
     arma::cx_mat exp_ih;
     arma::cx_mat Kip0;
     int nChannel;            ///< the number of channels that connect the impurity with the bath
-    arma::uvec imp_pos;
-    arma::uvec bath_pos;
+    arma::uvec imp_pos;      ///< original impurity positions
+    arma::uvec bath_pos;     ///< orignal bath positions
 
     /// these quantities are updated during the iterations
     Fb_mps<cmpx> fb;        ///< the current few body MPS

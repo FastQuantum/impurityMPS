@@ -33,7 +33,7 @@ int main()
     cout<<"time nActive energy <n0> time\n"<<setprecision(12);
     itensor::cpu_time t0;
     for(auto i=0; i*dt<L; i++){
-        solver.iterate(/*{.epsilonM=0}*/);
+        solver.iterate({.max_bond_dim=2048, .nIter_diag=16,.epsilonM=1e-4});
         double n0 = solver.fb.correlator(0,0).real();
         double cd=2*solver.fb.correlator(0,1).real();
         cout<<(i+1)*solver.dt<<" "<<solver.energy<<" "<<n0<<" "<<cd<<" "<<solver.fb.nActive<<endl;
