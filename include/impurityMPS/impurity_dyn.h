@@ -11,6 +11,8 @@ struct Impurity_dyn {
     arma::cx_mat exp_ih;
     arma::cx_mat Kip0;
     int nChannel;            ///< the number of channels that connect the impurity with the bath
+    arma::uvec imp_pos;
+    arma::uvec bath_pos;
 
     /// these quantities are updated during the iterations
     Fb_mps<cmpx> fb;        ///< the current few body MPS
@@ -23,30 +25,31 @@ struct Impurity_dyn {
         , dt(dt_)
         , fb { fb_ }
     {
-        int nImp=param.nImp();
         int L=param.length();
         arma::cx_mat K0 = fb.rot * param.Kmat * fb.rot.t(); // original Hamiltonian matrix
+        imp_pos = arma::conv_to<arma::uvec>::from(param.impPos);
+        bath_pos = arma::conv_to<arma::uvec>::from(set_diff(L,param.impPos));
+
         exp_ih = arma::cx_mat(L,L, arma::fill::eye);
-        exp_ih.submat(nImp,nImp, L-1,L-1)=expIH<cmpx>(K0.submat(nImp,nImp, L-1,L-1) * dt);
-        arma::vec s = arma::svd(param.Kmat.submat(0, nImp, nImp-1, L-1));
+        exp_ih.submat(bath_pos,bath_pos)=expIH<cmpx>(K0.submat(bath_pos,bath_pos) * dt);
+        arma::vec s = arma::svd(param.Kmat.submat(imp_pos,bath_pos));
         nChannel = arma::find(s>fb.tol*s[0]).eval().size();
 
         // interaction picture
-        arma::cx_mat K1 = K0.submat(0, nImp, nImp-1, L-1) *
-                          K0.submat(nImp,nImp,L-1, L-1) * arma::cx_double(0,-0.5*dt); //the commutator
+        arma::cx_mat K1 = K0.submat(imp_pos,bath_pos) *
+                          K0.submat(bath_pos,bath_pos) * arma::cx_double(0,-0.5*dt); //the commutator
         Kip0=K0;
-        Kip0.submat(nImp, nImp, L-1, L-1).fill(0.0);
-        Kip0.submat(0, nImp, nImp-1, L-1)+=K1;
-        Kip0.submat(nImp, 0, L-1, nImp-1)+=K1.t();        
+        Kip0.submat(bath_pos,bath_pos).fill(0.0);
+        Kip0.submat(imp_pos,bath_pos)+=K1;
+        Kip0.submat(bath_pos,imp_pos)+=K1.t();
     }
 
     void iterate(TdvpParam args={})
     {
         // rotate from scratch
-        int nImp=param.nImp();
         K=Kip0;
-        K.rows(0,nImp-1)=K.rows(0,nImp-1).eval()*fb.rot;
-        K.cols(0,nImp-1)=fb.rot.t()*K.cols(0,nImp-1).eval();
+        K.rows(imp_pos)=K.rows(imp_pos).eval()*fb.rot;
+        K.cols(imp_pos)=fb.rot.t()*K.cols(imp_pos).eval();
         fb.rot=this->exp_ih*fb.rot;   // update of the interaction picture
 
         if (fb.nActive+2*nChannel < param.length()) {
