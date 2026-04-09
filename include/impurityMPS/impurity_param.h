@@ -56,7 +56,7 @@ struct ImpurityParam {
         }
         Kmat=Kstar;
         rot.cols(nImp,L-1)=rot.cols(nImp,L-1).eval()*evec;
-        impPos=iota(nImp);
+        // impPos=iota(nImp);
     }
 
 
