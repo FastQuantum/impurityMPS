@@ -21,6 +21,11 @@ inline std::vector<int> iota(int n)
     return all;
 }
 
+inline std::vector<int> regspace(int a,int b)
+{
+    return arma::conv_to<std::vector<int>>::from(arma::regspace(a,b-1));
+}
+
 inline std::vector<int> set_diff(int n, std::vector<int> Iset)
 {
     std::vector<int> all=iota(n);

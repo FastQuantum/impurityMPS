@@ -43,19 +43,19 @@ int main()
     // arma::real(model.param.rot*1).eval().clean(1e-11).print("param.rot");
     // auto Q=solver.param.rot;
     // arma::real(K*1).eval().clean(1e-11).print("K original");
-    arma::real(solver.param.Kmat*1).eval().clean(1e-11).print("Kmat");
-    arma::real(solver.Kip0*1).eval().clean(1e-11).print("Kip0");
+    // arma::real(solver.param.Kmat*1).eval().clean(1e-11).print("Kmat original");
+    // arma::real(solver.Kip0*1).eval().clean(1e-11).print("Kip0 before main() iterations");
     // terminate();
 
     cout<<"time m <n0> <cd>  nActive\n"<<setprecision(12);
     itensor::cpu_time t0;
-    for(auto i=0; i<0/*i*dt<L*/; i++){
-        arma::real(solver.K*1).eval().clean(1e-11).print("K");
+    for(auto i=0; i<1/*i*dt<L*/; i++){
+        // arma::real(solver.K*1).eval().clean(1e-11).print("K");
         auto [a,b]=solver.fb.interval_active_full();
         solver.fb.occupations_ni().as_row().eval().cols(a,b-1).eval().print("ni");
 
         solver.iterate({.max_bond_dim=2048, .nIter_diag=16,.epsilonM=1e-4});
-        double n0 = solver.fb.correlator(L/2,L/2).real();
+        double n0 = solver.fb.correlator(1,1).real();
         double n02= solver.fb.occupations_ni()(L/2);
         double cd=2*solver.fb.correlator(0,1).real();
         cout<<(i+1)*solver.dt<<" "<<maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<n02<<" "<<cd<<" "<<solver.fb.p2-solver.fb.p1<<endl;

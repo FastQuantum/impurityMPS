@@ -34,8 +34,10 @@ struct ImpurityParamSpin {
     std::vector<int> impPos() const
     {
         std::vector<int> out;
-        for(auto p : impPos_up) out.push_back(p);
-        for(auto p : impPos_dw) out.push_back(p);
+        for(int i=0; i<nImp()/2; i++) {
+            out.push_back(impPos_up[i]);
+            out.push_back(impPos_dw[i]);
+        }
         return out;
     }
 
@@ -76,10 +78,22 @@ struct ImpurityParamSpin {
             arma::uvec pos_all=arma::join_vert(arma::reverse(split.col(0)),split.col(1));
             Kmat=Kmat.submat(pos_all,pos_all).eval();
             rot=rot.cols(pos_all).eval();
-            for(auto i=0; i<nImp()/2; i++) {
-                impPos_up[i]=L/2-i-1;
-                impPos_dw[i]=L/2+i;
-            }
+
+            /// TODO: reorder the Umat accordingly
+            // using namespace arma;
+            // auto ip_up=conv_to<uvec>::from(impPos_up);
+            // auto ip_dw=conv_to<uvec>::from(impPos_dw);
+            // for(auto i=0; i<nImp()/2; i++) {
+            //     int id_up_new=L/2-i-1;
+            //     int id_dw_new=L/2+i;
+            //     int id_up=arma::find(ip_up == id_up_new).eval()[0];
+            //     int id_dw=arma::find(ip_dw == id_dw_new).eval()[0];
+            //     Umat.swap_cols(id_up,id_up);
+            //     Umat.swap_rows(id_up,id_up);
+            //     Umat.swap_cols(id_dw,id_dw);
+            //     Umat.swap_rows(id_dw,id_dw);
+            // }
+
         }
 
         // build an artificial impurity with one of the spin
