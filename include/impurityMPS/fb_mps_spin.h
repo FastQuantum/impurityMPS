@@ -17,7 +17,7 @@ struct Fb_mps_spin
     itensor::Fermion sites;     ///< the sites of the network from ITensor
     itensor::MPS psi;           ///< the mps state
     arma::Mat<T> rot;           ///< the actual rotation frame
-    arma::SpMat<T> cc;          ///< the correlation matrix or one-particle density matrix
+    arma::Mat<T> cc;            ///< the correlation matrix or one-particle density matrix
     int imp_size;               ///< the impurity size. These orbitals go to the center and they will not be rotated
     int p1, p2;                 ///< the active orbitals are in [p1,p2)
     int natOrbDepth=-1;         ///< the depth of the circuit used to extract the natural orbitals (-1 means the to use an exact circuit)
@@ -88,6 +88,22 @@ struct Fb_mps_spin
         else       return {b0,b1};
     }
 
+    /// ensure reflection symmetry
+    static void ensure_reflection_mat(arma::Mat<T> &K)
+    {
+        int L=K.n_rows;
+        auto irev=arma::regspace<arma::uvec>(L/2-1,0);
+        K.submat(irev,irev)=K.submat(L/2,L/2,L-1,L-1);
+    }
+
+    /// ensure reflection symmetry
+    static void ensure_reflection_vec(arma::Mat<T> &R)
+    {
+        int L=R.n_rows;
+        auto irev=arma::regspace<arma::uvec>(L/2-1,0);
+        R.cols(irev)=R.cols(L/2,L-1);
+    }
+
     /// convert to complex values. There is an specialization for `double` below.
     Fb_mps_spin<cmpx> to_complex() const { return *this; }
 
@@ -98,48 +114,54 @@ struct Fb_mps_spin
     /// @param use_active whether to use the active sites instead of the impurity sites
     void extract_representative(arma::Mat<T>& K, int nRef, bool use_active)
     {
+        auto spin=dw;
+
+        // 1. find the orbitals with the occupation nref
+        arma::uvec pos0; {
+            auto [a,b]=interval_slater(spin);
+            if (a>=b) return; // no Slater
+            arma::vec ni_bath=occupations_ni().rows(a,b-1);
+            arma::vec delta_n_bath=arma::abs(ni_bath-nRef);
+            pos0=arma::find(delta_n_bath<0.5).eval()+a ;
+            if (pos0.empty()) return;
+        }
+
+        // 2. find the Givens rotations
+        int nSv; // number of singular values
+        arma::Mat<T> rot1; // rotation of the slater
+        {
+            auto [a,b]=use_active ? interval_active(spin):
+                              interval_impurity(spin);
+            auto k12 = K.rows(a,b-1).eval().cols(pos0).eval();
+            arma::vec s;
+            arma::Mat<T> U, V;
+            svd_econ(U,s,V, k12);
+            nSv=arma::find(s>tol*s[0]).eval().size();
+            arma::Mat<T> V_slater=V.head_cols(nSv);
+            auto givens= spin==dw ? GivensRotForRot_left(V_slater):
+                              GivensRotForRot_right(V_slater);
+            GivensDaggerInPlace(givens);
+            rot1=matrot_from_Givens(givens, k12.n_cols)/*.st()*/;
+        }
+
+        // 3. update K, rot and cc
+        K.cols(pos0)=K.cols(pos0).eval()*rot1;
+        K.rows(pos0)=rot1.t()*K.rows(pos0).eval();
+        rot.cols(pos0)=rot.cols(pos0)*rot1;
+        // no need to update cc
+
+        // NEW: Compute spin=up by reflection
+        ensure_reflection_mat(K);
+        ensure_reflection_vec(rot);
+        // no need to update cc
+
         for(auto spin : {up,dw}) {
-
-            // 1. find the orbitals with the occupation nref
-            arma::uvec pos0; {
-                auto [a,b]=interval_slater(spin);
-                if (a>=b) continue; // no Slater
-                arma::vec ni_bath=occupations_ni().rows(a,b-1);
-                arma::vec delta_n_bath=arma::abs(ni_bath-nRef);
-                pos0=arma::find(delta_n_bath<0.5).eval()+a ;
-                if (pos0.empty()) continue;
-            }
-
-            // 2. find the Givens rotations
-            int nSv; // number of singular values
-            arma::Mat<T> rot1; // rotation of the slater
-            {
-                auto [a,b]=use_active ? interval_active(spin):
-                                        interval_impurity(spin);
-                auto k12 = K.rows(a,b-1).eval().cols(pos0).eval();
-                arma::vec s;
-                arma::Mat<T> U, V;
-                svd_econ(U,s,V, k12);
-                nSv=arma::find(s>tol*s[0]).eval().size();
-                arma::Mat<T> V_slater=V.head_cols(nSv);
-                auto givens= spin==dw ? GivensRotForRot_left(V_slater):
-                                        GivensRotForRot_right(V_slater);
-                GivensDaggerInPlace(givens);
-                rot1=matrot_from_Givens(givens, k12.n_cols)/*.st()*/;
-            }
-
-            // 3. update K, rot and cc
-            K.cols(pos0)=K.cols(pos0).eval()*rot1;
-            K.rows(pos0)=rot1.t()*K.rows(pos0).eval();
-            rot.cols(pos0)=rot.cols(pos0)*rot1;
-            // no need to update cc
-
             // 4. move the nSv representative orbitals to the closest-to-impurity site of the Slater
             for(auto i=0; i<nSv; i++) {
                 auto [a,b]=interval_active_full();
                 int i1,i2;
                 if (spin==dw) { i1=b; i2=pos0[i]; }
-                else          { i1=pos0[pos0.size()-1-i]; i2=a-1; };
+                else          { i1=length()-1-pos0[i]; i2=a-1; };
                 SlaterWaveFunctionSwap (i1,i2);
                 K.swap_cols(i1,i2);
                 K.swap_rows(i1,i2);
@@ -148,7 +170,6 @@ struct Fb_mps_spin
                 cc.swap_rows(i1,i2);  // TODO <---------- bug in armadillo
                 if (spin==dw) p2++; else p1--;
             }
-
         } // for spin
     }
 
@@ -219,42 +240,48 @@ struct Fb_mps_spin
     /// TODO: update using extract_representative()
     void extract_representative_final(arma::Mat<T>& K) //TODO
     {
-        for(auto spin:{up,dw}) {
-            // 1. find the interval for the transformation
-            auto [a,b]=interval_rotating(spin);
-            if (a==b) continue;
+        auto spin=dw;
+        // 1. find the interval for the transformation
+        auto [a,b]=interval_rotating(spin);
+        if (a==b) return;
 
-            // 2. find the Givens rotations
-            std::vector<GivensRot<T>> givens;
-            {
-                auto k12=K.submat(0,a,a-1,b-1);
-                arma::vec s;
-                arma::Mat<T> U,V;
-                svd_econ(U,s,V,k12);
-                int nSv=arma::find(s>tol*s[0]).eval().size();  // it should be nSv==nChannel
-                arma::Mat<T> V_eff=V.head_cols(nSv);
-                if (spin==dw) givens=GivensRotForRot_left(V_eff);
-                else          givens=GivensRotForRot_right(V_eff);
-                GivensDaggerInPlace(givens);
-            }
+        // 2. find the Givens rotations
+        std::vector<GivensRot<T>> givens;
+        {
+            auto k12=K.submat(0,a,a-1,b-1);
+            arma::vec s;
+            arma::Mat<T> U,V;
+            svd_econ(U,s,V,k12);
+            int nSv=arma::find(s>tol*s[0]).eval().size();  // it should be nSv==nChannel
+            arma::Mat<T> V_eff=V.head_cols(nSv);
+            if (spin==dw) givens=GivensRotForRot_left(V_eff);
+            else          givens=GivensRotForRot_right(V_eff);
+            GivensDaggerInPlace(givens);
+        }
 
-            // 3. update K, rot and cc
-            {
-                arma::Mat<T> rot1=matrot_from_Givens(givens, b-a)/*.st()*/;
-                K.cols(a,b-1)=K.cols(a,b-1).eval()*rot1;
-                K.rows(a,b-1)=rot1.t()*K.rows(a,b-1).eval();
-                rot.cols(a,b-1)=rot.cols(a,b-1)*rot1;
-                cc.cols(a,b-1)=cc.cols(a,b-1).eval()*rot1.st().t();
-                cc.rows(a,b-1)=rot1.st()*cc.rows(a,b-1).eval();
-                // do not update nActive
-            }
+        // 3. update K, rot and cc
+        {
+            arma::Mat<T> rot1=matrot_from_Givens(givens, b-a)/*.st()*/;
+            K.cols(a,b-1)=K.cols(a,b-1).eval()*rot1;
+            K.rows(a,b-1)=rot1.t()*K.rows(a,b-1).eval();
+            rot.cols(a,b-1)=rot.cols(a,b-1)*rot1;
+            cc.cols(a,b-1)=cc.cols(a,b-1).eval()*rot1.st().t();
+            cc.rows(a,b-1)=rot1.st()*cc.rows(a,b-1).eval();
+            // do not update nActive
 
-            // 4. update the mps
-            {
-                for(auto& g:givens) g.b+=a;
-                auto gates=Fermionic::NOGates(sites, GivensTranspose(givens));
-                gateTEvol(gates,1,1,psi,{"Cutoff",tol,"Quiet",true, "Normalize",false,"ShowPercent",false});
-            }
+            // Reflection
+            ensure_reflection_mat(K);
+            ensure_reflection_mat(cc);
+            ensure_reflection_vec(rot);
+        }
+
+        // 4. update the mps
+        {
+            for(auto& g:givens) g.b+=a;
+            for( auto g:GivensReflect(givens, length()) ) givens.push_back(g);  // compute spin=up by reflection
+
+            auto gates=Fermionic::NOGates(sites, GivensTranspose(givens));
+            gateTEvol(gates,1,1,psi,{"Cutoff",tol,"Quiet",true, "Normalize",false,"ShowPercent",false});
         }
     }
 
@@ -285,47 +312,63 @@ struct Fb_mps_spin
     {
         auto [a_full,b_full]=interval_active_full();
         arma::Mat<T> rot_update(length(), length(), arma::fill::eye);
-        for(auto spin:{up,dw}) {
-            auto [a,b]=interval_rotating(spin);
-            if (a==b) continue;
 
-            // 1. find the Givens that diagonalize cc
-            std::vector<GivensRot<T>> givens;//=GivensRotForCC_right(cc1,natOrbDepth);
-            {
-                auto cc1 = arma::Mat<T>( cc.submat(a,a,b-1, b-1).eval() );
-                arma::vec eval;
-                arma::Mat<T> evec;
-                eig_sym(eval,evec,cc1);
-                arma::vec activity=eval;
-                for(auto &x : activity) x=std::min(x,1-x);
-                arma::uvec iek=arma::stable_sort_index(activity);
-                arma::Mat<T> rotation=evec.cols(iek);
-                if (spin==dw) givens=GivensRotForRot_right(rotation);
-                else          givens=GivensRotForRot_left(rotation);
-            }
-            if (givens.empty()) continue;
+        auto spin=dw;
+        auto [a,b]=interval_rotating(spin);
+        if (a==b) return rot_update.submat(a_full,a_full,b_full-1,b_full-1);
 
-            // 2. apply the corresponding quantum gates
-            for(auto& g:givens) g.b+=a; // absolute positions
-            auto gates=Fermionic::NOGates(sites,givens);
-            for(auto& g:givens) g.b-=a;
+        // 1. find the Givens that diagonalize cc
+        std::vector<GivensRot<T>> givens;
+        {
+            auto cc1 = arma::Mat<T>( cc.submat(a,a,b-1, b-1).eval() );
+            arma::vec eval;
+            arma::Mat<T> evec;
+            eig_sym(eval,evec,cc1);
+            arma::vec activity=eval;
+            for(auto &x : activity) x=std::min(x,1-x);
+            arma::uvec iek=arma::stable_sort_index(activity);
+            arma::Mat<T> rotation=evec.cols(iek);
+            if (spin==dw) givens=GivensRotForRot_right(rotation);
+            else          givens=GivensRotForRot_left(rotation);
+            if (givens.empty()) return rot_update.submat(a_full,a_full,b_full-1,b_full-1);
+        }
+
+        // 2. apply the corresponding quantum gates
+        {
+            auto gQ=givens;
+            for(auto& g:gQ) g.b+=a; // absolute positions
+
+            auto gQ_r=GivensReflect(gQ, length());  // compute spin=up by reflection
+            for(auto g:gQ_r) gQ.push_back(g);
+
+            auto gates=Fermionic::NOGates(sites,gQ);
             itensor::gateTEvol(gates,1,1,psi,{"Cutoff",tol/*,"MaxDim",512*/,"Quiet",true, "Normalize",false,"ShowPercent",false});
+        }
 
-            // 3. rotate rot, cc
+        // 3. rotate rot, cc
+        {
             auto rot1=matrot_from_Givens(givens,b-a);
             rot.cols(a,b-1)=rot.cols(a,b-1).eval()*rot1.st();
             cc .cols(a,b-1)=cc .cols(a,b-1).eval()*rot1.t();
             cc .rows(a,b-1)=rot1*cc.rows(a,b-1).eval();
             rot_update.submat(a,a,b-1,b-1) = rot1.st();
 
-            // 4. find the new active orbitals
+            // Reflection
+            ensure_reflection_vec(rot_update);
+            ensure_reflection_vec(rot);
+            ensure_reflection_mat(cc);
+        }
+
+        // 4. find the new active orbitals
+        {
             arma::vec ni_bath = occupations_ni().rows(a,b-1);
             int nActive_old=b-a;
             int nActive_new= arma::find(ni_bath>tol && ni_bath<1-tol).eval().size();
             int delta=nActive_new - nActive_old;
-            if (spin==dw) p2+=delta;
-            else          p1-=delta;
-        } // for spin
+            p2+=delta;
+            p1-=delta;
+        }
+
         return rot_update.submat(a_full,a_full,b_full-1,b_full-1);
     }
 
@@ -394,7 +437,7 @@ struct Fb_mps_spin
 
 private:
 
-    /// Swap to sites inside the Slater part
+    /// Swap two sites inside the Slater part
     void SlaterWaveFunctionSwap(int i,int j)
     {
         if (i==j) return;

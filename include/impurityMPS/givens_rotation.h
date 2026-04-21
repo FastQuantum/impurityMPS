@@ -118,6 +118,9 @@ inline arma::uvec my_sort_index(arma::vec const& x, bool spin)
     else return arma::sort_index(x);
 }
 
+
+///This class represents a Givens rotation
+/// @see https://libeigen.gitlab.io/eigen/docs-nightly/classEigen_1_1JacobiRotation.html
 template<class T=double>
 struct GivensRot {
     using matrix22=typename arma::Mat<T>::template fixed<2,2>;
@@ -151,6 +154,10 @@ struct GivensRot {
 
     /// return transpose
     GivensRot<T> transpose() const;
+
+    /// return reflection wrt L: the bond b (sites b, b+1) is mapped to bond L-2-b
+    /// (sites L-2-b, L-1-b), and the rotation is conjugated by the 2x2 swap P=[[0,1],[1,0]].
+    GivensRot<T> reflect(int L) const;
 };
 
 template<class T>
@@ -221,6 +228,9 @@ inline GivensRot<double> GivensRot<double>::dagger() const { return {.b=b, .c=c,
 
 template<>
 inline GivensRot<double> GivensRot<double>::transpose() const { return {.b=b, .c=c, .s=-s}; }
+
+template<>
+inline GivensRot<double> GivensRot<double>::reflect(int L) const { return {.b=L-2-b, .c=c, .s=-s}; }
 
 template<>
 inline GivensRot<cmpx> GivensRot<cmpx>::createFromPair(size_t b, cmpx p, cmpx q, bool go_right, cmpx *r)
@@ -295,6 +305,9 @@ inline GivensRot<cmpx> GivensRot<cmpx>::dagger() const { return {.b=b, .c=std::c
 
 template<>
 inline GivensRot<cmpx> GivensRot<cmpx>::transpose() const { return {.b=b, .c=c, .s=-std::conj(s)}; }
+
+template<>
+inline GivensRot<cmpx> GivensRot<cmpx>::reflect(int L) const { return {.b=L-2-b, .c=std::conj(c), .s=-std::conj(s)}; }
 
 
 //------------------------- set of Givens rotations -----------------------------------------
@@ -455,6 +468,13 @@ std::vector<GivensRot<T>> GivensTranspose(std::vector<GivensRot<T>> givens)
 {
     std::reverse(givens.begin(),givens.end());
     for(auto& g:givens) g=g.transpose();
+    return givens;
+}
+
+template<class T>
+std::vector<GivensRot<T>> GivensReflect(std::vector<GivensRot<T>> givens, int L)
+{
+    for(auto& g:givens) g=g.reflect(L);
     return givens;
 }
 

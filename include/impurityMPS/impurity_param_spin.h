@@ -8,8 +8,10 @@
 struct ImpurityParamSpin {
     arma::mat Kmat;           ///< the kinetic energy coefficient matrix
     arma::mat Umat;           ///< the Coulomb interaction coeff: U(i,j) ni nj
-    std::vector<int> impPos_up;  ///< (default => {0,2,...,nImp-2}) the positions of interacting sites
-    std::vector<int> impPos_dw;  ///< (default => {1,3,...,nImp-1}) the positions of interacting sites
+    std::vector<int> impPos1_up;  ///< (default => {0,2,...,nImp-2}) the positions of interacting sites
+    std::vector<int> impPos1_dw;  ///< (default => {1,3,...,nImp-1}) the positions of interacting sites
+    std::vector<int> impPos0_up;  ///< (default => {0,2,...,nImp-2}) the positions of interacting sites
+    std::vector<int> impPos0_dw;  ///< (default => {1,3,...,nImp-1}) the positions of interacting sites
     double filling=0.5;       ///< number of electrons per site
     arma::mat rot;            ///< (default => identity) the actual frame, such that F*Kmat*F.t() gives the original Kmat (in real space)
 
@@ -21,13 +23,15 @@ struct ImpurityParamSpin {
     {
         //TODO : verify correctness
         if (rot.empty()) rot=arma::mat(length(),length(), arma::fill::eye);
-        if (impPos_up.size() != impPos_dw.size()) throw std::invalid_argument("ImpurityParamSpin: impPos_up != impPos_dw");
-        if (impPos_up.empty()) {
+        if (impPos1_up.size() != impPos1_dw.size()) throw std::invalid_argument("ImpurityParamSpin: impPos_up != impPos_dw");
+        if (impPos1_up.empty()) {
             for(auto i=0; i<nImp()/2; i++) {
-                impPos_up.push_back(2*i);
-                impPos_dw.push_back(2*i+1);
+                impPos1_up.push_back(2*i);
+                impPos1_dw.push_back(2*i+1);
             }
         }
+        impPos0_up.resize(nImp()/2);
+        impPos0_dw.resize(nImp()/2);
     }
 
     /// return all (up first) the positions of the impurity
@@ -35,8 +39,19 @@ struct ImpurityParamSpin {
     {
         std::vector<int> out;
         for(int i=0; i<nImp()/2; i++) {
-            out.push_back(impPos_up[i]);
-            out.push_back(impPos_dw[i]);
+            out.push_back(impPos1_up[i]);
+            out.push_back(impPos1_dw[i]);
+        }
+        return out;
+    }
+
+    /// return all (up first) the positions of the impurity
+    std::vector<int> impPos0() const
+    {
+        std::vector<int> out;
+        for(int i=0; i<nImp()/2; i++) {
+            out.push_back(impPos0_up[i]);
+            out.push_back(impPos0_dw[i]);
         }
         return out;
     }
@@ -57,8 +72,8 @@ struct ImpurityParamSpin {
         // TODO: take Umat as a graph instead
         for(auto i=0; i<nImp()/2; i++)
         {
-            int id_up=arma::find(out.col(0).eval() == impPos_up[i]).eval()[0];
-            int id_dw=arma::find(out.col(1).eval() == impPos_dw[i]).eval()[0];
+            int id_up=arma::find(out.col(0).eval() == impPos1_up[i]).eval()[0];
+            int id_dw=arma::find(out.col(1).eval() == impPos1_dw[i]).eval()[0];
             out.col(0).swap_rows(id_up,i);
             out.col(1).swap_rows(id_dw,i);
         }
@@ -74,10 +89,17 @@ struct ImpurityParamSpin {
         int L=length();
         { // reorganize the sites
             arma::umat split=split_sites();
-            split.print("split");
+            // split.print("split");
             arma::uvec pos_all=arma::join_vert(arma::reverse(split.col(0)),split.col(1));
             Kmat=Kmat.submat(pos_all,pos_all).eval();
             rot=rot.cols(pos_all).eval();
+
+            for(auto i=0; i<nImp()/2; i++) {
+                impPos0_up[i]=impPos1_up[i];
+                impPos0_dw[i]=impPos1_dw[i];
+                impPos1_up[i]=L/2-i-1;
+                impPos1_dw[i]=L/2+i;
+            }
 
             /// TODO: reorder the Umat accordingly
             // using namespace arma;

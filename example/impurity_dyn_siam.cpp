@@ -21,7 +21,8 @@ int main()
         }
         arma::mat Umat(4,4,arma::fill::zeros);
         Umat(0,1)=U;
-        arma::real(K*1).eval().clean(1e-11).print("K original");
+
+        // arma::real(K*1).eval().clean(1e-11).print("K original");
 
         model = ImpuritySpin {{.Kmat=K, .Umat=Umat}};
     }
@@ -31,8 +32,9 @@ int main()
         // force impurity ocupation |1100>
         ek[L/2-1]=ek[L/2]=-10;
         ek[L/2-2]=ek[L/2+1]=10;
+        arma::cx_mat rot(L,L,arma::fill::eye);
         fb=Fb_mps_spin<cmpx>::from_slater(model.param.rot*cmpx(1,0), ek, model.param.nPart(), model.param.nImp());
-        fb.occupations_ni().as_row().eval().print("ni");
+        // fb.occupations_ni().as_row().eval().print("ni");
     }
 
     double dt=0.1;
@@ -49,16 +51,16 @@ int main()
 
     cout<<"time m <n0> <cd>  nActive\n"<<setprecision(12);
     itensor::cpu_time t0;
-    for(auto i=0; i<1/*i*dt<L*/; i++){
+    for(auto i=0; i<4/*i*dt<L*/; i++){
         // arma::real(solver.K*1).eval().clean(1e-11).print("K");
         auto [a,b]=solver.fb.interval_active_full();
-        solver.fb.occupations_ni().as_row().eval().cols(a,b-1).eval().print("ni");
+        // solver.fb.occupations_ni().as_row().eval().cols(a,b-1).eval().print("ni");
 
         solver.iterate({.max_bond_dim=2048, .nIter_diag=16,.epsilonM=1e-4});
-        double n0 = solver.fb.correlator(1,1).real();
+        // double n0 = solver.fb.correlator(1,1).real();
         double n02= solver.fb.occupations_ni()(L/2);
         double cd=2*solver.fb.correlator(0,1).real();
-        cout<<(i+1)*solver.dt<<" "<<maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<n02<<" "<<cd<<" "<<solver.fb.p2-solver.fb.p1<<endl;
+        cout<<(i+1)*solver.dt<<" "<<maxLinkDim(solver.fb.psi)<<" "<<n02<<" "<<cd<<" "<<solver.fb.p2-solver.fb.p1<<endl;
         t0.mark();
     }
     return 0;

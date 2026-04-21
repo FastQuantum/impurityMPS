@@ -14,7 +14,7 @@ struct Fb_mps
     itensor::Fermion sites;     ///< the sites of the network from ITensor
     itensor::MPS psi;           ///< the mps state
     arma::Mat<T> rot;           ///< the actual rotation frame
-    arma::SpMat<T> cc;          ///< the correlation matrix or one-particle density matrix
+    arma::Mat<T> cc;            ///< the correlation matrix or one-particle density matrix
     int nActive;                ///< the number of active orbitals (the rest nActive...sites.length() is considered Slater)
     bool spin=false;            ///< whether the sites can be splitted in even/odd for cc
     int natOrbDepth=-1;         ///< the depth of the circuit used to extract the natural orbitals (-1 means the to use an exact circuit)
