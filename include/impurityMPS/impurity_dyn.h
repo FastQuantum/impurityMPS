@@ -42,6 +42,10 @@ struct Impurity_dyn {
         Kip0.submat(bath_pos,bath_pos).fill(0.0);
         Kip0.submat(imp_pos,bath_pos)+=K1;
         Kip0.submat(bath_pos,imp_pos)+=K1.t();
+
+        K=Kip0;
+        K.rows(imp_pos)=K.rows(imp_pos).eval()*fb.rot;
+        K.cols(imp_pos)=fb.rot.t()*K.cols(imp_pos).eval();
     }
 
     void iterate(TdvpParam args={})

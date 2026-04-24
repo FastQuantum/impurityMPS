@@ -6,6 +6,7 @@ list(APPEND test_SRC
     chain_gs_siam.cpp
     impurity_dyn_irlm.cpp
     impurity_dyn_siam.cpp
+    impurity_dyn_ns_siam.cpp
     irlm_dyn.cpp
     chain_dyn_siam.cpp
 )

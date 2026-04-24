@@ -81,6 +81,8 @@ struct ImpurityParam {
 
 struct Impurity {
     ImpurityParam param;
+
+    Impurity() = default;
     Impurity(ImpurityParam const& param_) : param(param_) { param.toStar(); }
 };
 

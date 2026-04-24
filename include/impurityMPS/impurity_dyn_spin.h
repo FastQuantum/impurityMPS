@@ -40,17 +40,18 @@ struct Impurity_dyn_spin {
         Kip0.submat(bath_pos,bath_pos).fill(0.0);
         Kip0.submat(imp_pos,bath_pos)+=K1;
         Kip0.submat(bath_pos,imp_pos)+=K1.t();
+        K=fb.rot.t()*Kip0*fb.rot;
 
-        arma::real(K0*1).eval().clean(1e-11).print("Kip0");
+        // arma::real(K0*1).eval().clean(1e-11).print("Kip0");
         // arma::real(Kip0*1).eval().clean(1e-11).print("Kip0 after IP");
-        arma::real(param.Kmat*1).eval().clean(1e-11).print("param.Kmat");
-        arma::real(fb.rot.t()*K0*fb.rot).eval().clean(1e-11).print("Kip0 before IP rotated at constructor (expected = param.Kmat)");
+        // arma::real(param.Kmat*1).eval().clean(1e-11).print("param.Kmat");
+        // arma::real(fb.rot.t()*K0*fb.rot).eval().clean(1e-11).print("Kip0 before IP rotated at constructor (expected = param.Kmat)");
         // arma::real(fb.rot.t()*Kip0*fb.rot).eval().clean(1e-11).print("Kip0 after IP rotated at constructor (expected impurity untouch)");
     }
 
     void iterate(TdvpParam args={})
     {
-        arma::real(fb.rot.t()*Kip0*fb.rot).eval().clean(1e-11).print("Kip0 before repr0 rotated (expected impurity untouch)");
+        // arma::real(fb.rot.t()*Kip0*fb.rot).eval().clean(1e-11).print("Kip0 before repr0 rotated (expected impurity untouch)");
 
         // rotate from scratch
         K=Kip0;
@@ -59,31 +60,31 @@ struct Impurity_dyn_spin {
         K=fb.rot.t()*Kip0*fb.rot;
         fb.rot=exp_ih*fb.rot;   // update of the interaction picture
 
-        arma::real(K*1.0).eval().clean(1e-11).print("K before repr 0");
-        fb.occupations_ni2().as_row().eval().clean(1e-10).print("ni");
+        // arma::real(K*1.0).eval().clean(1e-11).print("K before repr 0");
+        // fb.occupations_ni2().as_row().eval().clean(1e-10).print("ni");
 
         extract_representative(0);
 
-        arma::real(K*1).eval().clean(1e-11).print("K before repr 1");
-        fb.occupations_ni2().as_row().eval().clean(1e-10).print("ni");
+        // arma::real(K*1).eval().clean(1e-11).print("K before repr 1");
+        // fb.occupations_ni2().as_row().eval().clean(1e-10).print("ni");
 
         extract_representative(1);
-        // extract_representative_final();
+        extract_representative_final();
 
-        arma::real(K*1).eval().clean(1e-11).print("K before tdvp");
-        fb.occupations_ni2().as_row().eval().clean(1e-10).print("ni");
+        // arma::real(K*1).eval().clean(1e-11).print("K before tdvp");
+        // fb.occupations_ni2().as_row().eval().clean(1e-10).print("ni");
 
         doTdvp(args);
 
-        arma::real(K*1).eval().clean(1e-11).print("K before nat orb");
-        fb.occupations_ni2().as_row().eval().clean(1e-10).print("ni");
-        fb.occupations_ni().as_row().eval().clean(1e-10).print("ni from cc");
+        // arma::real(K*1).eval().clean(1e-11).print("K before nat orb");
+        // fb.occupations_ni2().as_row().eval().clean(1e-10).print("ni");
+        // fb.occupations_ni().as_row().eval().clean(1e-10).print("ni from cc");
 
 
-        rotateToNaturalOrbitals();
+        // rotateToNaturalOrbitals();
 
-        arma::real(K*1).eval().clean(1e-11).print("K after nat orb");
-        fb.occupations_ni2().as_row().eval().clean(1e-10).print("ni");
+        // arma::real(K*1).eval().clean(1e-11).print("K after nat orb");
+        // fb.occupations_ni2().as_row().eval().clean(1e-10).print("ni");
 
     }
 
@@ -120,7 +121,7 @@ struct Impurity_dyn_spin {
         }
 
         energy = itensor::tdvp(fb.psi,mpo, -imag_1*dt, sweeps,          // TDVP sweep
-                               {/*"Minb",a+1,"MaxSite",b,*/
+                               {"MaxSite",b,
                                 "Truncate", true,
                                 "DoNormalize", true,
                                 "Quiet", true,
@@ -151,7 +152,6 @@ struct Impurity_dyn_spin {
                 int jj=impPos[j];
                 if (std::abs(param.Umat(i,j))>1e-15) {
                     h += param.Umat(i,j), "N", ii+1, "N", jj+1;
-                    std::cout<<"ii,jj="<<ii<<" "<<jj<<"\n";
                 }
             }
 
@@ -161,8 +161,8 @@ struct Impurity_dyn_spin {
                 if (std::abs(K(i,j))>fb.tol)
                     h += K(i,j),"Cdag",i+1,"C",j+1;
 
-        arma::real(K*1.0).eval().clean(1e-9).eval().print("Keff");
-        fb.occupations_ni2().as_row().eval().print("ni");
+        // arma::real(K*1.0).eval().clean(1e-9).eval().print("Keff");
+        // fb.occupations_ni2().as_row().eval().print("ni");
 
         return itensor::toMPO(h);
     }

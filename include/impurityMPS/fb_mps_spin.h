@@ -1,5 +1,5 @@
-#ifndef FB_MPS_H
-#define FB_MPS_H
+#ifndef FB_MPS_SPIN_H
+#define FB_MPS_SPIN_H
 
 #include "givens_rotation.h"
 #include "fermionic.h"
@@ -477,6 +477,6 @@ inline Fb_mps_spin<cmpx> Fb_mps_spin<double>::to_complex() const
 }
 
 
-#endif // FB_MPS_H
+#endif // FB_MPS_SPIN_H
 
 
