@@ -7,7 +7,7 @@
 using namespace std;
 using namespace arma;
 
-
+/// return the kinetic energy in star geometry and the rotation to get it.
 auto computeKstar(mat K, int nImp)
 {
     int L=K.n_rows;
@@ -19,7 +19,7 @@ auto computeKstar(mat K, int nImp)
 
     for(auto pos : {pos_up,pos_dw})
     {
-        uvec pos_bath = pos.subvec(nImp/2,L/2-1);
+        uvec pos_bath = pos.subvec(nImp/2,L/2-1); // these two uvec can change if the impurity is in the center
         uvec pos_impu = pos.subvec(0,nImp/2-1);
 
         mat Kbath = K.submat(pos_bath,pos_bath);
@@ -47,11 +47,62 @@ auto computeKstar(mat K, int nImp)
     return make_pair(Kstar,rot);
 }
 
+void doTdvp(itensor::MPS &psi, itensor::MPO const mpo, double dt, double tol=1e-12)
+{
+    auto sweeps = itensor::Sweeps(1);
+    sweeps.maxdim() = 1024;
+    sweeps.cutoff() = tol;
+    sweeps.niter() = 16;
+    sweeps.noise() = 0e-8;
+
+    std::vector<double> epsilonK(15, 1e-4);   // match epsilonM from impurity_dyn
+    itensor::addBasis(psi, mpo, epsilonK,
+                      {"Cutoff", 1e-4,
+                       "Method", "DensityMatrix",
+                       "KrylovOrd", 15,
+                       "DoNormalize", true,
+                       "Quiet", true,
+                       "Silent", true});
+
+    itensor::tdvp(psi,mpo, -imag_1*dt, sweeps,          // TDVP sweep
+                  {"Truncate", true,
+                   "DoNormalize", true,
+                   "Quiet", true,
+                   "Silent", true,
+                   "NumCenter", 2,
+                   "ErrGoal", 1e-8});
+}
+
+itensor::MPO getHamiltonian(itensor::Fermion sites, mat const& K, mat const& Umat)
+{
+    itensor::MPO mpo;
+    double tol=1e-12;
+    int L=K.n_rows;
+    int nImp=Umat.n_rows;
+    itensor::AutoMPO h(sites);
+    for(auto i=0; i<nImp; i++)
+        for(auto j=0; j<nImp; j++) {
+            int ii=i; //these two positions can change if the impurity is the center
+            int jj=j;
+            if (std::abs(Umat(i,j))>1e-15)
+                h += Umat(i,j), "N", ii+1, "N", jj+1;
+        }
+
+    for(auto i=0; i<L; i++)
+        for(auto j=0; j<L; j++)
+            if (std::abs(K(i,j))>tol)
+                h += K(i,j),"Cdag",i+1,"C",j+1;
+    return itensor::toMPO(h);
+}
+
 int main()
 {
     int L=12;
-    int nImp;
-    mat Kstar, Umat, rot;
+    int nImp=4;
+    double dt=0.1;
+
+    mat Kstar, Umat; // define the Hamiltonian
+    mat rot;         // define the orbitals
     {
         double U=0.2;
         double V=0.1;
@@ -63,75 +114,29 @@ int main()
             K(1,1)=-U/2;
             K(0,2)=K(2,0)=K(1,3)=K(3,1)=V;
         }
-        Umat.zeros(4,4);
+        Umat.zeros(nImp,nImp);
         Umat(0,1)=U;
 
-        nImp=Umat.n_rows;
         std::tie(Kstar,rot) = computeKstar(K, nImp);
     }
+
     Fb_mps<cmpx> fb;
     {
         auto ek=arma::vec {Kstar.diag()};
-        // force impurity ocupation |1100>
-        ek[0]=ek[1]=-10; //TODO: the ek change the Hamiltonian
+        // force impurity occupation |1100>
+        ek[0]=ek[1]=-10;
         ek[2]=ek[3]=10;
         fb=Fb_mps<cmpx>::from_slater(rot*cmpx(1,0), ek, L/2, nImp, false);
-        // fb.occupations_ni().as_row().eval().print("ni");
-        // fb.occupations_ni2().as_row().eval().print("ni2");
     }
 
-    itensor::MPO mpo;
-    {
-        itensor::AutoMPO h(fb.sites);
-        for(auto i=0; i<nImp; i++)
-            for(auto j=0; j<nImp; j++) {
-                int ii=i;
-                int jj=j;
-                if (std::abs(Umat(i,j))>1e-15)
-                    h += Umat(i,j), "N", ii+1, "N", jj+1;
-            }
-
-        for(auto i=0; i<L; i++)
-            for(auto j=0; j<L; j++)
-                if (std::abs(Kstar(i,j))>fb.tol)
-                    h += Kstar(i,j),"Cdag",i+1,"C",j+1;
-        mpo=itensor::toMPO(h);
-    }
-
-    double dt=0.1;
-    auto sweeps = itensor::Sweeps(1);
-    sweeps.maxdim() = 1024;
-    sweeps.cutoff() = fb.tol;
-    sweeps.niter() = 16;
-    sweeps.noise() = 0e-8;
+    auto mpo=getHamiltonian(fb.sites,Kstar,Umat);
 
     cout<<"iteration m 0 energy time\n"<<setprecision(12);
-    itensor::cpu_time t0;
     for(auto i=0;i*dt<L;i++){
-        {
-            std::vector<double> epsilonK(15, 1e-4);   // match epsilonM from impurity_dyn
-            itensor::addBasis(fb.psi, mpo, epsilonK,
-                              {"Cutoff", 1e-4,
-                               "Method", "DensityMatrix",
-                               "KrylovOrd", 15,
-                               "DoNormalize", true,
-                               "Quiet", true,
-                               "Silent", true});
-        }
-        double energy = itensor::tdvp(fb.psi,mpo, -imag_1*dt, sweeps,          // TDVP sweep
-                               {"Truncate", true,
-                                "DoNormalize", true,
-                                "Quiet", true,
-                                "Silent", true,
-                                "NumCenter", 2,
-                                "ErrGoal", 1e-8});
-
-
+        doTdvp(fb.psi,mpo,dt);
         double n0=itensor::expectC(fb.psi,fb.sites,"N",{1})[0].real();
         double n1=itensor::expectC(fb.psi,fb.sites,"N",{3})[0].real();
-        // fb.occupations_ni2().as_row().eval().print("ni2");
-        cout<<(i+1)*dt<<" "<<itensor::maxLinkDim(fb.psi)<<" "<<n0<<" "<<n1<<" "<<energy<<" "<<t0.sincemark().wall<<endl;
-        t0.mark();
+        cout<<(i+1)*dt<<" "<<itensor::maxLinkDim(fb.psi)<<" "<<n0<<" "<<n1<<endl;
     }
     return 0;
 }
