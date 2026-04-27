@@ -87,18 +87,11 @@ struct ImpurityParamSpin {
         validate();
         // TODO : if the matrix is already in star then return *this;
         int L=length();
-        arma::uvec pos_all2;
         { // reorganize the sites
             arma::umat split=split_sites();
-            // split.print("split");
             arma::uvec pos_all=arma::join_vert(arma::reverse(split.col(0)),split.col(1));
             Kmat=Kmat.submat(pos_all,pos_all).eval();
             rot=rot.cols(pos_all).eval();
-
-            Kmat.print("Kmat before star");
-
-            pos_all.as_row().eval().print("pos_all");
-            pos_all2=pos_all;
 
             for(auto i=0; i<nImp()/2; i++) {
                 impPos0_up[i]=impPos1_up[i];
@@ -106,33 +99,12 @@ struct ImpurityParamSpin {
                 impPos1_up[i]=L/2-i-1;
                 impPos1_dw[i]=L/2+i;
             }
-
-            /// TODO: reorder the Umat accordingly
-            // using namespace arma;
-            // auto ip_up=conv_to<uvec>::from(impPos_up);
-            // auto ip_dw=conv_to<uvec>::from(impPos_dw);
-            // for(auto i=0; i<nImp()/2; i++) {
-            //     int id_up_new=L/2-i-1;
-            //     int id_dw_new=L/2+i;
-            //     int id_up=arma::find(ip_up == id_up_new).eval()[0];
-            //     int id_dw=arma::find(ip_dw == id_dw_new).eval()[0];
-            //     Umat.swap_cols(id_up,id_up);
-            //     Umat.swap_rows(id_up,id_up);
-            //     Umat.swap_cols(id_dw,id_dw);
-            //     Umat.swap_rows(id_dw,id_dw);
-            // }
-
         }
 
         // build an artificial impurity with one of the spin
-        arma::mat Umat(nImp()/2,nImp()/2);
-        ImpurityParam half={.Kmat=Kmat.submat(L/2,L/2,L-1,L-1), .Umat=Umat};
-
-        half.Kmat.print("half.Kmat before star");
-
+        arma::mat Umat_half(nImp()/2,nImp()/2, arma::fill::zeros);
+        ImpurityParam half={.Kmat=Kmat.submat(L/2,L/2,L-1,L-1), .Umat=Umat_half};
         half.toStar();
-
-        half.Kmat.print("half.Kmat");
 
         // duplicate the artificial impurity by reflexion
         auto irev=arma::regspace<arma::uvec>(L/2-1,0);
@@ -140,11 +112,6 @@ struct ImpurityParamSpin {
         Kmat.submat(irev,irev)=half.Kmat;
         rot.cols(L/2,L-1)=rot.cols(L/2,L-1).eval()*half.rot;
         rot.cols(irev)=rot.cols(irev).eval()*half.rot;
-
-        pos_all2=arma::regspace<arma::uvec>(0,L-1);
-        pos_all2.rows(0,L/2-1)=pos_all2(irev);
-        irev.as_row().eval().print("irev");
-        pos_all2.as_row().eval().print("pos_all2");
     }
 };
 
