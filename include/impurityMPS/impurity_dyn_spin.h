@@ -53,38 +53,16 @@ struct Impurity_dyn_spin {
     {
         // arma::real(fb.rot.t()*Kip0*fb.rot).eval().clean(1e-11).print("Kip0 before repr0 rotated (expected impurity untouch)");
 
-        // rotate from scratch
-        K=Kip0;
-        // K.rows(imp_pos)=K.rows(imp_pos).eval()*fb.rot;
-        // K.cols(imp_pos)=fb.rot.t()*K.cols(imp_pos).eval();
         K=fb.rot.t()*Kip0*fb.rot;
         fb.rot=exp_ih*fb.rot;   // update of the interaction picture
 
-        // arma::real(K*1.0).eval().clean(1e-11).print("K before repr 0");
-        // fb.occupations_ni2().as_row().eval().clean(1e-10).print("ni");
-
         extract_representative(0);
-
-        // arma::real(K*1).eval().clean(1e-11).print("K before repr 1");
-        // fb.occupations_ni2().as_row().eval().clean(1e-10).print("ni");
-
         extract_representative(1);
         extract_representative_final();
 
-        // arma::real(K*1).eval().clean(1e-11).print("K before tdvp");
-        // fb.occupations_ni2().as_row().eval().clean(1e-10).print("ni");
-
         doTdvp(args);
 
-        // arma::real(K*1).eval().clean(1e-11).print("K before nat orb");
-        // fb.occupations_ni2().as_row().eval().clean(1e-10).print("ni");
-        // fb.occupations_ni().as_row().eval().clean(1e-10).print("ni from cc");
-
-
-        // rotateToNaturalOrbitals();
-
-        // arma::real(K*1).eval().clean(1e-11).print("K after nat orb");
-        // fb.occupations_ni2().as_row().eval().clean(1e-10).print("ni");
+        rotateToNaturalOrbitals();
 
     }
 
@@ -121,7 +99,7 @@ struct Impurity_dyn_spin {
         }
 
         energy = itensor::tdvp(fb.psi,mpo, -imag_1*dt, sweeps,          // TDVP sweep
-                               {"MaxSite",b,
+                               {/*"MaxSite",b,*/
                                 "Truncate", true,
                                 "DoNormalize", true,
                                 "Quiet", true,
