@@ -173,69 +173,6 @@ struct Fb_mps_spin
         } // for spin
     }
 
-    /*
-    bool extract_representative(int sv_index,arma::Mat<T>& K, int nRef, int nRows)
-    {
-        // 1. find the orbitals with the occupation nref
-        auto ni_bath=arma::vec( arma::real( cc.diag().eval().rows(nActive, cc.n_rows-1) ) );
-        arma::vec delta_n_bath=arma::abs(ni_bath-nRef);
-        arma::uvec pos0=arma::find(delta_n_bath<0.5).eval()+nActive ;
-        if (pos0.empty()) { std::cout<<"warning: no Slater?\n"; return false; }
-
-        // 2. find the Givens rotations for them
-        auto k12 = K.head_rows(nRows).eval().cols(pos0).eval();
-        arma::vec s;
-        arma::Mat<T> U, V;
-        svd_spin(U,s,V, k12);
-        int nSv=arma::find(s>tol*s[0]).eval().size();
-        std::vector<GivensRot<T>> givens;
-        if (true || nSv==1) {
-            if (sv_index>=nSv) return false;
-            givens=GivensRotForRot_left(V.cols(sv_index,sv_index).eval());
-            GivensDaggerInPlace(givens);
-        }
-        else {
-            std::cout<<"\nnSv>1\n";
-            std::terminate();
-            if (sv_index+1>=nSv) return false;
-            givens=GivensRotForRot_left(V.cols(sv_index,sv_index+1).eval());
-            GivensDaggerInPlace(givens);
-        }
-
-        // arma::Mat<T> rot1=matrot_from_Givens(givens, k12.n_cols);
-        // K.cols(pos0)=K.cols(pos0).eval()*rot1;
-        // K.rows(pos0)=rot1.t()*K.rows(pos0).eval();
-        // rot.cols(pos0)=rot.cols(pos0)*rot1;
-
-        // 3. rotate K and cc
-        auto Kcol=K.cols(pos0).eval();
-        applyGivens(Kcol,givens);
-        K.cols(pos0)=Kcol;
-        {
-            arma::inplace_trans(K);
-            auto Kcol=K.cols(pos0).eval();
-            applyGivens(Kcol,givens);
-            K.cols(pos0)=Kcol;
-            arma::inplace_trans(K);
-        }
-        auto Rcol=rot.cols(pos0).eval();
-        applyGivens(Rcol,givens);
-        rot.cols(pos0)=Rcol;
-
-        // no need to update cc
-        // 4. move the nSv representative orbitals to the beginning of the Slater
-        for(auto i=0; i<1; i++) {
-            SlaterWaveFunctionSwap (nActive,pos0.at(i));
-            K.swap_cols(nActive,pos0.at(i));
-            K.swap_rows(nActive,pos0.at(i));
-            rot.swap_cols(nActive,pos0.at(i));
-            cc.swap_cols(nActive,pos0.at(i));
-            cc.swap_rows(nActive,pos0.at(i));
-            nActive++;
-        }
-        return true;
-    }
-    */
 
     /// TODO: update using extract_representative()
     void extract_representative_final(arma::Mat<T>& K) //TODO
@@ -407,14 +344,14 @@ struct Fb_mps_spin
     /// compute all the correlator <ci^ cj> where i and j are original sites (i.e. before the rotation).
     arma::Mat<T> correlator_all() const
     {
-        arma::Mat<T> Qinv=rot.st()/*.t()*/;
+        arma::Mat<T> Qinv=rot.st().t();
         return Qinv.t() * cc * Qinv;
     }
 
     /// compute the correlator <ci^ cj> where i and j are original sites (i.e. before the rotation).
     T correlator(int i, int j) const
     {
-        arma::Mat<T> Qinv=rot.st()/*.t()*/;
+        arma::Mat<T> Qinv=rot.st().t();
         arma::Col<T> ccQinv=cc*Qinv.col(j);
         return arma::cdot(Qinv.col(i), ccQinv);
     }
@@ -422,7 +359,7 @@ struct Fb_mps_spin
     /// compute the correlator <ci^ cj> for all i, where i and j are original sites (i.e. before the rotation).
     arma::Col<T> correlator_all_i(int j) const
     {
-        arma::Mat<T> Qinv=rot.st()/*.t()*/;
+        arma::Mat<T> Qinv=rot.st().t();
         arma::Col<T> ccQinv=cc*Qinv.col(j);
         return Qinv.t() * ccQinv;
     }
@@ -430,7 +367,7 @@ struct Fb_mps_spin
     /// compute the correlator <ci^ cj> for all j, where i and j are original sites (i.e. before the rotation).
     arma::Col<T> correlator_all_j(int i) const
     {
-        arma::Mat<T> Qinv=rot.st()/*.t()*/;
+        arma::Mat<T> Qinv=rot.st().t();
         arma::Col<T> Qinv_t_cc=Qinv.col(i).t()*cc;
         return Qinv_t_cc*Qinv;
     }
