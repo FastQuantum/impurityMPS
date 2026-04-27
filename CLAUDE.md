@@ -1,0 +1,81 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+impurityMPS is a C++17 header-only library for simulating quantum impurity dynamics using Matrix Product States (MPS). It combines ITensor (DMRG/TDVP tensor network framework) with custom orbital-rotation algorithms to efficiently handle large systems (up to ~1M orbitals) by keeping only a small "active" set in the full MPS.
+
+Associated paper: https://arxiv.org/abs/2503.13706
+
+## Build
+
+**Prerequisites (must be manually installed to `$HOME/opt/`):**
+- ITensor: `$HOME/opt/ITensor/` — MPS library
+- TDVP: `$HOME/opt/TDVP/` — time-dependent variational principle header library
+
+**Auto-fetched via CMake FetchContent:** Armadillo, Catch2, nlohmann_json
+
+```bash
+mkdir build && cd build
+cmake ..
+make -j4
+```
+
+Set `OMP_NUM_THREADS=1` and `OPENBLAS_NUM_THREADS=1` when running executables — the code is not thread-safe and relies on single-threaded BLAS.
+
+## Tests
+
+```bash
+cd build
+ctest
+# or directly:
+./test/impurityMPS_test
+# run a single test tag:
+./test/impurityMPS_test "[givens]"
+```
+
+Tests use Catch2 v2. The three test modules are `test_givens.cpp`, `test_graph.cpp`, and `test_itensor.cpp`.
+
+## Architecture
+
+### Core idea: active orbital window
+
+The library tracks a small window of `nActive` orbitals in a full MPS (with entanglement) while the remaining orbitals are described by a Slater determinant. After each DMRG or TDVP sweep, the one-particle density matrix is diagonalized to find natural orbitals; the MPS is rotated into this basis to minimize entanglement, and orbitals near half-filling are promoted into the active window while those near 0 or 1 are demoted back to the Slater part.
+
+### Key headers (`include/impurityMPS/`)
+
+| Header | Purpose |
+|---|---|
+| `fb_mps.h` / `fb_mps_spin.h` | `Fb_mps<T>` — few-body MPS state with rotation matrix `rot` and correlation matrix `cc` |
+| `impurity_param.h` / `*_spin.h` | `ImpurityParam` — kinetic matrix `Kmat`, interaction `Umat`, impurity positions; `toStar()` transforms to star geometry |
+| `impurity_gs.h` / `*_spin.h` | `Impurity_gs` — ground state solver: DMRG loop + orbital rotation |
+| `impurity_dyn.h` / `*_spin.h` | `Impurity_dyn` — dynamics: TDVP loop + orbital rotation |
+| `fermionic.h` | `Fermionic` — builds MPO from kinetic/Coulomb terms; graph utilities (`graph::find_islands`) |
+| `givens_rotation.h` | Givens rotations applied to MPS: `GivensRotForRot_left()`, `expIH()`, `my_svd()` |
+| `irlm.h` / `irlm_gs.h` | IRLM model definition and its ground state solver |
+| `it_dmrg.h` / `it_tdvp.h` | Thin wrappers around ITensor's DMRG and TDVP routines |
+
+### Hamiltonian geometry
+
+Input is a generic kinetic matrix `Kmat`. `toStar()` transforms it to star geometry (bath modes are orthogonalized so the bath Hamiltonian is diagonal), enabling efficient DMRG. After rotation, the system is a central impurity coupled to a set of bath orbitals.
+
+### Spin variants
+
+Files ending in `_spin` support spin up/down having equivalent properties (spin flip commute with the Hamiltonian). Relevant files: `Fb_mps_spin`, `Impurity_gs_spin`, and `Impurity_dyn_spin`. In these files the impurity is represented as -----spin-up-----xx XX------spin-down------- whre xx and XX are the non-rotating orbitals with spin up and down, respectively
+
+### Examples (`example/`)
+
+Each `.cpp` is a standalone executable. Key ones:
+- `impurity_gs_irlm.cpp` — ground state, L=1000 sites, spinless IRLM
+- `impurity_gs_siam.cpp` — ground state, SIAM (spin)
+- `impurity_dyn_irlm.cpp` — real-time dynamics, L=100, complex MPS
+- `impurity_dyn_siam.cpp` — dynamics with spin
+- `irlm_dyn.cpp` — advanced dynamics with JSON parameter loading (`param.json`)
+
+## Conventions
+
+- The library is almost entirely header-only; `empty.cpp` exists only to generate the static archive `libimpurityMPS.a`.
+- Template parameter `T` is `double` for ground state, `std::complex<double>` for dynamics.
+- ITensor `Fermion` sites with particle-number conservation are used throughout; Jordan-Wigner strings are handled automatically by ITensor.
+- `nActive` controls the MPS window size; orbital promotion/demotion uses occupancy thresholds relative to a tolerance `tol`.
