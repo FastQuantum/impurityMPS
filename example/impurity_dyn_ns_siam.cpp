@@ -6,7 +6,7 @@ using namespace std;
 
 int main()
 {
-    int L=12;
+    int L=100;
     Impurity model;
     {
         double U=0.2;

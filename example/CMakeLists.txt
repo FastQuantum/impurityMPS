@@ -1,16 +1,19 @@
 # file(GLOB test_SRC CONFIGURE_DEPENDS "*.cpp")
 
 list(APPEND test_SRC
+    irlm_dyn.cpp
     impurity_gs_irlm.cpp
     impurity_gs_siam.cpp
-    chain_gs_siam.cpp
     impurity_dyn_irlm.cpp
     impurity_dyn_siam.cpp
     impurity_dyn_ns_siam.cpp
-    irlm_dyn.cpp
-    chain_dyn_siam.cpp
-    chain_dyn_siam_center.cpp
     impurity_dyn_siam_center.cpp
+    impurity_dyn_ns__man_siam.cpp
+    star_gs_siam.cpp
+    star_dyn_siam.cpp
+    star_dyn_siam_center.cpp
+    star_dyn_siam_spin.cpp
+    chain_dyn_siam_center.cpp
 )
 
 foreach (test ${test_SRC})

@@ -1,5 +1,8 @@
-#include "impurityMPS/fb_mps_spin.h"
-#include "impurityMPS/it_tdvp.h"
+#include <itensor/all.h>
+#include <tdvp.h>
+#include <basisextension.h>
+#include <armadillo>
+
 #include <iostream>
 #include <iomanip>
 
@@ -33,11 +36,15 @@ auto computeKstar(mat K, int nImp)
         arma::mat evec=evec1.cols(iek);
         arma::vec ek=ek1.rows(iek);
 
-        arma::mat vk=K.submat(pos_impu,pos_bath)*evec;
 
+        arma::mat vk=K.submat(pos_impu,pos_bath).eval()*evec;
         Kstar.submat(pos_impu,pos_impu)=K.submat(pos_impu,pos_impu);
+        // Kstar.submat(pos_impu,pos_bath)=K.submat(pos_impu,pos_bath).eval()*evec;
+        // Kstar.submat(pos_bath,pos_impu)=K.submat(pos_impu,pos_bath).t();
+        // Kstar.submat(pos_bath,pos_bath)=evec.t()*K.submat(pos_bath,pos_bath)*evec;
+
         for(auto j=0u;j<ek.size();j++) {
-            int jj=pos_bath[j];
+            int jj=pos_bath[iek[j]];
             Kstar(jj,jj)=ek[j];
             for(auto i=0u;i<pos_impu.size();i++) {
                 int ii=pos_impu[i];
@@ -67,7 +74,8 @@ void doTdvp(itensor::MPS &psi, itensor::MPO const mpo, double dt, double tol=1e-
                        "Quiet", true,
                        "Silent", true});
 
-    itensor::tdvp(psi,mpo, -imag_1*dt, sweeps,          // TDVP sweep
+    using cmpx=complex<double>;
+    itensor::tdvp(psi,mpo, -cmpx(0,1)*dt, sweeps,          // TDVP sweep
                   {"Truncate", true,
                    "DoNormalize", true,
                    "Quiet", true,
@@ -100,16 +108,16 @@ itensor::MPO getHamiltonian(itensor::Fermion sites, mat const& K, mat const& Uma
 
 int main()
 {
-    int L=12;
+    int L=100;
     int nImp=4;
     double dt=0.1;
+    int nBath=L/2-nImp/2;  // =4 for L=12, nImp=4
 
     mat Kstar, Umat; // define the Hamiltonian
     mat rot;         // define the orbitals
     {
         double U=0.2;
         double V=0.1;
-        int nBath=L/2-nImp/2;  // =4 for L=12, nImp=4
         arma::mat K(L,L, arma::fill::zeros);
         {
             // spin-up chain (sites 0..L/2-1) and spin-down chain (sites L/2..L-1)
@@ -128,27 +136,33 @@ int main()
         std::tie(Kstar,rot) = computeKstar(K, nImp);
     }
 
-    Kstar.print("Kstar for chain_center");
-
-    Fb_mps_spin<cmpx> fb;
+    itensor::Fermion sites=itensor::Fermion(L, {"ConserveNf",true});
+    itensor::MPS psi;  // should be  bath--|0110|--bath
     {
-        int nBath=L/2-nImp/2;
         auto ek=arma::vec {Kstar.diag()};
         // force impurity occupation: physical imp sites occupied, buffer sites empty
         ek[nBath+nImp/2-1]=ek[L/2]=-10;    // spin-up and spin-down physical impurities
         ek[nBath]=ek[L/2+nImp/2-1]=10;     // spin-up and spin-down buffers
-        fb=Fb_mps_spin<cmpx>::from_slater(rot*cmpx(1,0), ek, L/2, nImp);
+
+        int nPart=L/2;
+        sites=itensor::Fermion(ek.size(), {"ConserveNf",true});
+        auto state = itensor::InitState(sites,"0");
+        arma::uvec iek=arma::sort_index(ek);
+        for(int j = 0; j < nPart; j++) {
+            int k=iek[j];
+            state.set(k+1,"1");
+        }
+        psi=itensor::MPS(state);
     }
 
-    auto mpo=getHamiltonian(fb.sites,Kstar,Umat);
+    auto mpo=getHamiltonian(sites,Kstar,Umat);
 
-    int nBath=L/2-nImp/2;
     cout<<"time m n_up n_dw\n"<<setprecision(12);
     for(auto i=0;i*dt<L;i++){
-        doTdvp(fb.psi,mpo,dt);
-        double n_up=itensor::expectC(fb.psi,fb.sites,"N",{nBath+nImp/2+1})[0].real();    // spin-up physical imp (1-indexed)
-        double n_dw=itensor::expectC(fb.psi,fb.sites,"N",{nBath+nImp/2+2})[0].real();  // spin-down physical imp (1-indexed)
-        cout<<(i+1)*dt<<" "<<itensor::maxLinkDim(fb.psi)<<" "<<n_up<<" "<<n_dw<<endl;
+        doTdvp(psi,mpo,dt);
+        double n_up=itensor::expectC(psi,sites,"N",{nBath+nImp/2+1})[0].real();    // spin-up physical imp (1-indexed)
+        double n_dw=itensor::expectC(psi,sites,"N",{nBath+nImp/2+2})[0].real();    // spin-down physical imp (1-indexed)
+        cout<<(i+1)*dt<<" "<<itensor::maxLinkDim(psi)<<" "<<n_up<<" "<<n_dw<<endl;
     }
     return 0;
 }

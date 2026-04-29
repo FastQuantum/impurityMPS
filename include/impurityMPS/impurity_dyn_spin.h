@@ -8,14 +8,16 @@
 struct Impurity_dyn_spin {
     ImpurityParamSpin param;
     double dt;
-    arma::cx_mat exp_ih;
-    arma::cx_mat Kip0;    
-
+    arma::cx_mat Kip0;
+    arma::uvec imp_pos;
+    arma::uvec bath_pos;
+    arma::cx_mat rotS;
 
     /// these quantities are updated during the iterations
     Fb_mps_spin<cmpx> fb;        ///< the current few body MPS
     arma::cx_mat K;         ///< the current Hamiltonian
     double energy=-1000;        // TODO remove energy (or compute it)
+    int nIter=0;
 
     explicit Impurity_dyn_spin(ImpuritySpin const& imp, Fb_mps_spin<cmpx> const& fb_, double dt_=0.1)
         : param(imp.param)
@@ -24,14 +26,13 @@ struct Impurity_dyn_spin {
     {
         //int nImp=param.nImp();
         int L=param.length();
-        arma::uvec imp_pos;
-        arma::uvec bath_pos;
-        arma::cx_mat K0 = fb.rot * param.Kmat * fb.rot.t(); // original Hamiltonian matrix
-        auto pos_i = param.impPos0();
+        auto pos_i = param.impPos();
         imp_pos=arma::conv_to<arma::uvec>::from(pos_i);
         bath_pos = arma::conv_to<arma::uvec>::from(set_diff(L,pos_i));
-        exp_ih = arma::cx_mat(L,L, arma::fill::eye);
-        exp_ih.submat(bath_pos,bath_pos)=expIH<cmpx>(K0.submat(bath_pos,bath_pos) * dt);
+        rotS = fb.rot;
+
+        // arma::cx_mat K0 = fb.rot * param.Kmat * fb.rot.t(); // original Hamiltonian matrix
+        arma::cx_mat K0 = param.Kmat * cmpx(1,0);
 
         // interaction picture
         arma::cx_mat K1 = K0.submat(imp_pos,bath_pos) *
@@ -40,10 +41,10 @@ struct Impurity_dyn_spin {
         Kip0.submat(bath_pos,bath_pos).fill(0.0);
         Kip0.submat(imp_pos,bath_pos)+=K1;
         Kip0.submat(bath_pos,imp_pos)+=K1.t();
-        K=fb.rot.t()*Kip0*fb.rot;
+        // K=fb.rot.t()*Kip0*fb.rot;
 
-        // arma::real(K0*1).eval().clean(1e-11).print("Kip0");
-        // arma::real(Kip0*1).eval().clean(1e-11).print("Kip0 after IP");
+        arma::real(K0*1).eval().clean(1e-11).print("K0 = param.Kmat");
+        arma::real(Kip0*1).eval().clean(1e-11).print("Kip0 after IP");
         // arma::real(param.Kmat*1).eval().clean(1e-11).print("param.Kmat");
         // arma::real(fb.rot.t()*K0*fb.rot).eval().clean(1e-11).print("Kip0 before IP rotated at constructor (expected = param.Kmat)");
         // arma::real(fb.rot.t()*Kip0*fb.rot).eval().clean(1e-11).print("Kip0 after IP rotated at constructor (expected impurity untouch)");
@@ -53,17 +54,27 @@ struct Impurity_dyn_spin {
     {
         // arma::real(fb.rot.t()*Kip0*fb.rot).eval().clean(1e-11).print("Kip0 before repr0 rotated (expected impurity untouch)");
 
-        K=fb.rot.t()*Kip0*fb.rot;
-        fb.rot=exp_ih*fb.rot;   // update of the interaction picture
+        arma::cx_mat exp_ih;
+        {
+            int L=fb.length();
+            exp_ih=arma::cx_mat(L,L,arma::fill::eye);
+            exp_ih.submat(bath_pos,bath_pos)=expIH<cmpx>(Kip0.submat(bath_pos,bath_pos) * nIter * dt);
+            arma::cx_mat rot = exp_ih * rotS.t() * fb.rot;
+            K = rot.t() * Kip0 * rot;
+            nIter++;
+        }
+
+        // K=fb.rot.t()*Kip0*fb.rot;
+        // fb.rot=exp_ih*fb.rot;   // update of the interaction picture
+
+        // arma::real(K*1.0).eval().print("K before extract 0");
+        // fb.occupations_ni().as_row().eval().print("ni");
 
         extract_representative(0);
         extract_representative(1);
         extract_representative_final();
-
         doTdvp(args);
-
-        rotateToNaturalOrbitals();
-
+        // rotateToNaturalOrbitals();
     }
 
     /// extract representative orbital of the sites with ni=nRef where nRef can be 0 or 1
@@ -76,8 +87,6 @@ struct Impurity_dyn_spin {
     {
         auto [a,b]=fb.interval_active_full();
         auto mpo=fullHamiltonian(a,b);
-
-        // mpo.orthogonalize(); // TODO: what is this ???
 
         auto sweeps = itensor::Sweeps(1);
         sweeps.maxdim() = args.max_bond_dim;

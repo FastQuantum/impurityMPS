@@ -1,4 +1,6 @@
-#include "impurityMPS/impurity_dyn_spin.h"
+#include "impurityMPS/fb_mps_spin.h"
+#include "impurityMPS/it_tdvp.h"
+#include "impurityMPS/impurity_param_spin.h"
 #include <iostream>
 #include <iomanip>
 
@@ -49,6 +51,54 @@ auto computeKstar(mat K, int nImp)
     return make_pair(Kstar,rot);
 }
 
+void doTdvp(itensor::MPS &psi, itensor::MPO const mpo, double dt, double tol=1e-12)
+{
+    auto sweeps = itensor::Sweeps(1);
+    sweeps.maxdim() = 1024;
+    sweeps.cutoff() = tol;
+    sweeps.niter() = 16;
+    sweeps.noise() = 0e-8;
+
+    std::vector<double> epsilonK(15, 1e-4);   // match epsilonM from impurity_dyn
+    itensor::addBasis(psi, mpo, epsilonK,
+                      {"Cutoff", 1e-4,
+                       "Method", "DensityMatrix",
+                       "KrylovOrd", 15,
+                       "DoNormalize", true,
+                       "Quiet", true,
+                       "Silent", true});
+
+    itensor::tdvp(psi,mpo, -imag_1*dt, sweeps,          // TDVP sweep
+                  {"Truncate", true,
+                   "DoNormalize", true,
+                   "Quiet", true,
+                   "Silent", true,
+                   "NumCenter", 2,
+                   "ErrGoal", 1e-8});
+}
+
+itensor::MPO getHamiltonian(itensor::Fermion sites, mat const& K, mat const& Umat)
+{
+    double tol=1e-12;
+    int L=K.n_rows;
+    int nImp=Umat.n_rows;
+    int nBath=L/2-nImp/2;  // impurity cluster occupies sites [nBath, nBath+nImp)
+    itensor::AutoMPO h(sites);
+    for(auto i=0; i<nImp; i++)
+        for(auto j=0; j<nImp; j++) {
+            int ii=nBath+i;  // these positions change with nImp and nBath
+            int jj=nBath+j;
+            if (std::abs(Umat(i,j))>1e-15)
+                h += Umat(i,j), "N", ii+1, "N", jj+1;
+        }
+
+    for(auto i=0; i<L; i++)
+        for(auto j=0; j<L; j++)
+            if (std::abs(K(i,j))>tol)
+                h += K(i,j),"Cdag",i+1,"C",j+1;
+    return itensor::toMPO(h);
+}
+
 int main()
 {
     int L=100;
@@ -92,36 +142,21 @@ int main()
         int nBath=L/2-nImp/2;
         model.param.Kmat = Kstar;
         model.param.Umat = Umat;
-        model.param.rot  = rot;//arma::mat(L,L,arma::fill::eye);
+        model.param.rot  = rot;
         // impurity cluster sits at the same positions in Kstar as in K (computeKstar does not move them)
         model.param.impPos0_up = model.param.impPos1_up = {nBath, nBath+nImp/2-1};
         model.param.impPos0_dw = model.param.impPos1_dw = {L/2,   L/2+nImp/2-1};
     }
 
-    auto solver=Impurity_dyn_spin(model,fb,dt);
-    solver.fb.tol=1e-12;
+    auto mpo=getHamiltonian(fb.sites,model.param.Kmat,model.param.Umat);
 
-    // arma::real(fb.rot*1).eval().clean(1e-11).print("fb.rot");
-    // arma::real(model.param.rot*1).eval().clean(1e-11).print("param.rot");
-    // auto Q=solver.param.rot;
-    arma::real(solver.K*1).eval().clean(1e-11).print("K inicial");
-    // arma::real(solver.param.Kmat*1).eval().clean(1e-11).print("Kmat original");
-    // arma::real(solver.Kip0*1).eval().clean(1e-11).print("Kip0 before main() iterations");
-    // terminate();
-
-    cout<<"time m <n0> <cd>  nActive\n"<<setprecision(12);
-    itensor::cpu_time t0;
-    for(auto i=0; i*dt<L; i++){
-        // arma::real(solver.K*1).eval().clean(1e-11).print("K");
-        // auto [a,b]=solver.fb.interval_active_full();
-        // solver.fb.occupations_ni().as_row().eval().cols(a,b-1).eval().print("ni");
-
-        solver.iterate({.max_bond_dim=2048, .nIter_diag=16,.epsilonM=1e-4});
-        // double n0c = solver.fb.correlator(1,1).real();
-        double n0= solver.fb.occupations_ni()(L/2);
-        double n1= solver.fb.occupations_ni()(L/2+1);
-        cout<<(i+1)*solver.dt<<" "<<maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<n1<<" "<<solver.fb.p2-solver.fb.p1<<endl;
-        t0.mark();
+    int nBath=L/2-nImp/2;
+    cout<<"time m n_up n_dw\n"<<setprecision(12);
+    for(auto i=0;i*dt<L;i++){
+        doTdvp(fb.psi,mpo,dt);
+        double n_up=itensor::expectC(fb.psi,fb.sites,"N",{nBath+nImp/2+1})[0].real();    // spin-up physical imp (1-indexed)
+        double n_dw=itensor::expectC(fb.psi,fb.sites,"N",{nBath+nImp/2+2})[0].real();  // spin-down physical imp (1-indexed)
+        cout<<(i+1)*dt<<" "<<itensor::maxLinkDim(fb.psi)<<" "<<n_up<<" "<<n_dw<<endl;
     }
     return 0;
 }

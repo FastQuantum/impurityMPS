@@ -53,13 +53,13 @@ void doTdvp(itensor::MPS &psi, itensor::MPO const mpo, double dt, double tol=1e-
     sweeps.maxdim() = 1024;
     sweeps.cutoff() = tol;
     sweeps.niter() = 16;
-    sweeps.noise() = 0e-8;
+    sweeps.noise() = 1e-8;
 
-    std::vector<double> epsilonK(15, 1e-4);   // match epsilonM from impurity_dyn
+    std::vector<double> epsilonK(3, 1e-3);   // match epsilonM from impurity_dyn
     itensor::addBasis(psi, mpo, epsilonK,
                       {"Cutoff", 1e-4,
                        "Method", "DensityMatrix",
-                       "KrylovOrd", 15,
+                       "KrylovOrd", 3,
                        "DoNormalize", true,
                        "Quiet", true,
                        "Silent", true});
@@ -76,7 +76,7 @@ void doTdvp(itensor::MPS &psi, itensor::MPO const mpo, double dt, double tol=1e-
 itensor::MPO getHamiltonian(itensor::Fermion sites, mat const& K, mat const& Umat)
 {
     itensor::MPO mpo;
-    double tol=1e-12;
+    double tol=1e-10;
     int L=K.n_rows;
     int nImp=Umat.n_rows;
     itensor::AutoMPO h(sites);
@@ -97,7 +97,7 @@ itensor::MPO getHamiltonian(itensor::Fermion sites, mat const& K, mat const& Uma
 
 int main()
 {
-    int L=12;
+    int L=100;
     int nImp=4;
     double dt=0.1;
 

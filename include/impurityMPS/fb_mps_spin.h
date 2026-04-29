@@ -351,7 +351,7 @@ struct Fb_mps_spin
     /// compute the correlator <ci^ cj> where i and j are original sites (i.e. before the rotation).
     T correlator(int i, int j) const
     {
-        arma::Mat<T> Qinv=rot.st().t();
+        arma::Mat<T> Qinv=rot.st()/*.t()*/;
         arma::Col<T> ccQinv=cc*Qinv.col(j);
         return arma::cdot(Qinv.col(i), ccQinv);
     }
