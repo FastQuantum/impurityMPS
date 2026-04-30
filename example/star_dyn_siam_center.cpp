@@ -36,12 +36,8 @@ auto computeKstar(mat K, int nImp)
         arma::mat evec=evec1.cols(iek);
         arma::vec ek=ek1.rows(iek);
 
-
         arma::mat vk=K.submat(pos_impu,pos_bath).eval()*evec;
         Kstar.submat(pos_impu,pos_impu)=K.submat(pos_impu,pos_impu);
-        // Kstar.submat(pos_impu,pos_bath)=K.submat(pos_impu,pos_bath).eval()*evec;
-        // Kstar.submat(pos_bath,pos_impu)=K.submat(pos_impu,pos_bath).t();
-        // Kstar.submat(pos_bath,pos_bath)=evec.t()*K.submat(pos_bath,pos_bath)*evec;
 
         for(auto j=0u;j<ek.size();j++) {
             int jj=pos_bath[iek[j]];
@@ -160,9 +156,9 @@ int main()
     cout<<"time m n_up n_dw\n"<<setprecision(12);
     for(auto i=0;i*dt<L;i++){
         doTdvp(psi,mpo,dt);
-        double n_up=itensor::expectC(psi,sites,"N",{nBath+nImp/2+1})[0].real();    // spin-up physical imp (1-indexed)
-        double n_dw=itensor::expectC(psi,sites,"N",{nBath+nImp/2+2})[0].real();    // spin-down physical imp (1-indexed)
-        cout<<(i+1)*dt<<" "<<itensor::maxLinkDim(psi)<<" "<<n_up<<" "<<n_dw<<endl;
+        double n_dw=itensor::expectC(psi,sites,"N",{nBath+nImp/2+1})[0].real();       // spin-down physical imp (1-indexed)
+        double n_dw_bf=itensor::expectC(psi,sites,"N",{nBath+nImp/2+2})[0].real();    // spin-down buffer site (1-indexed)
+        cout<<(i+1)*dt<<" "<<itensor::maxLinkDim(psi)<<" "<<n_dw<<" "<<n_dw_bf<<endl;
     }
     return 0;
 }
