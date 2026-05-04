@@ -32,7 +32,7 @@ auto computeKstar(mat K, int nImp)
 
         Kstar.submat(pos_impu,pos_impu)=K.submat(pos_impu,pos_impu);
         for(auto j=0u;j<ek.size();j++) {
-            int jj=pos_bath[j];
+            int jj=pos_bath[iek[j]];
             Kstar(jj,jj)=ek[j];
             for(auto i=0u; i<pos_impu.size(); i++) {
                 int ii=pos_impu[i];
