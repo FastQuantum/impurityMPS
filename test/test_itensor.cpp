@@ -42,7 +42,7 @@ itensor::MPS prepapeState(itensor::SpinHalf sites)
     return psi0;
 }
 
-auto addTWoSites(itensor::SpinHalf sites, itensor::MPS const& psi)
+inline auto addTWoSites(itensor::SpinHalf sites, itensor::MPS const& psi)
 {
     using namespace itensor;
     // psi.replaceSiteInds(hamsys.sites.inds());

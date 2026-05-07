@@ -221,6 +221,70 @@ TEST_CASE( "GivensRotation complex left" )
     }
 }
 
+// Helper: build the n×n index-reversal permutation matrix P where P(i, n-1-i) = 1.
+// Satisfies P*P = I and (P*A*P)(i,j) = A(n-1-i, n-1-j).
+namespace {
+template<class T>
+arma::Mat<T> reversal_perm(int n)
+{
+    arma::Mat<T> P(n, n, arma::fill::zeros);
+    for (int i = 0; i < n; i++) P(i, n-1-i) = T(1);
+    return P;
+}
+} // namespace
+
+// GivensReflect maps each gate at bond b to bond n-2-b and conjugates the Givens matrix
+// (for real: transposes; for complex: applies reflect(L)).
+// Key algebraic property (real and complex alike):
+//   matrot_from_Givens(GivensReflect(givens, n), n)  ==  P * rot1 * P
+// where P is the reversal permutation of size n.
+TEST_CASE("GivensReflect real", "[GivensReflect]")
+{
+    const double tol = 1e-14;
+    const int n = 6;
+
+    // Build a non-trivial set of Givens via a 3-column SVD
+    arma::mat V(n, 3, arma::fill::randu);
+    auto givens = GivensRotForRot_left(V);
+    GivensDaggerInPlace(givens);
+
+    arma::mat rot1    = matrot_from_Givens(givens, n);
+    arma::mat rot1_up = matrot_from_Givens(GivensReflect(givens, n), n);
+
+    SECTION("rot1_up is orthogonal") {
+        REQUIRE(arma::norm(rot1_up * rot1_up.t() - arma::eye<arma::mat>(n, n)) < tol);
+        REQUIRE(arma::norm(rot1_up.t() * rot1_up - arma::eye<arma::mat>(n, n)) < tol);
+    }
+
+    SECTION("rot1_up = P * rot1 * P") {
+        arma::mat P = reversal_perm<double>(n);
+        REQUIRE(arma::norm(rot1_up - P * rot1 * P) < tol);
+    }
+}
+
+TEST_CASE("GivensReflect complex", "[GivensReflect]")
+{
+    const double tol = 1e-14;
+    const int n = 6;
+
+    arma::cx_mat V(n, 3, arma::fill::randu);
+    auto givens = GivensRotForRot_left(V);
+    GivensDaggerInPlace(givens);
+
+    arma::cx_mat rot1    = matrot_from_Givens(givens, n);
+    arma::cx_mat rot1_up = matrot_from_Givens(GivensReflect(givens, n), n);
+
+    SECTION("rot1_up is unitary") {
+        REQUIRE(arma::norm(rot1_up * rot1_up.t() - arma::eye<arma::cx_mat>(n, n)) < tol);
+        REQUIRE(arma::norm(rot1_up.t() * rot1_up - arma::eye<arma::cx_mat>(n, n)) < tol);
+    }
+
+    SECTION("rot1_up = P * rot1 * P") {
+        arma::cx_mat P = reversal_perm<cmpx>(n);
+        REQUIRE(arma::norm(rot1_up - P * rot1 * P) < tol);
+    }
+}
+
 TEST_CASE("set of Givens")
 {
     SECTION("basic")

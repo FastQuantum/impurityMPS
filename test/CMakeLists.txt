@@ -1,8 +1,9 @@
-add_executable(${PROJECT_NAME}_test 
+add_executable(${PROJECT_NAME}_test
     test_main.cpp
     test_givens.cpp
-    test_itensor.cpp
+    # test_itensor.cpp
     test_graph.cpp
+    test_fb_mps.cpp
 )
 
 target_include_directories(${PROJECT_NAME}_test INTERFACE Catch2::Catch2)
