@@ -179,9 +179,16 @@ int main()
 
     cout<<"time m n_up n_dw\n"<<setprecision(12);
     arma::cx_mat Kip = computeKip(Kstar,nImp,dt);
-    for(auto i=0;i*dt<L;i++){
+
+    // arma::real(Kip).eval().print("Kip ok");
+
+    for(auto i=0; i*dt<L; i++){
         arma::cx_mat expBath=expmat(-cmpx(0,1)*Kbath*dt*i);
         cx_mat Kip_n = expBath.t() * Kip * expBath;
+
+        // arma::real(expBath).eval().print("exp_n ok");
+        // arma::real(Kip).eval().print("Kip_n ok");
+
         auto mpo=getHamiltonian(sites,Kip_n,Umat);
         doTdvp(psi,mpo,dt);        
         double n_dw=itensor::expectC(psi,sites,"N",{nBath+nImp/2+1})[0].real();       // spin-down physical imp (1-indexed)

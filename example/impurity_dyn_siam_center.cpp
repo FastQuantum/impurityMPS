@@ -32,11 +32,11 @@ auto computeKstar(mat K, int nImp)
         arma::mat evec=evec1.cols(iek);
         arma::vec ek=ek1.rows(iek);
 
-        arma::mat vk=K.submat(pos_impu,pos_bath)*evec;
-
+        arma::mat vk=K.submat(pos_impu,pos_bath).eval()*evec;
         Kstar.submat(pos_impu,pos_impu)=K.submat(pos_impu,pos_impu);
+
         for(auto j=0u;j<ek.size();j++) {
-            int jj=pos_bath[j];
+            int jj=pos_bath[iek[j]];
             Kstar(jj,jj)=ek[j];
             for(auto i=0u;i<pos_impu.size();i++) {
                 int ii=pos_impu[i];
@@ -48,6 +48,7 @@ auto computeKstar(mat K, int nImp)
 
     return make_pair(Kstar,rot);
 }
+
 
 int main()
 {
@@ -89,13 +90,12 @@ int main()
     // Construct model from pre-computed star geometry (bypassing toStar)
     ImpuritySpin model;
     {
-        int nBath=L/2-nImp/2;
         model.param.Kmat = Kstar;
         model.param.Umat = Umat;
-        model.param.rot  = rot;//arma::mat(L,L,arma::fill::eye);
+        model.param.rot  = arma::mat(L,L, arma::fill::eye);
         // impurity cluster sits at the same positions in Kstar as in K (computeKstar does not move them)
-        model.param.impPos0_up = model.param.impPos1_up = {nBath, nBath+nImp/2-1};
-        model.param.impPos0_dw = model.param.impPos1_dw = {L/2,   L/2+nImp/2-1};
+        model.param.impPos0_up = model.param.impPos1_up = {L/2-2, L/2-1};
+        model.param.impPos0_dw = model.param.impPos1_dw = {L/2,   L/2+1};
     }
 
     auto solver=Impurity_dyn_spin(model,fb,dt);
@@ -104,7 +104,7 @@ int main()
     // arma::real(fb.rot*1).eval().clean(1e-11).print("fb.rot");
     // arma::real(model.param.rot*1).eval().clean(1e-11).print("param.rot");
     // auto Q=solver.param.rot;
-    arma::real(solver.K*1).eval().clean(1e-11).print("K inicial");
+    // arma::real(solver.K*1).eval().clean(1e-11).print("K inicial");
     // arma::real(solver.param.Kmat*1).eval().clean(1e-11).print("Kmat original");
     // arma::real(solver.Kip0*1).eval().clean(1e-11).print("Kip0 before main() iterations");
     // terminate();

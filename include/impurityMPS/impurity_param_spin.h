@@ -38,10 +38,8 @@ struct ImpurityParamSpin {
     std::vector<int> impPos() const
     {
         std::vector<int> out;
-        for(int i=0; i<nImp()/2; i++) {
-            out.push_back(impPos1_up[i]);
-            out.push_back(impPos1_dw[i]);
-        }
+        for(int i=0; i<nImp()/2; i++) out.push_back(impPos1_up[i]);
+        for(int i=0; i<nImp()/2; i++) out.push_back(impPos1_dw[i]);
         return out;
     }
 
@@ -49,10 +47,8 @@ struct ImpurityParamSpin {
     std::vector<int> impPos0() const
     {
         std::vector<int> out;
-        for(int i=0; i<nImp()/2; i++) {
-            out.push_back(impPos0_up[i]);
-            out.push_back(impPos0_dw[i]);
-        }
+        for(int i=0; i<nImp()/2; i++) out.push_back(impPos0_up[i]);
+        for(int i=0; i<nImp()/2; i++) out.push_back(impPos0_dw[i]);
         return out;
     }
 

@@ -81,7 +81,7 @@ inline std::pair<arma::vec,arma::mat> FullDiagonalizeTridiagonal(arma::vec an, a
     return std::make_pair(eval,evec);
 }
 
-auto addTWoSites(itensor::Fermion sites, itensor::MPS const& psi)
+inline auto addTWoSites(itensor::Fermion sites, itensor::MPS const& psi)
 {
     using namespace itensor;
     int N=psi.length();

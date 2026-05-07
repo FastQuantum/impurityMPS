@@ -36,7 +36,7 @@ struct Fb_mps_spin
         fb.sites=itensor::Fermion(ek.size(), {"ConserveNf",true});
         fb.cc=arma::Mat<T>(ek.size(), ek.size(), arma::fill::zeros);
         auto state = itensor::InitState(fb.sites,"0");
-        arma::uvec iek=arma::stable_sort_index(ek);
+        arma::uvec iek=arma::sort_index(ek);
         for(int j = 0; j < nPart; j++) {
             int k=iek[j];
             state.set(k+1,"1");
@@ -88,7 +88,7 @@ struct Fb_mps_spin
         else       return {b0,b1};
     }
 
-    /// ensure reflection symmetry
+    /// ensure reflection symmetry of rows and columns
     static void ensure_reflection_mat(arma::Mat<T> &K)
     {
         int L=K.n_rows;
@@ -96,8 +96,8 @@ struct Fb_mps_spin
         K.submat(irev,irev)=K.submat(L/2,L/2,L-1,L-1);
     }
 
-    /// ensure reflection symmetry
-    static void ensure_reflection_vec(arma::Mat<T> &R)
+    /// ensure reflection symmetry of columns: col(i)=col(L-1-i)
+    static void ensure_reflection_col(arma::Mat<T> &R)
     {
         int L=R.n_rows;
         auto irev=arma::regspace<arma::uvec>(L/2-1,0);
@@ -141,18 +141,29 @@ struct Fb_mps_spin
             auto givens= spin==dw ? GivensRotForRot_left(V_slater):
                               GivensRotForRot_right(V_slater);
             GivensDaggerInPlace(givens);
-            rot1=matrot_from_Givens(givens, k12.n_cols)/*.st()*/;
+            auto rot_half=matrot_from_Givens(givens, k12.n_cols)/*.st()*/;
+            auto rot_half_up=matrot_from_Givens(GivensReflect(givens,(int)k12.n_cols), k12.n_cols);
+            auto pos0_up=length()-1 - arma::reverse(pos0);
+            rot1=arma::Mat<T>(length(),length(), arma::fill::eye);
+            rot1(pos0,pos0)=rot_half;
+            rot1(pos0_up,pos0_up)=rot_half_up;
         }
 
+        // K.print("\nKsp before rot1");
+
         // 3. update K, rot and cc
-        K.cols(pos0)=K.cols(pos0).eval()*rot1;
-        K.rows(pos0)=rot1.t()*K.rows(pos0).eval();
-        rot.cols(pos0)=rot.cols(pos0)*rot1;
+        K=rot1.t()*K*rot1;
+        rot=rot*rot1;
         // no need to update cc
 
+        // K.print("\nKsp after rot1");
+
         // NEW: Compute spin=up by reflection
-        ensure_reflection_mat(K);
-        ensure_reflection_vec(rot);
+        ensure_reflection_mat(K);  // maybe we don't need this
+
+        // K.print("\nKsp after rot1 and ensure");
+
+        // ensure_reflection_col(rot);
         // no need to update cc
 
         for(auto spin : {up,dw}) {
@@ -179,13 +190,16 @@ struct Fb_mps_spin
     {
         auto spin=dw;
         // 1. find the interval for the transformation
+        auto [a_imp,b_imp]=interval_impurity(spin);
         auto [a,b]=interval_rotating(spin);
         if (a==b) return;
+
+        std::cout<<"here1\n";
 
         // 2. find the Givens rotations
         std::vector<GivensRot<T>> givens;
         {
-            auto k12=K.submat(0,a,a-1,b-1);
+            auto k12=K.rows(a_imp,b_imp-1).eval().cols(a,b-1);
             arma::vec s;
             arma::Mat<T> U,V;
             svd_econ(U,s,V,k12);
@@ -196,21 +210,28 @@ struct Fb_mps_spin
             GivensDaggerInPlace(givens);
         }
 
-        // 3. update K, rot and cc
+        std::cout<<"here2\n";
+
+        // 3. update K, cc and rot
         {
             arma::Mat<T> rot1=matrot_from_Givens(givens, b-a)/*.st()*/;
             K.cols(a,b-1)=K.cols(a,b-1).eval()*rot1;
             K.rows(a,b-1)=rot1.t()*K.rows(a,b-1).eval();
-            rot.cols(a,b-1)=rot.cols(a,b-1)*rot1;
             cc.cols(a,b-1)=cc.cols(a,b-1).eval()*rot1.st().t();
             cc.rows(a,b-1)=rot1.st()*cc.rows(a,b-1).eval();
-            // do not update nActive
-
-            // Reflection
             ensure_reflection_mat(K);
             ensure_reflection_mat(cc);
-            ensure_reflection_vec(rot);
+            {
+                rot.cols(a,b-1)=rot.cols(a,b-1)*rot1;                         // dw
+                auto rot1_up=matrot_from_Givens(GivensReflect(givens,b-a),b-a); // reflected rotation
+                int a_up=length()-b, b_up=length()-a;
+                rot.cols(a_up,b_up-1)=rot.cols(a_up,b_up-1)*rot1_up;           // up-spin mirror
+            }
+            // do not update nActive
+
         }
+
+        std::cout<<"here3\n";
 
         // 4. update the mps
         {
@@ -220,6 +241,8 @@ struct Fb_mps_spin
             auto gates=Fermionic::NOGates(sites, GivensTranspose(givens));
             gateTEvol(gates,1,1,psi,{"Cutoff",tol,"Quiet",true, "Normalize",false,"ShowPercent",false});
         }
+
+        std::cout<<"here4\n";
     }
 
     /// update the cc in the active sector using the psi
@@ -284,15 +307,16 @@ struct Fb_mps_spin
 
         // 3. rotate rot, cc
         {
-            auto rot1=matrot_from_Givens(givens,b-a);
-            rot.cols(a,b-1)=rot.cols(a,b-1).eval()*rot1.st();
-            cc .cols(a,b-1)=cc .cols(a,b-1).eval()*rot1.t();
-            cc .rows(a,b-1)=rot1*cc.rows(a,b-1).eval();
-            rot_update.submat(a,a,b-1,b-1) = rot1.st();
+            auto rot1    = matrot_from_Givens(givens, b-a);
+            auto rot1_up = matrot_from_Givens(GivensReflect(givens, b-a), b-a);
+            int  a_up = length()-b, b_up = length()-a;
 
-            // Reflection
-            ensure_reflection_vec(rot_update);
-            ensure_reflection_vec(rot);
+            rot_update.submat(a,   a,   b-1,   b-1   ) = rot1.st();    // dw
+            rot_update.submat(a_up,a_up,b_up-1,b_up-1) = rot1_up.st(); // up
+            rot = rot * rot_update;
+
+            cc.cols(a,b-1) = cc.cols(a,b-1).eval() * rot1.t();
+            cc.rows(a,b-1) = rot1 * cc.rows(a,b-1).eval();
             ensure_reflection_mat(cc);
         }
 
