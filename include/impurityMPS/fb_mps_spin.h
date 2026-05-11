@@ -398,7 +398,8 @@ struct Fb_mps_spin
 
 private:
 
-    /// Swap two sites inside the Slater part
+    /// Swap two sites inside the Slater part via a hopping MPO c†_i c_j + h.c.
+    /// AutoMPO handles the Jordan-Wigner string; the global fermionic sign is irrelevant.
     void SlaterWaveFunctionSwap(int i,int j)
     {
         if (i==j) return;
@@ -408,15 +409,12 @@ private:
         T ni=cc(i,i), nj=cc(j,j);
         if (std::abs(ni-nj)<0.5) throw std::invalid_argument("SlaterSwap for equal occupations");
 
-        auto flip=[&](int p) {
-            T np=cc(p,p);
-            auto G = std::abs(np)>0.5 ? sites.op("A",p+1) : sites.op("Adag",p+1) ;
-            auto newA = G*psi(p+1);
-            newA.noPrime();
-            psi.set(p+1,newA);
-        };
-        flip(i);
-        flip(j);
+        itensor::AutoMPO ampo(sites);
+        ampo += 1.0,"Cdag",i+1,"C",j+1;
+        ampo += -1.0,"Cdag",j+1,"C",i+1;
+        auto H = itensor::toMPO(ampo);
+        psi = itensor::applyMPO(H,psi,{"Cutoff",tol,"Normalize",false});
+        psi.noPrime();
     }
 
 };
