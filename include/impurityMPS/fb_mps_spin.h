@@ -185,7 +185,9 @@ struct Fb_mps_spin
     }
 
 
-    /// TODO: update using extract_representative()
+    /// extract representative orbitals of the active sites. Probably to be called after
+    /// extract_representative with nRef 0 or 1.
+    /// @param K is the matrix to extract the subspace
     void extract_representative_final(arma::Mat<T>& K) //TODO
     {
         auto spin=dw;
@@ -194,12 +196,10 @@ struct Fb_mps_spin
         auto [a,b]=interval_rotating(spin);
         if (a==b) return;
 
-        std::cout<<"here1\n";
-
         // 2. find the Givens rotations
         std::vector<GivensRot<T>> givens;
         {
-            auto k12=K.rows(a_imp,b_imp-1).eval().cols(a,b-1);
+            arma::Mat<T> k12=K.rows(a_imp,b_imp-1).eval().cols(a,b-1);
             arma::vec s;
             arma::Mat<T> U,V;
             svd_econ(U,s,V,k12);
@@ -209,8 +209,6 @@ struct Fb_mps_spin
             else          givens=GivensRotForRot_right(V_eff);
             GivensDaggerInPlace(givens);
         }
-
-        std::cout<<"here2\n";
 
         // 3. update K, cc and rot
         {
@@ -224,25 +222,25 @@ struct Fb_mps_spin
             {
                 rot.cols(a,b-1)=rot.cols(a,b-1)*rot1;                         // dw
                 auto rot1_up=matrot_from_Givens(GivensReflect(givens,b-a),b-a); // reflected rotation
-                int a_up=length()-b, b_up=length()-a;
+                auto [a_up,b_up]=interval_rotating(up);
                 rot.cols(a_up,b_up-1)=rot.cols(a_up,b_up-1)*rot1_up;           // up-spin mirror
             }
             // do not update nActive
 
         }
 
-        std::cout<<"here3\n";
-
         // 4. update the mps
         {
-            for(auto& g:givens) g.b+=a;
-            for( auto g:GivensReflect(givens, length()) ) givens.push_back(g);  // compute spin=up by reflection
+            auto gQ=givens;
+            for(auto& g:gQ) g.b+=a; // absolute positions
 
-            auto gates=Fermionic::NOGates(sites, GivensTranspose(givens));
-            gateTEvol(gates,1,1,psi,{"Cutoff",tol,"Quiet",true, "Normalize",false,"ShowPercent",false});
+            auto gQ_r=GivensReflect(gQ, length());  // compute spin=up by reflection
+            for(auto g:gQ_r) gQ.push_back(g);
+
+
+            auto gates=Fermionic::NOGates(sites,gQ);
+            itensor::gateTEvol(gates,1,1,psi,{"Cutoff",tol,"Quiet",true, "Normalize",false,"ShowPercent",false});
         }
-
-        std::cout<<"here4\n";
     }
 
     /// update the cc in the active sector using the psi

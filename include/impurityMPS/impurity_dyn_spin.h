@@ -122,7 +122,7 @@ struct Impurity_dyn_spin {
         extract_representative(1);
         // extract_representative_final();
         doTdvp(args);
-        // rotateToNaturalOrbitals();
+        rotateToNaturalOrbitals();
     }
 
     /// extract representative orbital of the sites with ni=nRef where nRef can be 0 or 1
@@ -195,9 +195,6 @@ struct Impurity_dyn_spin {
             for(auto j=a; j<b; j++)
                 if (std::abs(K(i,j))>fb.tol)
                     h += K(i,j),"Cdag",i+1,"C",j+1;
-
-        // arma::real(K*1.0).eval().clean(1e-9).eval().print("Keff");
-        // fb.occupations_ni2().as_row().eval().print("ni");
 
         return itensor::toMPO(h);
     }
