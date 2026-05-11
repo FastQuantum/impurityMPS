@@ -1,0 +1,127 @@
+#LyX 2.3 created this file. For more info see http://www.lyx.org/
+\lyxformat 544
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures true
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\use_minted 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\is_math_indent 0
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Standard
+Dynamics in the interaction picture of the bath.
+ We call 
+\emph on
+bath
+\emph default
+ the set of non-interacting orbitals of the problem.
+ Applying Trotter formula up to order 
+\begin_inset Formula $dt^{2}$
+\end_inset
+
+ we have
+\begin_inset Formula 
+\[
+\exp(-\imath\hat{H}dt)=\exp(-\imath\hat{H}_{\text{bath}}dt)\exp(-\imath\hat{H}^{(2)}dt)+O(dt^{3})
+\]
+
+\end_inset
+
+ with 
+\begin_inset Formula $\hat{H}^{(2)}=\hat{H}-\hat{H}_{\text{bath}}-idt[\hat{H},\hat{H}_{\text{bath}}]/2$
+\end_inset
+
+.
+ 
+\end_layout
+
+\begin_layout Standard
+We need this commutator for a quadratic Hamiltonian with coefficients 
+\begin_inset Formula $t_{ij}$
+\end_inset
+
+.
+ We have:
+\begin_inset Formula 
+\begin{equation}
+\begin{alignedat}{1}[H,H_{bath}] & =t_{\alpha i}t_{jk}\left\{ [c_{\alpha}^{\dagger}c_{i},c_{j}^{\dagger}c_{k}]+[c_{i}^{\dagger}c_{\alpha},c_{j}^{\dagger}c_{k}]\right\} \\
+ & =t_{\alpha i}t_{jk}\left\{ c_{\alpha}^{\dagger}c_{k}\delta_{ij}-c_{j}^{\dagger}c_{\alpha}\delta_{ik}\right\} \\
+ & =t_{\alpha i}t_{ik}c_{\alpha}^{\dagger}c_{k}-t_{\alpha i}t_{ji}c_{j}^{\dagger}c_{\alpha}\\
+ & =t_{\alpha i}t_{ij}\left\{ c_{\alpha}^{\dagger}c_{j}-c_{j}^{\dagger}c_{\alpha}\right\} 
+\end{alignedat}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document
