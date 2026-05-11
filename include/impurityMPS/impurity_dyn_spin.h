@@ -120,7 +120,7 @@ struct Impurity_dyn_spin {
 
         extract_representative(0);
         extract_representative(1);
-        // extract_representative_final();
+        extract_representative_final();
         doTdvp(args);
         rotateToNaturalOrbitals();
     }

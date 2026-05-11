@@ -238,7 +238,7 @@ struct Fb_mps_spin
             for(auto g:gQ_r) gQ.push_back(g);
 
 
-            auto gates=Fermionic::NOGates(sites,gQ);
+            auto gates=Fermionic::NOGates(sites,GivensTranspose(gQ));
             itensor::gateTEvol(gates,1,1,psi,{"Cutoff",tol,"Quiet",true, "Normalize",false,"ShowPercent",false});
         }
     }
