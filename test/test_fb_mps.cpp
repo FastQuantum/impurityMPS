@@ -147,30 +147,37 @@ TEST_CASE("extract_representative: spin vs spinless", "[fb_mps_spin]") {
 // eig_sym(Ksl) == eig_sym(Ksp) must hold throughout.
 
 TEST_CASE("extract_representative_final: spin vs spinless", "[fb_mps_spin]") {
-    const int L = 8, imp_size = 2;
+    const int L = 12, imp_size = 2, nPart = 6;
 
-    mat Kbase = {{0.0, 1.0, 2.0, 3.0},
-                 {1.0, 0.1, 0.0, 0.0},
-                 {2.0, 0.0, 0.2, 0.0},
-                 {3.0, 0.0, 0.0, 0.3}};
+    // 1 impurity + 5 bath sites per spin
+    mat Kbase = {{0.0, 1.0, 2.0, 3.0, 4.0, 5.0},
+                 {1.0, 0.1, 0.0, 0.0, 0.0, 0.0},
+                 {2.0, 0.0, 0.2, 0.0, 0.0, 0.0},
+                 {3.0, 0.0, 0.0, 0.3, 0.0, 0.0},
+                 {4.0, 0.0, 0.0, 0.0, 0.4, 0.0},
+                 {5.0, 0.0, 0.0, 0.0, 0.0, 0.5}};
 
+    // Spinless: [imp_up:0 | imp_dw:1 | bath_up:2,4,6,8,10 | bath_dw:3,5,7,9,11]
     mat Ksl(L, L, fill::zeros);
-    uvec up_sites   = {0, 2, 4, 6};
-    uvec down_sites = {1, 3, 5, 7};
+    uvec up_sites   = {0, 2, 4, 6, 8, 10};
+    uvec down_sites = {1, 3, 5, 7, 9, 11};
     Ksl.submat(up_sites,   up_sites)   = Kbase;
     Ksl.submat(down_sites, down_sites) = Kbase;
 
+    // Spin: [bath_up:0-4 | imp_up:5 | imp_dw:6 | bath_dw:7-11]
     mat Ksp(L, L, fill::zeros);
     Ksp.submat(L/2, L/2, L-1, L-1) = Kbase;
     Fb_mps_spin<double>::ensure_reflection_mat(Ksp);
 
     auto fb_sl = Fb_mps<double>::from_slater(mat(L, L, fill::eye),
-                                             vec{-2.0, -2.0, -1.0, -1.0, 1.0, 1.0, 2.0, 2.0},
-                                             4, imp_size, /*spin=*/false);
+                                             vec{-3.0, -3.0, -2.0, -2.0, -1.0, -1.0,
+                                                  1.0,  1.0,  2.0,  2.0,  3.0,  3.0},
+                                             nPart, imp_size, /*spin=*/false);
 
     auto fb_sp = Fb_mps_spin<double>::from_slater(mat(L, L, fill::eye),
-                                                  vec{2.0, 1.0, -1.0, -2.0, -2.0, -1.0, 1.0, 2.0},
-                                                  4, imp_size);
+                                                  vec{3.0, 2.0, 1.0, -1.0, -2.0, -3.0,
+                                                     -3.0,-2.0,-1.0,  1.0,  2.0,  3.0},
+                                                  nPart, imp_size);
 
     fb_sl.extract_representative(Ksl, 0);
     fb_sl.extract_representative(Ksl, 1);
