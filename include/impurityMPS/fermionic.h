@@ -42,7 +42,7 @@ static void set_label(arma::umat const& K, int i0, int label, std::vector<int> &
 {
     if (out[i0]!=-1) return;
     out.at(i0)=label;
-    for(auto i=0;i<K.n_rows;i++)
+    for(auto i=0; i<(int)K.n_rows; i++)
         if (K(i0,i) != 0) set_label(K,i,label,out);
 }
 
