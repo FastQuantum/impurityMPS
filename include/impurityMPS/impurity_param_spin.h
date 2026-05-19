@@ -8,10 +8,10 @@
 struct ImpurityParamSpin {
     arma::mat Kmat;           ///< the kinetic energy coefficient matrix
     arma::mat Umat;           ///< the Coulomb interaction coeff: U(i,j) ni nj
-    std::vector<int> impPos1_up;  ///< (default => {0,2,...,nImp-2}) the positions of interacting sites
-    std::vector<int> impPos1_dw;  ///< (default => {1,3,...,nImp-1}) the positions of interacting sites
-    std::vector<int> impPos0_up;  ///< (default => {0,2,...,nImp-2}) the positions of interacting sites
-    std::vector<int> impPos0_dw;  ///< (default => {1,3,...,nImp-1}) the positions of interacting sites
+    std::vector<int> impPos1_up;  ///< the positions of spin-up interacting sites (after toStar)
+    std::vector<int> impPos1_dw;  ///< the positions of spin-dw interacting sites (after toStar)
+    std::vector<int> impPos0_up;  ///< the positions of spin-up interacting sites (before toStar)
+    std::vector<int> impPos0_dw;  ///< the positions of spin-dw interacting sites (before toStar)
     double filling=0.5;       ///< number of electrons per site
     arma::mat rot;            ///< (default => identity) the actual frame, such that F*Kmat*F.t() gives the original Kmat (in real space)
 
@@ -52,24 +52,35 @@ struct ImpurityParamSpin {
         return out;
     }
 
-    /// return the positions of each spin up/dw in columns 0/1
-    /// The impurity will be at beginning of the positions
-    arma::umat split_sites() const // TODO <--------- general disconnected components. Use impPos to classify up/dw
+    /// Split all sites into two spin columns using graph connected components of Kmat.
+    /// Column 0 = spin-up component (the one containing impPos1_up[0]).
+    /// Column 1 = spin-dw component.
+    /// Within each column the impurity sites are placed first.
+    arma::umat split_sites() const
     {
         int L=length();
-        // TODO this block will be replaced by graph algorithm
-        arma::umat out(L/2,2);
-        for(auto i=0; i<L/2; i++) {
-            out(i,0)=2*i;
-            out(i,1)=2*i+1;
+
+        auto islands = graph::find_islands(Kmat);
+        int comp_up = islands[impPos1_up[0]];
+
+        std::vector<int> sites_up, sites_dw;
+        for (int i=0; i<L; i++) {
+            if (islands[i] == comp_up) sites_up.push_back(i);
+            else                        sites_dw.push_back(i);
+        }
+        if ((int)sites_up.size() != L/2 || (int)sites_dw.size() != L/2)
+            throw std::runtime_error("split_sites: each spin component must have exactly L/2 sites");
+
+        arma::umat out(L/2, 2);
+        for (int i=0; i<L/2; i++) {
+            out(i,0) = sites_up[i];
+            out(i,1) = sites_dw[i];
         }
 
-        // put the impurity at the beginning of the positions
-        // TODO: take Umat as a graph instead
         for(auto i=0; i<nImp()/2; i++)
         {
-            int id_up=arma::find(out.col(0).eval() == impPos1_up[i]).eval()[0];
-            int id_dw=arma::find(out.col(1).eval() == impPos1_dw[i]).eval()[0];
+            int id_up=arma::find(out.col(0).eval() == (arma::uword)impPos1_up[i]).eval()[0];
+            int id_dw=arma::find(out.col(1).eval() == (arma::uword)impPos1_dw[i]).eval()[0];
             out.col(0).swap_rows(id_up,i);
             out.col(1).swap_rows(id_dw,i);
         }
