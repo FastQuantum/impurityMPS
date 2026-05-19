@@ -288,10 +288,12 @@ struct Fb_mps_spin
             arma::Mat<T> rotation=evec.cols(iek);
             if (spin==dw) givens=GivensRotForRot_right(rotation);
             else          givens=GivensRotForRot_left(rotation);
-            if (givens.empty()) return rot_update.submat(a_full,a_full,b_full-1,b_full-1);
+            // NOTE: do NOT return early here even if givens is empty —
+            // step 4 (p1/p2 update) must always run.
         }
 
-        // 2. apply the corresponding quantum gates
+        // 2. apply the corresponding quantum gates (only if there is a non-trivial rotation)
+        if (!givens.empty())
         {
             auto gQ=givens;
             for(auto& g:gQ) g.b+=a; // absolute positions
@@ -303,11 +305,13 @@ struct Fb_mps_spin
             itensor::gateTEvol(gates,1,1,psi,{"Cutoff",tol/*,"MaxDim",512*/,"Quiet",true, "Normalize",false,"ShowPercent",false});
         }
 
-        // 3. rotate rot, cc
+        // 3. rotate rot, cc (only if there is a non-trivial rotation)
+        if (!givens.empty())
         {
             auto rot1    = matrot_from_Givens(givens, b-a);
             auto rot1_up = matrot_from_Givens(GivensReflect(givens, b-a), b-a);
-            int  a_up = length()-b, b_up = length()-a;
+            // int  a_up = length()-b, b_up = length()-a;
+            auto [a_up,b_up]=interval_rotating(up);
 
             rot_update.submat(a,   a,   b-1,   b-1   ) = rot1.st();    // dw
             rot_update.submat(a_up,a_up,b_up-1,b_up-1) = rot1_up.st(); // up
@@ -320,12 +324,19 @@ struct Fb_mps_spin
 
         // 4. find the new active orbitals
         {
-            arma::vec ni_bath = occupations_ni().rows(a,b-1);
-            int nActive_old=b-a;
-            int nActive_new= arma::find(ni_bath>tol && ni_bath<1-tol).eval().size();
-            int delta=nActive_new - nActive_old;
-            p2+=delta;
-            p1-=delta;
+            // arma::vec ni_bath = occupations_ni().rows(a,b-1);
+            // int nActive_old=b-a;
+            // int nActive_new= arma::find(ni_bath>tol && ni_bath<1-tol).eval().size();
+            // int delta=nActive_new - nActive_old;
+            // p2+=delta;
+            // p1-=delta;
+
+            arma::vec ni_bath = occupations_ni().rows(a, b-1);
+            arma::uvec pos_active = arma::find(ni_bath > tol && ni_bath < 1-tol).eval();
+            int p2_new = pos_active.empty() ? a+2 : a + pos_active.back() + 1;
+            int delta = p2_new - p2;   // negative: rotating block shrinks
+            p2 = p2_new;
+            p1 -= delta;               // symmetric: same shrinkage on up-spin side
         }
 
         return rot_update.submat(a_full,a_full,b_full-1,b_full-1);
