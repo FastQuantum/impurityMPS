@@ -9,7 +9,7 @@
 using namespace std;
 using namespace arma;
 
-/// return the kinetic energy in star geometry and the rotation to get it.
+/// return the kinetic energy in star geometry.
 /// Layout: [spin-up bath | spin-up imp | spin-down imp | spin-down bath]
 /// For spin-up the impurity is at the right end; for spin-down at the left end.
 auto computeKstar(mat K, int nImp)
@@ -18,7 +18,6 @@ auto computeKstar(mat K, int nImp)
     int nBath=L/2-nImp/2;  // bath sites per spin
 
     mat Kstar(L,L,arma::fill::zeros);
-    mat rot(L,L,fill::eye);
 
     auto pos_up=regspace<uvec>(0,L/2-1);
     auto pos_dw=regspace<uvec>(L/2,L-1);
@@ -40,17 +39,16 @@ auto computeKstar(mat K, int nImp)
         Kstar.submat(pos_impu,pos_impu)=K.submat(pos_impu,pos_impu);
 
         for(auto j=0u;j<ek.size();j++) {
-            int jj=pos_bath[iek[j]];
+            int jj=pos_bath[j];//[iek[j]];
             Kstar(jj,jj)=ek[j];
             for(auto i=0u;i<pos_impu.size();i++) {
                 int ii=pos_impu[i];
                 Kstar(ii,jj)=Kstar(jj,ii)=vk(i,j);
             }
         }
-        rot.cols(pos_bath)=rot.cols(pos_bath).eval()*evec;
     }
 
-    return make_pair(Kstar,rot);
+    return Kstar;
 }
 
 void doTdvp(itensor::MPS &psi, itensor::MPO const mpo, double dt, double tol=1e-12)
@@ -61,9 +59,9 @@ void doTdvp(itensor::MPS &psi, itensor::MPO const mpo, double dt, double tol=1e-
     sweeps.niter() = 16;
     sweeps.noise() = 0e-8;
 
-    std::vector<double> epsilonK(15, 1e-4);   // match epsilonM from impurity_dyn
+    std::vector<double> epsilonK(15, 1e-8);   // match epsilonM from impurity_dyn
     itensor::addBasis(psi, mpo, epsilonK,
-                      {"Cutoff", 1e-4,
+                      {"Cutoff", 1e-8,
                        "Method", "DensityMatrix",
                        "KrylovOrd", 15,
                        "DoNormalize", true,
@@ -110,7 +108,6 @@ int main()
     int nBath=L/2-nImp/2;  // =4 for L=12, nImp=4
 
     mat Kstar, Umat; // define the Hamiltonian
-    mat rot;         // define the orbitals
     {
         double U=0.2;
         double V=0.1;
@@ -129,7 +126,7 @@ int main()
         Umat.zeros(nImp,nImp);
         Umat(nImp/2-1,nImp/2)=U;  // Hubbard U between spin-up imp (cluster idx nImp/2-1) and spin-down imp (nImp/2)
 
-        std::tie(Kstar,rot) = computeKstar(K, nImp);
+        Kstar = computeKstar(K, nImp);
     }
 
     itensor::Fermion sites=itensor::Fermion(L, {"ConserveNf",true});
