@@ -10,8 +10,6 @@ struct ImpurityParamSpin {
     arma::mat Umat;           ///< the Coulomb interaction coeff: U(i,j) ni nj
     std::vector<int> impPos1_up;  ///< the positions of spin-up interacting sites (after toStar)
     std::vector<int> impPos1_dw;  ///< the positions of spin-dw interacting sites (after toStar)
-    std::vector<int> impPos0_up;  ///< the positions of spin-up interacting sites (before toStar)
-    std::vector<int> impPos0_dw;  ///< the positions of spin-dw interacting sites (before toStar)
     double filling=0.5;       ///< number of electrons per site
     arma::mat rot;            ///< (default => identity) the actual frame, such that F*Kmat*F.t() gives the original Kmat (in real space)
 
@@ -30,8 +28,6 @@ struct ImpurityParamSpin {
                 impPos1_dw.push_back(2*i+1);
             }
         }
-        impPos0_up.resize(nImp()/2);
-        impPos0_dw.resize(nImp()/2);
     }
 
     /// return all (up first) the positions of the impurity
@@ -40,15 +36,6 @@ struct ImpurityParamSpin {
         std::vector<int> out;
         for(int i=0; i<nImp()/2; i++) out.push_back(impPos1_up[i]);
         for(int i=0; i<nImp()/2; i++) out.push_back(impPos1_dw[i]);
-        return out;
-    }
-
-    /// return all (up first) the positions of the impurity
-    std::vector<int> impPos0() const
-    {
-        std::vector<int> out;
-        for(int i=0; i<nImp()/2; i++) out.push_back(impPos0_up[i]);
-        for(int i=0; i<nImp()/2; i++) out.push_back(impPos0_dw[i]);
         return out;
     }
 
@@ -101,8 +88,6 @@ struct ImpurityParamSpin {
             rot=rot.cols(pos_all).eval();
 
             for(auto i=0; i<nImp()/2; i++) {
-                impPos0_up[i]=impPos1_up[i];
-                impPos0_dw[i]=impPos1_dw[i];
                 impPos1_up[i]=L/2-i-1;
                 impPos1_dw[i]=L/2+i;
             }

@@ -94,8 +94,8 @@ int main()
         model.param.Umat = Umat;
         model.param.rot  = arma::mat(L,L, arma::fill::eye);
         // impurity cluster sits at the same positions in Kstar as in K (computeKstar does not move them)
-        model.param.impPos0_up = model.param.impPos1_up = {L/2-2, L/2-1};
-        model.param.impPos0_dw = model.param.impPos1_dw = {L/2,   L/2+1};
+        model.param.impPos1_up = {L/2-2, L/2-1};
+        model.param.impPos1_dw = {L/2,   L/2+1};
     }
 
     auto solver=Impurity_dyn_spin(model,fb,dt);

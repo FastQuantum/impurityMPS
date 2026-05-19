@@ -144,8 +144,8 @@ int main()
         model.param.Umat = Umat;
         model.param.rot  = rot;
         // impurity cluster sits at the same positions in Kstar as in K (computeKstar does not move them)
-        model.param.impPos0_up = model.param.impPos1_up = {nBath, nBath+nImp/2-1};
-        model.param.impPos0_dw = model.param.impPos1_dw = {L/2,   L/2+nImp/2-1};
+        model.param.impPos1_up = {nBath, nBath+nImp/2-1};
+        model.param.impPos1_dw = {L/2,   L/2+nImp/2-1};
     }
 
     auto mpo=getHamiltonian(fb.sites,model.param.Kmat,model.param.Umat);

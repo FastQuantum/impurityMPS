@@ -89,8 +89,8 @@ int main()
         model_ref.param.Kmat    = Kstar;
         model_ref.param.Umat    = Umat_ref;
         model_ref.param.rot     = mat(L,L,fill::eye);
-        model_ref.param.impPos0_up = model_ref.param.impPos1_up = {nBath,       nBath+nImp/2-1};
-        model_ref.param.impPos0_dw = model_ref.param.impPos1_dw = {L/2,         L/2+nImp/2-1};
+        model_ref.param.impPos1_up = {nBath,       nBath+nImp/2-1};
+        model_ref.param.impPos1_dw = {L/2,         L/2+nImp/2-1};
     }
     auto solver_ref = Impurity_dyn_spin(model_ref, fb_ref, dt);
     solver_ref.fb.tol = 1e-12;
