@@ -1,5 +1,6 @@
 #include <catch2/catch.hpp>
 #include "impurityMPS/fb_mps_spin.h"
+#include "impurityMPS/fb_mps_spin_block.h"
 #include "impurityMPS/fb_mps.h"
 
 using namespace arma;
@@ -188,4 +189,98 @@ TEST_CASE("extract_representative_final: spin vs spinless", "[fb_mps_spin]") {
     fb_sl.extract_representative_final(Ksl, imp_size, fb_sl.nActive);
 
     REQUIRE(norm(eig_sym(Ksl) - eig_sym(Ksp)) < 1e-10);
+}
+
+// ---- Fb_mps_spin_block: cross-check vs Fb_mps_spin on symmetric K ----
+//
+// On an Sz-symmetric K (reflection-symmetric, as produced by toStar() with
+// spin-reflection), the block version must reproduce the spin version's K
+// spectrum after extract_representative + extract_representative_final.
+
+TEST_CASE("Fb_mps_spin_block: extract_representative matches spin on symmetric K", "[fb_mps_spin_block]") {
+    const int L = 12, imp_size = 2, nPart = 6;
+
+    mat Kbase = {{0.0, 1.0, 2.0, 3.0, 4.0, 5.0},
+                 {1.0, 0.1, 0.0, 0.0, 0.0, 0.0},
+                 {2.0, 0.0, 0.2, 0.0, 0.0, 0.0},
+                 {3.0, 0.0, 0.0, 0.3, 0.0, 0.0},
+                 {4.0, 0.0, 0.0, 0.0, 0.4, 0.0},
+                 {5.0, 0.0, 0.0, 0.0, 0.0, 0.5}};
+
+    mat Ksp(L, L, fill::zeros);
+    Ksp.submat(L/2, L/2, L-1, L-1) = Kbase;
+    Fb_mps_spin<double>::ensure_reflection_mat(Ksp);
+    mat Kbl = Ksp;
+
+    vec ek{3.0, 2.0, 1.0, -1.0, -2.0, -3.0,
+          -3.0,-2.0,-1.0,  1.0,  2.0,  3.0};
+    mat rot(L, L, fill::eye);
+
+    auto fb_sp = Fb_mps_spin<double>::from_slater(rot, ek, nPart, imp_size);
+    auto fb_bl = Fb_mps_spin_block<double>::from_slater(rot, ek, nPart, imp_size);
+
+    fb_sp.extract_representative(Ksp, 0, /*use_active=*/false);
+    fb_bl.extract_representative(Kbl, 0, /*use_active=*/false);
+    INFO("After extract_representative(0): norm(Ksp-Kbl)=" << norm(Ksp-Kbl)
+         << " norm(rot diff)=" << norm(fb_sp.rot-fb_bl.rot)
+         << " norm(cc diff)=" << norm(fb_sp.cc-fb_bl.cc));
+    REQUIRE(norm(Ksp - Kbl) < 1e-10);
+    REQUIRE(norm(fb_sp.rot - fb_bl.rot) < 1e-10);
+    REQUIRE(norm(fb_sp.cc  - fb_bl.cc)  < 1e-10);
+
+    fb_sp.extract_representative(Ksp, 1, /*use_active=*/false);
+    fb_bl.extract_representative(Kbl, 1, /*use_active=*/false);
+    INFO("After extract_representative(1): norm(Ksp-Kbl)=" << norm(Ksp-Kbl)
+         << " norm(rot diff)=" << norm(fb_sp.rot-fb_bl.rot)
+         << " norm(cc diff)=" << norm(fb_sp.cc-fb_bl.cc));
+    REQUIRE(fb_bl.p1 == fb_sp.p1);
+    REQUIRE(fb_bl.p2 == fb_sp.p2);
+    REQUIRE(norm(Ksp - Kbl) < 1e-10);
+    REQUIRE(norm(fb_sp.rot - fb_bl.rot) < 1e-10);
+    REQUIRE(norm(fb_sp.cc  - fb_bl.cc)  < 1e-10);
+
+    fb_sp.extract_representative_final(Ksp);
+    fb_bl.extract_representative_final(Kbl);
+    INFO("After extract_representative_final: norm(Ksp-Kbl)=" << norm(Ksp-Kbl)
+         << " norm(rot diff)=" << norm(fb_sp.rot-fb_bl.rot)
+         << " norm(cc diff)=" << norm(fb_sp.cc-fb_bl.cc));
+    REQUIRE(norm(Ksp - Kbl) < 1e-10);
+    REQUIRE(norm(fb_sp.rot - fb_bl.rot) < 1e-10);
+    REQUIRE(norm(fb_sp.cc  - fb_bl.cc)  < 1e-10);
+}
+
+TEST_CASE("Fb_mps_spin_block: rotateToNaturalOrbitals matches spin on symmetric K", "[fb_mps_spin_block]") {
+    const int L = 12, imp_size = 2;
+
+    // Build a symmetric cc with some active and inactive orbitals per spin
+    // Layout: bath_up:0-4 | imp_up:5 | imp_dw:6 | bath_dw:7-11
+    mat cc_template(L, L, fill::zeros);
+    // Slater diag (will be promoted later)
+    cc_template.diag().fill(0.0);
+    // Active occupations (mix near 0, 0.5, 1)
+    cc_template(2,2) = cc_template(L-1-2, L-1-2) = 0.99;   // near 1 inactive
+    cc_template(3,3) = cc_template(L-1-3, L-1-3) = 0.6;    // active
+    cc_template(4,4) = cc_template(L-1-4, L-1-4) = 0.5;    // most active
+    cc_template(5,5) = cc_template(L-1-5, L-1-5) = 0.7;    // active (impurity)
+    cc_template(6,6) = cc_template(L-1-6, L-1-6) = 0.3;    // active (impurity)
+    // small off-diagonal to make eigvecs non-trivial
+    cc_template(3,4) = cc_template(4,3) = 0.05;
+    cc_template(L-1-3, L-1-4) = cc_template(L-1-4, L-1-3) = 0.05;
+
+    auto fb_sp = Fb_mps_spin<double>::from_slater(mat(L, L, fill::eye), linspace(-1.0,1.0,L), 6, imp_size);
+    auto fb_bl = Fb_mps_spin_block<double>::from_slater(mat(L, L, fill::eye), linspace(-1.0,1.0,L), 6, imp_size);
+    fb_sp.cc = cc_template;
+    fb_bl.cc = cc_template;
+    fb_sp.p1 = 2;  fb_sp.p2 = L-2;
+    fb_bl.p1 = 2;  fb_bl.p2 = L-2;
+
+    fb_sp.rotateToNaturalOrbitals();
+    fb_bl.rotateToNaturalOrbitals();
+    INFO("rotateToNaturalOrbitals: norm(rot diff)=" << norm(fb_sp.rot-fb_bl.rot)
+         << " norm(cc diff)=" << norm(fb_sp.cc-fb_bl.cc));
+
+    REQUIRE(fb_bl.p1 == fb_sp.p1);
+    REQUIRE(fb_bl.p2 == fb_sp.p2);
+    REQUIRE(norm(fb_sp.rot - fb_bl.rot) < 1e-10);
+    REQUIRE(norm(fb_sp.cc  - fb_bl.cc)  < 1e-10);
 }

@@ -22,6 +22,7 @@ struct Fb_mps_spin
     int p1, p2;                 ///< the active orbitals are in [p1,p2)
     int natOrbDepth=-1;         ///< the depth of the circuit used to extract the natural orbitals (-1 means the to use an exact circuit)
     double tol=1e-10;           ///< the tolerance used for both applying the gates and defining active orbitals.
+    int nSv=-1;                 ///< fixed rank of impurity–bath coupling (set by dynamics solver). -1 = recompute dynamically.
 
     /**
      * @brief Construct a Fb_mps as a Slater state.
@@ -136,7 +137,9 @@ struct Fb_mps_spin
             arma::vec s;
             arma::Mat<T> U, V;
             svd_econ(U,s,V, k12);
-            nSv=arma::find(s>tol*s[0]).eval().size();
+            nSv = (this->nSv >= 0)
+                    ? std::min<int>(this->nSv, (int)V.n_cols)
+                    : (int)arma::find(s>tol*s[0]).eval().size();
             arma::Mat<T> V_slater=V.head_cols(nSv);
             auto givens= spin==dw ? GivensRotForRot_left(V_slater):
                               GivensRotForRot_right(V_slater);
@@ -203,7 +206,9 @@ struct Fb_mps_spin
             arma::vec s;
             arma::Mat<T> U,V;
             svd_econ(U,s,V,k12);
-            int nSv=arma::find(s>tol*s[0]).eval().size();  // it should be nSv==nChannel
+            int nSv = (this->nSv >= 0)
+                        ? std::min<int>(this->nSv, (int)V.n_cols)
+                        : (int)arma::find(s>tol*s[0]).eval().size();
             arma::Mat<T> V_eff=V.head_cols(nSv);
             if (spin==dw) givens=GivensRotForRot_left(V_eff);
             else          givens=GivensRotForRot_right(V_eff);
@@ -441,6 +446,7 @@ inline Fb_mps_spin<cmpx> Fb_mps_spin<double>::to_complex() const
     fb.p2 = p2;
     fb.natOrbDepth = natOrbDepth;
     fb.tol = tol;
+    fb.nSv = nSv;
     return fb;
 }
 

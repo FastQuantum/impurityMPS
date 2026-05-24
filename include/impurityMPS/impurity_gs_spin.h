@@ -58,14 +58,11 @@ struct Impurity_gs_spin {
     itensor::MPO fullHamiltonian(int a,int b) const
     {
         itensor::AutoMPO h(fb.sites);
-        auto impPos=param.impPos();
-        for(auto i=0; i<param.nImp(); i++)
-            for(auto j=0; j<param.nImp(); j++) {
-                int ii=impPos[i];
-                int jj=impPos[j];
-                if (std::abs(param.Umat(i,j))>1e-15)
-                    h += param.Umat(i,j), "N", ii+1, "N", jj+1;
-            }
+        int L = param.length();
+        for (int i = 0; i < L; i++)
+            for (int j = 0; j < L; j++)
+                if (std::abs(param.Umat(i,j)) > 1e-15)
+                    h += param.Umat(i,j), "N", i+1, "N", j+1;
 
         for(auto i=a; i<b; i++)
             for(auto j=a; j<b; j++)

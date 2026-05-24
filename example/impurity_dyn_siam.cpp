@@ -6,7 +6,7 @@ using namespace std;
 
 int main()
 {
-    int L=12;
+    int L=100;
     ImpuritySpin model;
     {
         double U=0.2;
@@ -19,12 +19,13 @@ int main()
             K(1,1)=-U/2;
             K(0,2)=K(2,0)=K(1,3)=K(3,1)=V;
         }
-        arma::mat Umat(4,4,arma::fill::zeros);
-        Umat(0,1)=U;
+        // L×L Umat, site-indexed. SIAM Coulomb between physical up imp (site 0) and dw imp (site 1).
+        arma::mat Umat(L, L, arma::fill::zeros);
+        Umat(0,1) = U;
+        // Convention 2 (outer..inner..outer): {buf_up, imp_up, imp_dw, buf_dw} = {2, 0, 1, 3}.
+        std::vector<int> impPos = {2, 0, 1, 3};
 
-        // arma::real(K*1).eval().clean(1e-11).print("K original");
-
-        model = ImpuritySpin {{.Kmat=K, .Umat=Umat}};
+        model = ImpuritySpin {{.Kmat=K, .Umat=Umat, .impPos=impPos}};
     }
     Fb_mps_spin<cmpx> fb;
     {
@@ -56,7 +57,7 @@ int main()
         // auto [a,b]=solver.fb.interval_active_full();
         // solver.fb.occupations_ni().as_row().eval().cols(a,b-1).eval().print("ni");
 
-        solver.iterate({.max_bond_dim=2048, .nIter_diag=16,.epsilonM=1e-4});
+        solver.iterate({.max_bond_dim=1024, .nIter_diag=16, .noise=0.0, .epsilonM=1e-8, .nKrylov=15, .err_goal=1e-8});
         // double n0 = solver.fb.correlator(1,1).real();
         double n0= solver.fb.occupations_ni()(L/2);
         double n1= solver.fb.occupations_ni()(L/2+1);

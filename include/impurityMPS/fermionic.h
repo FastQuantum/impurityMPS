@@ -66,6 +66,15 @@ inline std::vector<int> find_islands(arma::mat const& K, double tol=1e-12)
     return find_islands(K_bool);
 }
 
+/// return the inverse permutation: if p maps i -> p[i], the inverse q satisfies q[p[i]] = i.
+/// Example: {3,0,1,2} -> {1,2,3,0}.
+inline std::vector<int> inversePermutation(std::vector<int> const& p)
+{
+    std::vector<int> q(p.size(), -1);
+    for (int i = 0; i < (int)p.size(); i++) q[p[i]] = i;
+    return q;
+}
+
 } // end namespace graph
 
 inline std::pair<arma::vec,arma::mat> FullDiagonalizeTridiagonal(arma::vec an, arma::vec bn)

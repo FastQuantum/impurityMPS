@@ -26,17 +26,20 @@ int main()
     K(up_phys-2, up_phys) = K(up_phys, up_phys-2) = V;  // up_buf–up_phys
     K(dw_phys,   dw_phys+2) = K(dw_phys+2, dw_phys) = V;  // dw_phys–dw_buf
 
-    // physical sites listed first per spin (required by ImpuritySpinInit)
-    vector<int> impPos = {up_phys, up_phys-2, dw_phys, dw_phys+2};
+    // Convention 2 spatial order: {outer_up, inner_up, inner_dw, outer_dw}.
+    // For SIAM the physical (U-interacting) impurities are the INNER ones;
+    // buffers sit on the outside.
+    vector<int> impPos = {up_phys-2, up_phys, dw_phys, dw_phys+2};
 
-    mat Umat(nImp, nImp, fill::zeros);
-    Umat(0, 2) = U;   // up-phys (index 0) -- dw-phys (index 2)
+    // L×L site-indexed Umat: U on (up_phys, dw_phys).
+    mat Umat(L, L, fill::zeros);
+    Umat(up_phys, dw_phys) = U;
 
     auto init = ImpuritySpinInit(K, Umat, impPos);
 
     // force initial occupation: physical imps occupied, buffers empty
     vec ek = init.model.param.Kmat.diag();
-    for (int p : init.model.param.impPos())
+    for (int p : init.model.param.impPos)
         ek[p] = (ek[p] < -U/4) ? -10.0 : +10.0;
     auto fb = Fb_mps_spin<cmpx>::from_slater(init.model.param.rot * cmpx(1,0), ek, L/2, nImp);
 

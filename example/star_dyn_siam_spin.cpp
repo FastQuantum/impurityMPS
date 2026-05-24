@@ -81,16 +81,11 @@ itensor::MPO getHamiltonian(itensor::Fermion sites, mat const& K, mat const& Uma
 {
     double tol=1e-12;
     int L=K.n_rows;
-    int nImp=Umat.n_rows;
-    int nBath=L/2-nImp/2;  // impurity cluster occupies sites [nBath, nBath+nImp)
     itensor::AutoMPO h(sites);
-    for(auto i=0; i<nImp; i++)
-        for(auto j=0; j<nImp; j++) {
-            int ii=nBath+i;  // these positions change with nImp and nBath
-            int jj=nBath+j;
+    for(int i=0; i<L; i++)
+        for(int j=0; j<L; j++)
             if (std::abs(Umat(i,j))>1e-15)
-                h += Umat(i,j), "N", ii+1, "N", jj+1;
-        }
+                h += Umat(i,j), "N", i+1, "N", j+1;
 
     for(auto i=0; i<L; i++)
         for(auto j=0; j<L; j++)
@@ -120,8 +115,8 @@ int main()
             K(nBath, nBath+nImp/2-1)=K(nBath+nImp/2-1, nBath)=V;
             K(L/2, L/2+nImp/2-1)=K(L/2+nImp/2-1, L/2)=V;
         }
-        Umat.zeros(nImp,nImp);
-        Umat(nImp/2-1,nImp/2)=U;
+        Umat.zeros(L, L);
+        Umat(nBath+nImp/2-1, L/2) = U;
 
         std::tie(Kstar,rot) = computeKstar(K, nImp);
     }
@@ -143,9 +138,8 @@ int main()
         model.param.Kmat = Kstar;
         model.param.Umat = Umat;
         model.param.rot  = rot;
-        // impurity cluster sits at the same positions in Kstar as in K (computeKstar does not move them)
-        model.param.impPos1_up = {nBath, nBath+nImp/2-1};
-        model.param.impPos1_dw = {L/2,   L/2+nImp/2-1};
+        // convention 2: spatial order outer-up..inner-up..inner-dw..outer-dw
+        model.param.impPos = {nBath, nBath+nImp/2-1, L/2, L/2+nImp/2-1};
     }
 
     auto mpo=getHamiltonian(fb.sites,model.param.Kmat,model.param.Umat);

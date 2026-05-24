@@ -31,9 +31,8 @@ struct Impurity_dyn_spin {
         {
             using namespace arma;
 
-            auto pos_i = param.impPos();
-            imp_pos  = arma::conv_to<arma::uvec>::from(pos_i);
-            bath_pos = arma::conv_to<arma::uvec>::from(set_diff(L, pos_i));
+            imp_pos  = arma::conv_to<arma::uvec>::from(param.impPos);
+            bath_pos = arma::conv_to<arma::uvec>::from(set_diff(L, param.impPos));
 
             mat Kstar=param.Kmat;
 
@@ -46,6 +45,20 @@ struct Impurity_dyn_spin {
 
             arma::cx_mat K0 = param.Kmat * cmpx(1,0);
             this->Kbath=K0.submat(bath_pos,bath_pos);
+        }
+
+        // Fix nSv = rank of the impurity–bath coupling block at construction.
+        // Same value used for every extract_representative* call thereafter.
+        {
+            auto [a_imp, b_imp] = fb.interval_impurity(dw);
+            auto [a_sla, b_sla] = fb.interval_slater(dw);
+            if (a_imp < b_imp && a_sla < b_sla) {
+                arma::cx_mat k12 = param.Kmat.submat(a_imp, a_sla, b_imp-1, b_sla-1) * cmpx(1,0);
+                arma::vec s; arma::cx_mat U, V;
+                arma::svd_econ(U, s, V, k12);
+                fb.nSv = (s.is_empty() || s[0] == 0) ? 0
+                          : (int)arma::find(s > fb.tol*s[0]).eval().size();
+            }
         }
     }
 
@@ -126,15 +139,11 @@ struct Impurity_dyn_spin {
     itensor::MPO fullHamiltonian(int a,int b) const
     {
         itensor::AutoMPO h(fb.sites);
-        auto impPos=param.impPos();
-        for(auto i=0; i<param.nImp(); i++)
-            for(auto j=0; j<param.nImp(); j++) {
-                int ii=impPos[i];
-                int jj=impPos[j];
-                if (std::abs(param.Umat(i,j))>1e-15) {
-                    h += param.Umat(i,j), "N", ii+1, "N", jj+1;
-                }
-            }
+        int L = param.length();
+        for (int i = 0; i < L; i++)
+            for (int j = 0; j < L; j++)
+                if (std::abs(param.Umat(i,j)) > 1e-15)
+                    h += param.Umat(i,j), "N", i+1, "N", j+1;
 
         for(auto i=a; i<b; i++)
             for(auto j=a; j<b; j++)

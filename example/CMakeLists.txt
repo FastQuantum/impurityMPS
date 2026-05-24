@@ -16,6 +16,7 @@ list(APPEND test_SRC
     chain_dyn_siam_center.cpp
     star_dyn_siam_center_ip.cpp
     impurity_dyn_siam_spin_init.cpp
+    impurity_dyn_siam_block.cpp
 )
 
 foreach (test ${test_SRC})

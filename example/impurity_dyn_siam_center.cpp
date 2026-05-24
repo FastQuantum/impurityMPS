@@ -71,8 +71,10 @@ int main()
             K(nBath, nBath+nImp/2-1)=K(nBath+nImp/2-1, nBath)=V;
             K(L/2, L/2+nImp/2-1)=K(L/2+nImp/2-1, L/2)=V;
         }
-        Umat.zeros(nImp,nImp);
-        Umat(nImp/2-1,nImp/2)=U;
+        // L×L site-indexed Umat: SIAM Coulomb between innermost up (site nBath+nImp/2-1)
+        // and innermost dw (site L/2).
+        Umat.zeros(L, L);
+        Umat(nBath+nImp/2-1, L/2) = U;
 
         std::tie(Kstar,rot) = computeKstar(K, nImp);
     }
@@ -93,9 +95,8 @@ int main()
         model.param.Kmat = Kstar;
         model.param.Umat = Umat;
         model.param.rot  = arma::mat(L,L, arma::fill::eye);
-        // impurity cluster sits at the same positions in Kstar as in K (computeKstar does not move them)
-        model.param.impPos1_up = {L/2-2, L/2-1};
-        model.param.impPos1_dw = {L/2,   L/2+1};
+        // convention 2: {outer_up, inner_up, inner_dw, outer_dw} in Kstar layout.
+        model.param.impPos = {L/2-2, L/2-1, L/2, L/2+1};
     }
 
     auto solver=Impurity_dyn_spin(model,fb,dt);

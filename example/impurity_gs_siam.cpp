@@ -18,8 +18,12 @@ int main()
         K(1,1)=-U/2;
         K(0,2)=K(2,0)=K(1,3)=K(3,1)=0.5;
     }
-    arma::mat Umat={{0,U},{0,0}};
-    auto model = ImpuritySpin {{.Kmat=K, .Umat=Umat}};
+    // Umat: L×L, indexed by site in input Kmat layout. U on (site 0 = imp_up, site 1 = imp_dw).
+    arma::mat Umat(L, L, arma::fill::zeros);
+    Umat(0, 1) = U;
+    // impPos in convention 2 (outer up, inner up=imp_up, inner dw=imp_dw, outer dw).
+    // Only physical impurities here (no buffer): impPos = {0, 1}.
+    auto model = ImpuritySpin {{.Kmat=K, .Umat=Umat, .impPos={0,1}}};
 
     auto ek=arma::vec {model.param.Kmat.diag()};
     // optional: force impurity ocupation |10>
