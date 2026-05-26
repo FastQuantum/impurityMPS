@@ -227,7 +227,7 @@ int main()
 
         if (step == 1) {
             // Manually evolve cc_before under K_snapshot for dt
-            arma::cx_mat expKdt = expIH<cmpx>(-K_snapshot * dt);  // exp(-iK dt)
+            arma::cx_mat expKdt = expIH<cmpx>(-K_snapshot * dt);  // exp(+iK dt) — left factor for cc evolution
             arma::cx_mat cc_manual = expKdt * cc_before * expKdt.t();
             arma::mat diff = arma::abs(solver.fb.cc - cc_manual);
             cout << "  [cc diag] max|cc_tdvp - cc_manual|=" << diff.max() << "\n";
