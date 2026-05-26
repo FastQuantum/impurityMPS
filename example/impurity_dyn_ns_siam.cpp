@@ -19,10 +19,10 @@ int main()
             K(1,1)=-U/2;
             K(0,2)=K(2,0)=K(1,3)=K(3,1)=V;
         }
-        arma::mat Umat(4,4,arma::fill::zeros);
+        arma::mat Umat(L,L,arma::fill::zeros);
         Umat(0,1)=U;
 
-        model = Impurity {{.Kmat=K, .Umat=Umat}};
+        model = Impurity {{.Kmat=K, .Umat=Umat, .impPos={0,1,2,3}}};
 
         K.print("Kmat before star ns");
     }
