@@ -13,14 +13,14 @@ struct ImpurityParam {
     arma::mat rot;            ///< (default => identity) the actual frame, such that F*Kmat*F.t() gives the original Kmat (in real space)
 
     int length() const { return Kmat.n_rows; }
-    int nImp() const { return Umat.n_rows; }
+    int nImp() const { return impPos.size(); }
     int nPart() const { return filling*length()+0.5; }
 
     void initializeDefault()
     {
         //TODO : verify correctness
         if (rot.empty()) rot=arma::mat(length(),length(), arma::fill::eye);
-        if (impPos.empty()) impPos=iota(nImp());
+        if (impPos.empty()) throw std::invalid_argument("ImpurityParam::impPos shoul be initialize");
     }
 
     /// transform Kmat to star geometry (Hbath is diagonal)
