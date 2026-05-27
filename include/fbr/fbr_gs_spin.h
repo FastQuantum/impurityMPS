@@ -1,9 +1,11 @@
-#ifndef IMPURITY_GS_SPIN_H
-#define IMPURITY_GS_SPIN_H
+#ifndef FBR_GS_SPIN_H
+#define FBR_GS_SPIN_H
 
 #include "fermionic.h"
 #include "fbr_param_spin.h"
 #include "fb_mps_spin.h"
+
+namespace fbr {
 
 struct Fbr_gs_spin {
     FbrParamSpin param;
@@ -73,4 +75,6 @@ struct Fbr_gs_spin {
 };
 
 
-#endif // IMPURITY_GS_SPIN_H
+} // namespace fbr
+
+#endif // FBR_GS_SPIN_H

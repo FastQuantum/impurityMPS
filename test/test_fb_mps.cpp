@@ -1,9 +1,10 @@
 #include <catch2/catch.hpp>
-#include "impurityMPS/fb_mps_spin.h"
-#include "impurityMPS/fb_mps_spin_block.h"
-#include "impurityMPS/fb_mps.h"
+#include "fbr/fb_mps_spin.h"
+#include "fbr/fb_mps_spin_block.h"
+#include "fbr/fb_mps.h"
 
 using namespace arma;
+using namespace fbr;
 
 TEST_CASE("ensure_reflection_mat", "[fb_mps_spin]") {
     const int L = 6;

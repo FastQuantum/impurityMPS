@@ -1,9 +1,10 @@
-#include "impurityMPS/fb_mps.h"
-#include "impurityMPS/fbr_param.h"
+#include "fbr/fb_mps.h"
+#include "fbr/fbr_param.h"
 #include <iostream>
 #include <iomanip>
 
 using namespace std;
+using namespace fbr;
 
 int main()
 {

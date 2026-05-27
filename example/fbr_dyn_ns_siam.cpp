@@ -1,9 +1,10 @@
-#include "impurityMPS/fbr_dyn.h"
+#include "fbr/fbr_dyn.h"
 #include <iostream>
 #include <iomanip>
 
 using namespace std;
 using namespace arma;
+using namespace fbr;
 
 int main()
 {

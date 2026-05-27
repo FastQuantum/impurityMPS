@@ -1,9 +1,14 @@
+#ifndef FBR_DYN_H
+#define FBR_DYN_H
+
 #include "fermionic.h"
 #include "fbr_param.h"
 #include "fb_mps.h"
 
 #include "tdvp.h"
 #include "basisextension.h"
+
+namespace fbr {
 
 struct Fbr_dyn {
     FbrParam param;
@@ -211,3 +216,7 @@ struct Fbr_dyn {
         return itensor::toMPO(h);
     }
 };
+
+} // namespace fbr
+
+#endif // FBR_DYN_H

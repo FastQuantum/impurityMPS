@@ -1,9 +1,10 @@
 #include<catch2/catch.hpp>
-#include "impurityMPS/fermionic.h"
+#include "fbr/fermionic.h"
 
 using namespace arma;
 using namespace std;
-using namespace graph;
+using namespace fbr;
+using namespace fbr::graph;
 
 bool same_component(vector<int> labels,int a, int b) { return labels[a]==labels[b]; }
 

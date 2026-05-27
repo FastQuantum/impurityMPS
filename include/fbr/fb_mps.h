@@ -1,11 +1,13 @@
-#ifndef FB_MPS_H
-#define FB_MPS_H
+#ifndef FBR_FB_MPS_H
+#define FBR_FB_MPS_H
 
 #include "givens_rotation.h"
 #include "fermionic.h"
 
 #include <armadillo>
 #include <itensor/all.h>
+
+namespace fbr {
 
 /// This class stores a few body state.
 template<class T>
@@ -261,6 +263,8 @@ private:
 
 };
 
-#endif // FB_MPS_H
+} // namespace fbr
+
+#endif // FBR_FB_MPS_H
 
 

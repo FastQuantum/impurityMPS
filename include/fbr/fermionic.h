@@ -1,5 +1,5 @@
-#ifndef FERMIONIC_H
-#define FERMIONIC_H
+#ifndef FBR_FERMIONIC_H
+#define FBR_FERMIONIC_H
 
 #include "givens_rotation.h"
 
@@ -13,6 +13,8 @@
 #else
 #include<mkl_lapacke.h>
 #endif
+
+namespace fbr {
 
 inline std::vector<int> iota(int n)
 {
@@ -818,4 +820,6 @@ struct Fermionic {
 
 };
 
-#endif // FERMIONIC_H
+} // namespace fbr
+
+#endif // FBR_FERMIONIC_H

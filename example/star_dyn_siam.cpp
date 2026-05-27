@@ -1,5 +1,5 @@
-#include "impurityMPS/fb_mps.h"
-#include "impurityMPS/fbr_param.h"
+#include "fbr/fb_mps.h"
+#include "fbr/fbr_param.h"
 #include "tdvp.h"
 #include "basisextension.h"
 #include <iostream>
@@ -7,6 +7,7 @@
 
 using namespace std;
 using namespace arma;
+using namespace fbr;
 
 /// return the kinetic energy in star geometry and the rotation to get it.
 auto computeKstar(mat K, int nImp)

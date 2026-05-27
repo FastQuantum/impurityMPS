@@ -43,15 +43,17 @@ Tests use Catch2 v2. The three test modules are `test_givens.cpp`, `test_graph.c
 
 The library tracks a small window of `nActive` orbitals in a full MPS (with entanglement) while the remaining orbitals are described by a Slater determinant. After each DMRG or TDVP sweep, the one-particle density matrix is diagonalized to find natural orbitals; the MPS is rotated into this basis to minimize entanglement, and orbitals near half-filling are promoted into the active window while those near 0 or 1 are demoted back to the Slater part.
 
-### Key headers (`include/impurityMPS/`)
+### Key headers (`include/fbr/`)
+
+All library types live in `namespace fbr`. Include as `#include "fbr/<header>.h"` and add `using namespace fbr;` in consumer code.
 
 | Header | Purpose |
 |---|---|
 | `fb_mps.h` / `fb_mps_spin.h` | `Fb_mps<T>` — few-body MPS state with rotation matrix `rot` and correlation matrix `cc` |
-| `impurity_param.h` / `*_spin.h` | `ImpurityParam` — kinetic matrix `Kmat`, interaction `Umat`, impurity positions; `toStar()` transforms to star geometry |
-| `impurity_gs.h` / `*_spin.h` | `Impurity_gs` — ground state solver: DMRG loop + orbital rotation |
-| `impurity_dyn.h` / `*_spin.h` | `Impurity_dyn` — dynamics: TDVP loop + orbital rotation |
-| `fermionic.h` | `Fermionic` — builds MPO from kinetic/Coulomb terms; graph utilities (`graph::find_islands`) |
+| `fbr_param.h` / `fbr_param_spin.h` | `FbrParam` / `FbrParamSpin` — kinetic matrix `Kmat`, interaction `Umat`, impurity positions; `toStar()` transforms to star geometry |
+| `fbr_gs_spin.h` | `Fbr_gs_spin` — ground state solver: DMRG loop + orbital rotation |
+| `fbr_dyn.h` / `fbr_dyn_spin.h` | `Fbr_dyn` / `Fbr_dyn_spin` — dynamics: TDVP loop + orbital rotation |
+| `fermionic.h` | `Fermionic` — builds MPO from kinetic/Coulomb terms; graph utilities (`fbr::graph::find_islands`) |
 | `givens_rotation.h` | Givens rotations applied to MPS: `GivensRotForRot_left()`, `expIH()`, `my_svd()` |
 
 ### Hamiltonian geometry

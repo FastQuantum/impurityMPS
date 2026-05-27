@@ -1,9 +1,11 @@
 #ifndef FBR_PARAM_H
 #define FBR_PARAM_H
 
-#include "impurityMPS/fermionic.h"
+#include "fermionic.h"
 #include <armadillo>
 #include <itensor/all.h>
+
+namespace fbr {
 
 struct FbrParam {
     arma::mat Kmat;           ///< the kinetic energy coefficient matrix
@@ -112,5 +114,7 @@ struct Fbr {
     Fbr() = default;
     Fbr(FbrParam const& param_) : param(param_) { param.toStar(); }
 };
+
+} // namespace fbr
 
 #endif // FBR_PARAM_H

@@ -1,9 +1,10 @@
-#include "impurityMPS/fbr_gs_spin.h"
-#include "impurityMPS/fbr_param_spin.h"
+#include "fbr/fbr_gs_spin.h"
+#include "fbr/fbr_param_spin.h"
 #include <iostream>
 #include <iomanip>
 
 using namespace std;
+using namespace fbr;
 
 int main()
 {

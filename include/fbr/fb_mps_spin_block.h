@@ -1,9 +1,11 @@
-#ifndef FB_MPS_SPIN_BLOCK_H
-#define FB_MPS_SPIN_BLOCK_H
+#ifndef FBR_FB_MPS_SPIN_BLOCK_H
+#define FBR_FB_MPS_SPIN_BLOCK_H
 
 #include "fb_mps_spin.h"   // for Spin enum and helpers
 
 #include <algorithm>
+
+namespace fbr {
 
 /// Block version of Fb_mps_spin: the up/dw blocks are treated as two independent
 /// fermionic problems sharing a single MPS chain.  Layout:
@@ -425,4 +427,6 @@ inline Fb_mps_spin_block<cmpx> Fb_mps_spin_block<double>::to_complex() const
     return fb;
 }
 
-#endif // FB_MPS_SPIN_BLOCK_H
+} // namespace fbr
+
+#endif // FBR_FB_MPS_SPIN_BLOCK_H

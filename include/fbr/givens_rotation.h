@@ -1,9 +1,11 @@
-#ifndef GIVENS_ROTATION_H
-#define GIVENS_ROTATION_H
+#ifndef FBR_GIVENS_ROTATION_H
+#define FBR_GIVENS_ROTATION_H
 
 
 #include<armadillo>
 #include <itensor/all.h>
+
+namespace fbr {
 
 using cmpx=std::complex<double>;
 const cmpx imag_1 = {0.0, 1.0};
@@ -479,4 +481,6 @@ std::vector<GivensRot<T>> GivensReflect(std::vector<GivensRot<T>> givens, int L)
 }
 
 
-#endif // GIVENS_ROTATION_H
+} // namespace fbr
+
+#endif // FBR_GIVENS_ROTATION_H

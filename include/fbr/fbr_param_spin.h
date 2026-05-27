@@ -6,6 +6,8 @@
 #include <itensor/all.h>
 #include <set>
 
+namespace fbr {
+
 /// Convention 2 (left-to-right in final layout):
 ///   impPos is a flat list of nImp impurity sites in the CURRENT Kmat layout,
 ///   ordered spatially as they should appear at the center of the chain:
@@ -119,5 +121,7 @@ struct FbrSpin {
     FbrSpin() = default;
     FbrSpin(FbrParamSpin const& param_) : param(param_) { param.toStar(); }
 };
+
+} // namespace fbr
 
 #endif // FBR_PARAM_SPIN_H

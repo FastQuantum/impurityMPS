@@ -1,5 +1,5 @@
-#ifndef IMPURITY_DYN_SPIN_BLOCK_H
-#define IMPURITY_DYN_SPIN_BLOCK_H
+#ifndef FBR_DYN_SPIN_BLOCK_H
+#define FBR_DYN_SPIN_BLOCK_H
 
 #include "fermionic.h"
 #include "fbr_param_spin.h"
@@ -7,6 +7,8 @@
 
 #include "tdvp.h"
 #include "basisextension.h"
+
+namespace fbr {
 
 /// Block version of Fbr_dyn_spin: spin up/down are treated as two independent
 /// fermionic blocks of a shared MPS chain.  No spin-flip symmetry of H is assumed.
@@ -188,4 +190,6 @@ struct Fbr_dyn_spin_block {
 
 };
 
-#endif // IMPURITY_DYN_SPIN_BLOCK_H
+} // namespace fbr
+
+#endif // FBR_DYN_SPIN_BLOCK_H

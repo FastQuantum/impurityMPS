@@ -1,9 +1,10 @@
-#include "impurityMPS/fbr_dyn_spin.h"
+#include "fbr/fbr_dyn_spin.h"
 #include <iostream>
 #include <iomanip>
 
 using namespace std;
 using namespace arma;
+using namespace fbr;
 
 /// return the kinetic energy in star geometry and the rotation to get it.
 /// Layout: [spin-up bath | spin-up imp | spin-down imp | spin-down bath]

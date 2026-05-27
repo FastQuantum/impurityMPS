@@ -1,4 +1,4 @@
-#include "impurityMPS/givens_rotation.h"
+#include "fbr/givens_rotation.h"
 #include <itensor/all.h>
 #include <tdvp.h>
 #include <basisextension.h>
@@ -9,6 +9,7 @@
 
 using namespace std;
 using namespace arma;
+using namespace fbr;
 using cmpx= std::complex<double>;
 
 /// return the kinetic energy in star geometry and the rotation to get it.

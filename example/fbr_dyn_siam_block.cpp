@@ -1,8 +1,9 @@
-#include "impurityMPS/fbr_dyn_spin_block.h"
+#include "fbr/fbr_dyn_spin_block.h"
 #include <iostream>
 #include <iomanip>
 
 using namespace std;
+using namespace fbr;
 
 int main()
 {

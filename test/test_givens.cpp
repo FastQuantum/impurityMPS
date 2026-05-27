@@ -1,8 +1,9 @@
 #include<catch2/catch.hpp>
-#include "impurityMPS/givens_rotation.h"
+#include "fbr/givens_rotation.h"
 
 using namespace arma;
 using namespace std;
+using namespace fbr;
 
 TEST_CASE("arma") {
     mat A = { {1, 3, 5},

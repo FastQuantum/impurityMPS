@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.9)
 
-project(impurityMPS LANGUAGES CXX)
+project(fbr LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -8,17 +8,17 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(external/external.cmake)
 
 add_library(${PROJECT_NAME} STATIC
-    include/impurityMPS/fermionic.h
-    include/impurityMPS/givens_rotation.h
-    include/impurityMPS/fb_mps.h
-    include/impurityMPS/fbr_dyn.h
+    include/fbr/fermionic.h
+    include/fbr/givens_rotation.h
+    include/fbr/fb_mps.h
+    include/fbr/fbr_dyn.h
     empty.cpp
     README.md
-    include/impurityMPS/fbr_param.h
-    include/impurityMPS/fb_mps_spin.h
-    include/impurityMPS/fbr_gs_spin.h
-    include/impurityMPS/fbr_param_spin.h
-    include/impurityMPS/fbr_dyn_spin.h
+    include/fbr/fbr_param.h
+    include/fbr/fb_mps_spin.h
+    include/fbr/fbr_gs_spin.h
+    include/fbr/fbr_param_spin.h
+    include/fbr/fbr_dyn_spin.h
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC

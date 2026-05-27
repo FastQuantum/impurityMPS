@@ -1,9 +1,14 @@
+#ifndef FBR_DYN_SPIN_H
+#define FBR_DYN_SPIN_H
+
 #include "fermionic.h"
 #include "fbr_param_spin.h"
 #include "fb_mps_spin.h"
 
 #include "tdvp.h"
 #include "basisextension.h"
+
+namespace fbr {
 
 struct Fbr_dyn_spin {
     FbrParamSpin param;
@@ -192,3 +197,7 @@ struct Fbr_dyn_spin {
         return itensor::toMPO(h);
     }
 };
+
+} // namespace fbr
+
+#endif // FBR_DYN_SPIN_H
