@@ -2,7 +2,7 @@
 #define FBR_FB_MPS_SPIN_H
 
 #include "givens_rotation.h"
-#include "fermionic.h"
+#include "itensor_utils.h"
 
 #include <armadillo>
 #include <itensor/all.h>
@@ -245,7 +245,7 @@ struct Fb_mps_spin
             for(auto g:gQ_r) gQ.push_back(g);
 
 
-            auto gates=Fermionic::NOGates(sites,GivensTranspose(gQ));
+            auto gates=NOGates(sites,GivensTranspose(gQ));
             itensor::gateTEvol(gates,1,1,psi,{"Cutoff",tol,"Quiet",true, "Normalize",false,"ShowPercent",false});
         }
     }
@@ -308,7 +308,7 @@ struct Fb_mps_spin
             auto gQ_r=GivensReflect(gQ, length());  // compute spin=up by reflection
             for(auto g:gQ_r) gQ.push_back(g);
 
-            auto gates=Fermionic::NOGates(sites,gQ);
+            auto gates=NOGates(sites,gQ);
             itensor::gateTEvol(gates,1,1,psi,{"Cutoff",tol/*,"MaxDim",512*/,"Quiet",true, "Normalize",false,"ShowPercent",false});
         }
 

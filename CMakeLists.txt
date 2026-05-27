@@ -12,7 +12,7 @@ add_library(${PROJECT_NAME} INTERFACE)
 file(GLOB_RECURSE _fbr_headers CONFIGURE_DEPENDS include/fbr/*.h)
 target_sources(${PROJECT_NAME} INTERFACE
     "$<BUILD_INTERFACE:${_fbr_headers}>")
-add_custom_target(${PROJECT_NAME}_ide SOURCES ${_fbr_headers})
+add_custom_target(${PROJECT_NAME}_lib SOURCES ${_fbr_headers})
 
 target_include_directories(${PROJECT_NAME} INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

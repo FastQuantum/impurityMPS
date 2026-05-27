@@ -1,7 +1,8 @@
 #ifndef FBR_DYN_H
 #define FBR_DYN_H
 
-#include "fermionic.h"
+#include "graph.h"
+#include "itensor_utils.h"
 #include "fbr_param.h"
 #include "fb_mps.h"
 

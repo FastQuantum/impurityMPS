@@ -53,7 +53,8 @@ All library types live in `namespace fbr`. Include as `#include "fbr/<header>.h"
 | `fbr_param.h` / `fbr_param_spin.h` | `FbrParam` / `FbrParamSpin` — kinetic matrix `Kmat`, interaction `Umat`, impurity positions; `toStar()` transforms to star geometry |
 | `fbr_gs_spin.h` | `Fbr_gs_spin` — ground state solver: DMRG loop + orbital rotation |
 | `fbr_dyn.h` / `fbr_dyn_spin.h` | `Fbr_dyn` / `Fbr_dyn_spin` — dynamics: TDVP loop + orbital rotation |
-| `fermionic.h` | `Fermionic` — builds MPO from kinetic/Coulomb terms; graph utilities (`fbr::graph::find_islands`) |
+| `graph.h` | Index/set utilities (`iota`, `regspace`, `set_diff`) and `fbr::graph::find_islands` for connected-component detection |
+| `itensor_utils.h` | `DmrgParam`, `TdvpParam`; `NOGates()` — converts Givens rotations to ITensor `BondGate`s |
 | `givens_rotation.h` | Givens rotations applied to MPS: `GivensRotForRot_left()`, `expIH()`, `my_svd()` |
 
 ### Hamiltonian geometry

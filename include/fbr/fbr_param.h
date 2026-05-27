@@ -1,7 +1,7 @@
 #ifndef FBR_PARAM_H
 #define FBR_PARAM_H
 
-#include "fermionic.h"
+#include "graph.h"
 #include <armadillo>
 #include <itensor/all.h>
 
@@ -86,25 +86,6 @@ struct FbrParam {
         Kmat = Kstar;
         rot.cols(nImp,L-1) = rot.cols(nImp,L-1).eval() * evec_full;
         // impPos=iota(nImp);
-    }
-
-
-    /// (deprecated!) helper: transform Kmat to star geometry (Hbath is diagonal) for tridiagonal matrix Kmat
-    static arma::sp_mat to_star_kin_tridiag(arma::sp_mat const& Kmat, int nImp) // TODO
-    {
-        int L=Kmat.n_rows;
-        auto Kbath=Kmat.submat(nImp,nImp,L-1,L-1).eval();
-        auto [ek,evec]=FullDiagonalizeTridiagonal(arma::vec {Kbath.diag()}, arma::vec {Kbath.diag(1)});
-        arma::mat vk=(Kmat.submat(0,nImp,nImp-1,L-1)*evec);
-
-        arma::sp_mat Kstar(L,L);
-        Kstar.submat(0,0,nImp-1,nImp-1)=Kmat.submat(0,0,nImp-1,nImp-1);
-        for(auto jj=0u;jj<ek.size();jj++) {
-            Kstar(jj+nImp,jj+nImp)=ek[jj];
-            for(auto i=0; i<nImp; i++)
-                Kstar(i,jj+nImp)=Kstar(jj+nImp,i)=vk(i,jj);
-        }
-        return Kstar;
     }
 };
 

@@ -219,7 +219,7 @@ struct Fb_mps_spin_block
                 gQ_all.insert(gQ_all.end(), gQ.begin(), gQ.end());
             }
             if (!gQ_all.empty()) {
-                auto gates = Fermionic::NOGates(sites, GivensTranspose(gQ_all));
+                auto gates = NOGates(sites, GivensTranspose(gQ_all));
                 itensor::gateTEvol(gates, 1, 1, psi,
                                    {"Cutoff", tol, "Quiet", true, "Normalize", false, "ShowPercent", false});
             }
@@ -304,7 +304,7 @@ struct Fb_mps_spin_block
                 gQ_all.insert(gQ_all.end(), gQ.begin(), gQ.end());
             }
             if (!gQ_all.empty()) {
-                auto gates = Fermionic::NOGates(sites, gQ_all);
+                auto gates = NOGates(sites, gQ_all);
                 itensor::gateTEvol(gates, 1, 1, psi,
                                    {"Cutoff", tol, "Quiet", true, "Normalize", false, "ShowPercent", false});
             }

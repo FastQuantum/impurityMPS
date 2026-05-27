@@ -1,7 +1,8 @@
 #ifndef FBR_DYN_SPIN_H
 #define FBR_DYN_SPIN_H
 
-#include "fermionic.h"
+#include "graph.h"
+#include "itensor_utils.h"
 #include "fbr_param_spin.h"
 #include "fb_mps_spin.h"
 

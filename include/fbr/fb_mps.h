@@ -2,7 +2,7 @@
 #define FBR_FB_MPS_H
 
 #include "givens_rotation.h"
-#include "fermionic.h"
+#include "itensor_utils.h"
 
 #include <armadillo>
 #include <itensor/all.h>
@@ -131,7 +131,7 @@ struct Fb_mps
 
         // 4. update the mps
         for(auto& g:givens) g.b+=p1;
-        auto gates=Fermionic::NOGates(sites, GivensTranspose(givens));
+        auto gates=NOGates(sites, GivensTranspose(givens));
         gateTEvol(gates,1,1,psi,{"Cutoff",tol,"Quiet",true, "Normalize",false,"ShowPercent",false});
     }
 
@@ -171,7 +171,7 @@ struct Fb_mps
         }
         if (!givens.empty()) {
             for(auto& g:givens) g.b+=start;
-            auto gates=Fermionic::NOGates(sites,givens);
+            auto gates=NOGates(sites,givens);
             itensor::gateTEvol(gates,1,1,psi,{"Cutoff",tol/*,"MaxDim",512*/,"Quiet",true, "Normalize",false,"ShowPercent",false});
         }        
 

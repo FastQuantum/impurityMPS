@@ -1,5 +1,5 @@
 #include<catch2/catch.hpp>
-#include "fbr/fermionic.h"
+#include "fbr/graph.h"
 
 using namespace arma;
 using namespace std;
