@@ -3,3 +3,4 @@ CMakeLists.txt.user
 Makefile
 notebook/data/
 .ipynb_checkpoints/
+.claude/
