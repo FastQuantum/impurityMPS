@@ -9,7 +9,6 @@ include(external/external.cmake)
 
 add_library(${PROJECT_NAME} STATIC
     include/impurityMPS/fermionic.h
-    include/impurityMPS/it_dmrg.h
     include/impurityMPS/givens_rotation.h
     include/impurityMPS/fbr_gs.h
     include/impurityMPS/fb_mps.h

@@ -53,7 +53,6 @@ The library tracks a small window of `nActive` orbitals in a full MPS (with enta
 | `impurity_dyn.h` / `*_spin.h` | `Impurity_dyn` — dynamics: TDVP loop + orbital rotation |
 | `fermionic.h` | `Fermionic` — builds MPO from kinetic/Coulomb terms; graph utilities (`graph::find_islands`) |
 | `givens_rotation.h` | Givens rotations applied to MPS: `GivensRotForRot_left()`, `expIH()`, `my_svd()` |
-| `it_dmrg.h` / `it_tdvp.h` | Thin wrappers around ITensor's DMRG and TDVP routines |
 
 ### Hamiltonian geometry
 
