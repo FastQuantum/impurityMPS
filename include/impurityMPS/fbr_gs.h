@@ -2,18 +2,18 @@
 #define IMPURITY_GS_H
 
 #include "fermionic.h"
-#include "impurity_param.h"
+#include "fbr_param.h"
 #include "fb_mps.h"
 
-struct Impurity_gs {
-    ImpurityParam param;
+struct Fbr_gs {
+    FbrParam param;
 
     /// these quantities are updated during the iterations
     Fb_mps<double> fb;
     arma::mat K;
     double energy=-1000;
 
-    Impurity_gs(Impurity const& imp, Fb_mps<double> const& fb_)
+    Fbr_gs(Fbr const& imp, Fb_mps<double> const& fb_)
         : param(imp.param)
         , fb { fb_ }
         , K(param.Kmat)

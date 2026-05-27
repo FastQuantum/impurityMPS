@@ -2,21 +2,20 @@
 
 list(APPEND test_SRC
     irlm_dyn.cpp
-    impurity_gs_irlm.cpp
-    impurity_gs_siam.cpp
-    impurity_dyn_irlm.cpp
-    impurity_dyn_siam.cpp
-    impurity_dyn_ns_siam.cpp
-    impurity_dyn_siam_center.cpp
-    impurity_dyn_ns__man_siam.cpp
+    fbr_gs_irlm.cpp
+    fbr_gs_siam.cpp
+    fbr_dyn_irlm.cpp
+    fbr_dyn_siam.cpp
+    fbr_dyn_ns_siam.cpp
+    fbr_dyn_siam_center.cpp
+    fbr_dyn_ns__man_siam.cpp
     star_gs_siam.cpp
     star_dyn_siam.cpp
     star_dyn_siam_center.cpp
     star_dyn_siam_spin.cpp
     chain_dyn_siam_center.cpp
     star_dyn_siam_center_ip.cpp
-    impurity_dyn_siam_spin_init.cpp
-    impurity_dyn_siam_block.cpp
+    fbr_dyn_siam_block.cpp
 )
 
 foreach (test ${test_SRC})

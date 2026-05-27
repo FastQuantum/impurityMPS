@@ -1,4 +1,4 @@
-#include "impurityMPS/impurity_dyn_spin.h"
+#include "impurityMPS/fbr_dyn_spin.h"
 #include <iostream>
 #include <iomanip>
 
@@ -7,7 +7,7 @@ using namespace std;
 int main()
 {
     int L=100;
-    ImpuritySpin model;
+    FbrSpin model;
     {
         double U=0.2;
         double V=0.1;
@@ -25,7 +25,7 @@ int main()
         // Convention 2 (outer..inner..outer): {buf_up, imp_up, imp_dw, buf_dw} = {2, 0, 1, 3}.
         std::vector<int> impPos = {2, 0, 1, 3};
 
-        model = ImpuritySpin {{.Kmat=K, .Umat=Umat, .impPos=impPos}};
+        model = FbrSpin {{.Kmat=K, .Umat=Umat, .impPos=impPos}};
     }
     Fb_mps_spin<cmpx> fb;
     {
@@ -39,7 +39,7 @@ int main()
     }
 
     double dt=0.1;
-    auto solver=Impurity_dyn_spin(model,fb,dt);
+    auto solver=Fbr_dyn_spin(model,fb,dt);
     solver.fb.tol=1e-12;
 
     // arma::real(fb.rot*1).eval().clean(1e-11).print("fb.rot");

@@ -1,6 +1,6 @@
 #include "impurityMPS/fb_mps_spin.h"
 #include "impurityMPS/it_tdvp.h"
-#include "impurityMPS/impurity_param_spin.h"
+#include "impurityMPS/fbr_param_spin.h"
 #include <iostream>
 #include <iomanip>
 
@@ -59,7 +59,7 @@ void doTdvp(itensor::MPS &psi, itensor::MPO const mpo, double dt, double tol=1e-
     sweeps.niter() = 16;
     sweeps.noise() = 0e-8;
 
-    std::vector<double> epsilonK(15, 1e-4);   // match epsilonM from impurity_dyn
+    std::vector<double> epsilonK(15, 1e-4);   // match epsilonM from fbr_dyn
     itensor::addBasis(psi, mpo, epsilonK,
                       {"Cutoff", 1e-4,
                        "Method", "DensityMatrix",
@@ -132,7 +132,7 @@ int main()
     }
 
     // Construct model from pre-computed star geometry (bypassing toStar)
-    ImpuritySpin model;
+    FbrSpin model;
     {
         int nBath=L/2-nImp/2;
         model.param.Kmat = Kstar;

@@ -13,16 +13,16 @@ add_library(${PROJECT_NAME} STATIC
     include/impurityMPS/it_dmrg.h
     include/impurityMPS/givens_rotation.h
     include/impurityMPS/irlm_gs.h
-    include/impurityMPS/impurity_gs.h
+    include/impurityMPS/fbr_gs.h
     include/impurityMPS/fb_mps.h
-    include/impurityMPS/impurity_dyn.h
+    include/impurityMPS/fbr_dyn.h
     empty.cpp
     README.md
-    include/impurityMPS/impurity_param.h
+    include/impurityMPS/fbr_param.h
     include/impurityMPS/fb_mps_spin.h
-    include/impurityMPS/impurity_gs_spin.h
-    include/impurityMPS/impurity_param_spin.h
-    include/impurityMPS/impurity_dyn_spin.h
+    include/impurityMPS/fbr_gs_spin.h
+    include/impurityMPS/fbr_param_spin.h
+    include/impurityMPS/fbr_dyn_spin.h
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC

@@ -1,13 +1,12 @@
 #include "fermionic.h"
-#include "impurity_param_spin.h"
-#include "impurity_spin_init.h"
+#include "fbr_param_spin.h"
 #include "fb_mps_spin.h"
 
 #include "tdvp.h"
 #include "basisextension.h"
 
-struct Impurity_dyn_spin {
-    ImpurityParamSpin param;
+struct Fbr_dyn_spin {
+    FbrParamSpin param;
     double dt;
     arma::cx_mat Kbath;
     arma::cx_mat Kip0;
@@ -21,7 +20,7 @@ struct Impurity_dyn_spin {
     double energy=-1000;        // TODO remove energy (or compute it)
     int nIter=0;
 
-    explicit Impurity_dyn_spin(ImpuritySpin const& imp, Fb_mps_spin<cmpx> const& fb_, double dt_=0.1)
+    explicit Fbr_dyn_spin(FbrSpin const& imp, Fb_mps_spin<cmpx> const& fb_, double dt_=0.1)
         : param(imp.param)
         , dt(dt_)
         , fb { fb_ }
@@ -61,10 +60,6 @@ struct Impurity_dyn_spin {
             }
         }
     }
-
-    /// Convenience constructor from ImpuritySpinInit (arbitrary-ordering input)
-    explicit Impurity_dyn_spin(ImpuritySpinInit const& init, double dt_=0.1)
-        : Impurity_dyn_spin(init.model, init.fb, dt_) {}
 
     void iterate(TdvpParam args={})
     {

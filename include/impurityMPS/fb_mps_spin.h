@@ -380,7 +380,7 @@ struct Fb_mps_spin
     }
 
     /// compute all the correlator <ci^ cj> where i and j are original sites (i.e. before the rotation).
-    /// Convention (impurity_param.h): c_i = sum_a rot[i,a] d_a, so
+    /// Convention (fbr_param.h): c_i = sum_a rot[i,a] d_a, so
     ///   <c_i^dag c_j> = sum_{a,b} conj(rot[i,a]) cc[a,b] rot[j,b] = (Qinv^dag cc Qinv)[i,j]
     /// with Qinv = rot.st() (so that Qinv.col(i) holds rot.row(i) as a column).
     arma::Mat<T> correlator_all() const

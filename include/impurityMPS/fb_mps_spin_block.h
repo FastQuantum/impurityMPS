@@ -360,7 +360,7 @@ struct Fb_mps_spin_block
     }
 
     /// Real-space correlator <c_i^dag c_j>.
-    /// Convention (impurity_param.h): c_i = sum_a rot[i,a] d_a, so
+    /// Convention (fbr_param.h): c_i = sum_a rot[i,a] d_a, so
     ///   <c_i^dag c_j> = (Qinv^dag cc Qinv)[i,j]  with Qinv = rot.st().
     arma::Mat<T> correlator_all() const
     {

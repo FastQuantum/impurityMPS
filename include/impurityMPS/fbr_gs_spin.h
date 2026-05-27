@@ -2,18 +2,18 @@
 #define IMPURITY_GS_SPIN_H
 
 #include "fermionic.h"
-#include "impurity_param_spin.h"
+#include "fbr_param_spin.h"
 #include "fb_mps_spin.h"
 
-struct Impurity_gs_spin {
-    ImpurityParamSpin param;
+struct Fbr_gs_spin {
+    FbrParamSpin param;
 
     /// these quantities are updated during the iterations
     Fb_mps_spin<double> fb;
     arma::mat K;
     double energy=-1000;
 
-    Impurity_gs_spin(ImpuritySpin const& imp, Fb_mps_spin<double> const& fb_)
+    Fbr_gs_spin(FbrSpin const& imp, Fb_mps_spin<double> const& fb_)
         : param(imp.param)
         , fb { fb_ }
         , K(param.Kmat)

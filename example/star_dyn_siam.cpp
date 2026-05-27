@@ -1,5 +1,5 @@
 #include "impurityMPS/fb_mps.h"
-#include "impurityMPS/impurity_param.h"
+#include "impurityMPS/fbr_param.h"
 #include "impurityMPS/it_tdvp.h"
 #include <iostream>
 #include <iomanip>
@@ -55,7 +55,7 @@ void doTdvp(itensor::MPS &psi, itensor::MPO const mpo, double dt, double tol=1e-
     sweeps.niter() = 16;
     sweeps.noise() = 1e-8;
 
-    std::vector<double> epsilonK(3, 1e-3);   // match epsilonM from impurity_dyn
+    std::vector<double> epsilonK(3, 1e-3);   // match epsilonM from fbr_dyn
     itensor::addBasis(psi, mpo, epsilonK,
                       {"Cutoff", 1e-4,
                        "Method", "DensityMatrix",

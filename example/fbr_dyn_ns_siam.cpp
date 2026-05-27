@@ -1,4 +1,4 @@
-#include "impurityMPS/impurity_dyn.h"
+#include "impurityMPS/fbr_dyn.h"
 #include <iostream>
 #include <iomanip>
 
@@ -8,7 +8,7 @@ using namespace arma;
 int main()
 {
     int L=100;
-    Impurity model;
+    Fbr model;
     {
         double U=0.2;
         double V=0.1;
@@ -23,7 +23,7 @@ int main()
         arma::mat Umat(L,L,arma::fill::zeros);
         Umat(0,1)=U;
 
-        model = Impurity {{.Kmat=K, .Umat=Umat, .impPos={0,1,2,3}}};
+        model = Fbr {{.Kmat=K, .Umat=Umat, .impPos={0,1,2,3}}};
 
         K.print("Kmat before star ns");
     }
@@ -39,7 +39,7 @@ int main()
     }
 
     double dt=0.1;
-    auto solver=Impurity_dyn(model,fb,dt);
+    auto solver=Fbr_dyn(model,fb,dt);
     solver.fb.tol=1e-12;
 
     // arma::real(fb.rot*1).eval().clean(1e-11).print("fb.rot");

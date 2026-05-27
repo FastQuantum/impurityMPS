@@ -1,5 +1,5 @@
-#include "impurityMPS/impurity_gs_spin.h"
-#include "impurityMPS/impurity_param_spin.h"
+#include "impurityMPS/fbr_gs_spin.h"
+#include "impurityMPS/fbr_param_spin.h"
 #include <iostream>
 #include <iomanip>
 
@@ -23,7 +23,7 @@ int main()
     Umat(0, 1) = U;
     // impPos in convention 2 (outer up, inner up=imp_up, inner dw=imp_dw, outer dw).
     // Only physical impurities here (no buffer): impPos = {0, 1}.
-    auto model = ImpuritySpin {{.Kmat=K, .Umat=Umat, .impPos={0,1}}};
+    auto model = FbrSpin {{.Kmat=K, .Umat=Umat, .impPos={0,1}}};
 
     auto ek=arma::vec {model.param.Kmat.diag()};
     // optional: force impurity ocupation |10>
@@ -33,7 +33,7 @@ int main()
     // fb.natOrbDepth=10;
     fb.tol=1e-10;
 
-    auto solver=Impurity_gs_spin(model,fb);
+    auto solver=Fbr_gs_spin(model,fb);
 
     cout<<"iteration m nActive energy time\n"<<setprecision(12);
     itensor::cpu_time t0;

@@ -1,4 +1,4 @@
-#include "impurityMPS/impurity_dyn.h"
+#include "impurityMPS/fbr_dyn.h"
 #include <iostream>
 #include <iomanip>
 
@@ -80,7 +80,7 @@ int main()
     }
 
     // Construct model from pre-computed star geometry (bypassing toStar)
-    Impurity model;
+    Fbr model;
     {
         model.param.Kmat = Kstar;
         model.param.Umat = Umat;
@@ -89,7 +89,7 @@ int main()
         model.param.impPos = iota(nImp);
     }
 
-    auto solver=Impurity_dyn(model,fb,dt);
+    auto solver=Fbr_dyn(model,fb,dt);
     solver.fb.tol=1e-12;
 
     // arma::real(fb.rot*1).eval().clean(1e-11).print("fb.rot");

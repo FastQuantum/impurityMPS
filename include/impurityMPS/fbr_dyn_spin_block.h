@@ -2,17 +2,16 @@
 #define IMPURITY_DYN_SPIN_BLOCK_H
 
 #include "fermionic.h"
-#include "impurity_param_spin.h"
-#include "impurity_spin_init.h"
+#include "fbr_param_spin.h"
 #include "fb_mps_spin_block.h"
 
 #include "tdvp.h"
 #include "basisextension.h"
 
-/// Block version of Impurity_dyn_spin: spin up/down are treated as two independent
+/// Block version of Fbr_dyn_spin: spin up/down are treated as two independent
 /// fermionic blocks of a shared MPS chain.  No spin-flip symmetry of H is assumed.
-struct Impurity_dyn_spin_block {
-    ImpurityParamSpin param;
+struct Fbr_dyn_spin_block {
+    FbrParamSpin param;
     double dt;
     arma::cx_mat Kbath;
     arma::cx_mat Kip0;
@@ -25,7 +24,7 @@ struct Impurity_dyn_spin_block {
     double energy = -1000;
     int nIter = 0;
 
-    explicit Impurity_dyn_spin_block(ImpuritySpin const& imp,
+    explicit Fbr_dyn_spin_block(FbrSpin const& imp,
                                      Fb_mps_spin_block<cmpx> const& fb_,
                                      double dt_=0.1)
         : param(imp.param), dt(dt_), fb { fb_ }
@@ -66,12 +65,6 @@ struct Impurity_dyn_spin_block {
             fb.nSv = nSv_max;
         }
     }
-
-    /// Convenience constructor from ImpuritySpinInit (arbitrary-ordering input).
-    /// The Fb_mps_spin produced by ImpuritySpinInit is copied field-by-field into a
-    /// Fb_mps_spin_block (same chain layout, block-diagonal rot already).
-    explicit Impurity_dyn_spin_block(ImpuritySpinInit const& init, double dt_=0.1)
-        : Impurity_dyn_spin_block(init.model, fromSpinFb(init.fb), dt_) {}
 
     void iterate(TdvpParam args={})
     {
@@ -193,23 +186,6 @@ struct Impurity_dyn_spin_block {
         return itensor::toMPO(h);
     }
 
-private:
-    static Fb_mps_spin_block<cmpx> fromSpinFb(Fb_mps_spin<cmpx> const& src)
-    {
-        Fb_mps_spin_block<cmpx> dst;
-        dst.sites       = src.sites;
-        dst.psi         = src.psi;
-        dst.rot         = src.rot;
-        dst.cc          = src.cc;
-        dst.imp_size    = src.imp_size;
-        dst.p1          = src.p1;
-        dst.p2          = src.p2;
-        dst.natOrbDepth = src.natOrbDepth;
-        dst.tol         = src.tol;
-        // dst.nSv is left at its default sentinel (-1); the dynamics constructor
-        // overwrites it with the SVD-based rank of the impurity–bath block.
-        return dst;
-    }
 };
 
 #endif // IMPURITY_DYN_SPIN_BLOCK_H

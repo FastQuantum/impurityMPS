@@ -261,7 +261,7 @@ int main()
     // exp(-i H_bath dt) is tracked analytically in Ubath and never touches the MPS.
     // The MPS therefore always represents the state in the interaction picture of H_bath.
     //
-    // Impurity observables (n_dw, n_dw_buf below) are unaffected by this choice
+    // Fbr observables (n_dw, n_dw_buf below) are unaffected by this choice
     // because the bath-only unitary exp(i H_bath t) commutes with c†_imp c_imp.
     cout<<"time m n_dw n_dw_buf\n"<<setprecision(12);
     for(auto i=0; i*dt<L; i++) {
@@ -280,7 +280,7 @@ int main()
 
         // *** Insert any intra-bath rotation R here: Ubath = R * Ubath ***
 
-        // Impurity observables (same in IP and Schrödinger picture)
+        // Fbr observables (same in IP and Schrödinger picture)
         double n_dw   =itensor::expectC(psi,sites,"N",{nBath+nImp/2+1})[0].real();
         double n_dw_bf=itensor::expectC(psi,sites,"N",{nBath+nImp/2+2})[0].real();
         cout<<(i+1)*dt<<" "<<itensor::maxLinkDim(psi)<<" "<<n_dw<<" "<<n_dw_bf<<endl;

@@ -1,12 +1,12 @@
 #include "fermionic.h"
-#include "impurity_param.h"
+#include "fbr_param.h"
 #include "fb_mps.h"
 
 #include "tdvp.h"
 #include "basisextension.h"
 
-struct Impurity_dyn {
-    ImpurityParam param;
+struct Fbr_dyn {
+    FbrParam param;
     double dt;
     arma::cx_mat exp_ih;
     arma::cx_mat Kip0;
@@ -20,7 +20,7 @@ struct Impurity_dyn {
     // arma::cx_mat Kip;       ///< the current Hamiltonian in the interaction picture of the bath
     double energy=-1000;
 
-    explicit Impurity_dyn(Impurity const& imp, Fb_mps<cmpx> const& fb_, double dt_=0.1)
+    explicit Fbr_dyn(Fbr const& imp, Fb_mps<cmpx> const& fb_, double dt_=0.1)
         : param(imp.param)
         , dt(dt_)
         , fb { fb_ }

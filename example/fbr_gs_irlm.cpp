@@ -1,4 +1,4 @@
-#include "impurityMPS/impurity_gs.h"
+#include "impurityMPS/fbr_gs.h"
 #include <iostream>
 #include <iomanip>
 
@@ -18,7 +18,7 @@ int main()
         K(1,1)=-U/2;
     }
     arma::mat Umat={{0,U},{0,0}};
-    auto model = Impurity {{.Kmat=K, .Umat=Umat}};
+    auto model = Fbr {{.Kmat=K, .Umat=Umat}};
 
     auto ek=arma::vec {model.param.Kmat.diag()};
     // optional: force impurity ocupation |10>
@@ -28,7 +28,7 @@ int main()
     fb.natOrbDepth=10;
     fb.tol=1e-10;
 
-    auto solver=Impurity_gs(model,fb);
+    auto solver=Fbr_gs(model,fb);
 
     cout<<"iteration nActive energy time\n"<<setprecision(12);
     itensor::cpu_time t0;
