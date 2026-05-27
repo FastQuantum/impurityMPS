@@ -100,7 +100,7 @@ int main()
     // arma::real(solver.Kip0*1).eval().clean(1e-11).print("Kip0 before main() iterations");
     // terminate();
 
-    cout<<"time m <n0> <cd>  nActive\n"<<setprecision(12);
+    cout<<"time m <n0> <cd> nActive\n"<<setprecision(12);
     itensor::cpu_time t0;
     for(auto i=0; i*dt<L; i++){
         // arma::real(solver.K*1).eval().clean(1e-11).print("K");

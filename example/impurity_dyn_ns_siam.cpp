@@ -3,6 +3,7 @@
 #include <iomanip>
 
 using namespace std;
+using namespace arma;
 
 int main()
 {
@@ -49,15 +50,10 @@ int main()
     // arma::real(solver.Kip0*1).eval().clean(1e-11).print("Kip0 before main() iterations");
     // terminate();
 
-    cout<<"time m <n0> <cd>  nActive\n"<<setprecision(12);
+    cout<<"time m <n0> <cd> nActive\n"<<setprecision(12);
     itensor::cpu_time t0;
     for(auto i=0; i*dt<L; i++){
-        // arma::real(solver.K*1).eval().clean(1e-11).print("K");
-        // auto [a,b]=solver.fb.interval_active_full();
-        // solver.fb.occupations_ni().as_row().eval().cols(a,b-1).eval().print("ni");
-
         solver.iterate({.max_bond_dim=2048, .nIter_diag=16,.epsilonM=1e-4});
-        // double n0 = solver.fb.correlator(1,1).real();
         double n0= solver.fb.occupations_ni2()(0);
         double n1= solver.fb.occupations_ni2()(2);
         cout<<(i+1)*solver.dt<<" "<<itensor::maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<n1<<" "<<solver.fb.nActive<<endl;

@@ -134,11 +134,11 @@ int main()
     }
 
     auto mpo=getHamiltonian(sites,Kchain,Umat);
-    cout<<"time m n_up n_dw\n"<<setprecision(12);
+    cout<<"time m n_dw n_dw_bf\n"<<setprecision(12);
     for(auto i=0;i*dt<L;i++){
         doTdvp(psi,mpo,dt);
-        double n_dw=itensor::expectC(psi,sites,"N",{nBath+nImp/2+1})[0].real();       // spin-down physical imp (1-indexed)
-        double n_dw_bf=itensor::expectC(psi,sites,"N",{nBath+nImp/2+2})[0].real();    // spin-down buffer site (1-indexed)
+        double n_dw=itensor::expectC(psi,sites,"N",{nBath+nImp/2+1})[0].real();
+        double n_dw_bf=itensor::expectC(psi,sites,"N",{nBath+nImp/2+2})[0].real();
         cout<<(i+1)*dt<<" "<<itensor::maxLinkDim(psi)<<" "<<n_dw<<" "<<n_dw_bf<<endl;
     }
     return 0;
