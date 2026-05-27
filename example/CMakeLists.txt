@@ -6,14 +6,13 @@ list(APPEND test_SRC
     fbr_dyn_ns_siam.cpp
     fbr_dyn_siam_center.cpp
     fbr_dyn_ns__man_siam.cpp
-    star_gs_siam.cpp
-    star_dyn_siam.cpp
-    star_dyn_siam_center.cpp
-    star_dyn_siam_spin.cpp
-    chain_dyn_siam_center.cpp
-    star_dyn_siam_center_ip.cpp
     fbr_dyn_siam_block.cpp
 )
+
+option(FBR_EXAMPLE_REF "Build reference star/chain examples" OFF)
+if(FBR_EXAMPLE_REF)
+    add_subdirectory(ref)
+endif()
 
 foreach (test ${test_SRC})
     get_filename_component (TName ${test} NAME_WE)
