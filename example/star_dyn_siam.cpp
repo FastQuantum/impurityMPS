@@ -54,13 +54,13 @@ void doTdvp(itensor::MPS &psi, itensor::MPO const mpo, double dt, double tol=1e-
     sweeps.maxdim() = 1024;
     sweeps.cutoff() = tol;
     sweeps.niter() = 16;
-    sweeps.noise() = 1e-8;
+    sweeps.noise() = 0;
 
-    std::vector<double> epsilonK(3, 1e-3);   // match epsilonM from fbr_dyn
+    std::vector<double> epsilonK(15, 1e-8);
     itensor::addBasis(psi, mpo, epsilonK,
-                      {"Cutoff", 1e-4,
+                      {"Cutoff", 1e-8,
                        "Method", "DensityMatrix",
-                       "KrylovOrd", 3,
+                       "KrylovOrd", 15,
                        "DoNormalize", true,
                        "Quiet", true,
                        "Silent", true});

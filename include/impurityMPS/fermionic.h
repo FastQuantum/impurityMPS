@@ -127,11 +127,11 @@ struct DmrgParam {
 };
 
 struct TdvpParam {
-    int max_bond_dim=512;
-    int nIter_diag=4;
-    double noise=1e-8;
-    double epsilonM=1e-7;
-    int nKrylov=3;
+    int max_bond_dim=1024;
+    int nIter_diag=16;
+    double noise=0;
+    double epsilonM=1e-8;
+    int nKrylov=15;
     double err_goal=1e-8;
 };
 
