@@ -53,7 +53,6 @@ The library tracks a small window of `nActive` orbitals in a full MPS (with enta
 | `impurity_dyn.h` / `*_spin.h` | `Impurity_dyn` — dynamics: TDVP loop + orbital rotation |
 | `fermionic.h` | `Fermionic` — builds MPO from kinetic/Coulomb terms; graph utilities (`graph::find_islands`) |
 | `givens_rotation.h` | Givens rotations applied to MPS: `GivensRotForRot_left()`, `expIH()`, `my_svd()` |
-| `irlm.h` / `irlm_gs.h` | IRLM model definition and its ground state solver |
 | `it_dmrg.h` / `it_tdvp.h` | Thin wrappers around ITensor's DMRG and TDVP routines |
 
 ### Hamiltonian geometry
@@ -67,11 +66,10 @@ Files ending in `_spin` support spin up/down having equivalent properties (spin 
 ### Examples (`example/`)
 
 Each `.cpp` is a standalone executable. Key ones:
-- `impurity_gs_irlm.cpp` — ground state, L=1000 sites, spinless IRLM
-- `impurity_gs_siam.cpp` — ground state, SIAM (spin)
-- `impurity_dyn_irlm.cpp` — real-time dynamics, L=100, complex MPS
-- `impurity_dyn_siam.cpp` — dynamics with spin
-- `irlm_dyn.cpp` — advanced dynamics with JSON parameter loading (`param.json`)
+- `fbr_gs_irlm.cpp` — ground state, spinless IRLM
+- `fbr_gs_siam.cpp` — ground state, SIAM (spin)
+- `fbr_dyn_irlm.cpp` — real-time dynamics, spinless, complex MPS
+- `fbr_dyn_siam.cpp` — dynamics with spin
 
 ## Conventions
 
