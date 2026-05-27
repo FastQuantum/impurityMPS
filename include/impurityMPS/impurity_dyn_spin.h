@@ -135,6 +135,50 @@ struct Impurity_dyn_spin {
         K.rows(a,b-1)=rot1.t()*K.rows(a,b-1).eval();
     }
 
+    /// Effective MPS->real rotation in the Schrödinger picture.
+    /// The MPS lives in the interaction picture of H_bath, so fb.rot tracks only the
+    /// natural-orbital basis change. To recover real-space Schrödinger-picture
+    /// correlators, we dress the bath block with exp(-i Kbath * t).
+    arma::cx_mat effective_rot() const
+    {
+        int L = fb.length();
+        arma::cx_mat exp_ih(L, L, arma::fill::eye);
+        if (nIter > 0)
+            exp_ih.submat(bath_pos, bath_pos) = expIH<cmpx>(Kbath * (static_cast<double>(nIter) * dt));
+        return rotS * exp_ih * rotS.t() * fb.rot;
+    }
+
+    /// Schrödinger-picture real-space <c_i^dag c_j> matrix.
+    arma::cx_mat correlator_all() const
+    {
+        arma::cx_mat Q = effective_rot();
+        return arma::conj(Q) * fb.cc * Q.st();
+    }
+
+    /// Schrödinger-picture real-space <c_i^dag c_j>.
+    cmpx correlator(int i, int j) const
+    {
+        arma::cx_mat Q = effective_rot();
+        arma::cx_vec ccQj = fb.cc * Q.row(j).st();
+        return arma::cdot(Q.row(i).st(), ccQj);
+    }
+
+    /// Row of the Schrödinger-picture correlator: <c_i^dag c_j> for fixed j, all i.
+    arma::cx_vec correlator_all_i(int j) const
+    {
+        arma::cx_mat Q = effective_rot();
+        arma::cx_vec ccQj = fb.cc * Q.row(j).st();
+        return arma::conj(Q) * ccQj;
+    }
+
+    /// Column of the Schrödinger-picture correlator: <c_i^dag c_j> for fixed i, all j.
+    arma::cx_vec correlator_all_j(int i) const
+    {
+        arma::cx_mat Q = effective_rot();
+        arma::cx_rowvec v = arma::conj(Q.row(i)) * fb.cc;
+        return Q * v.st();
+    }
+
     /// return the mpo of the Hamiltoninan given by himp and the kinetic energy kin
     itensor::MPO fullHamiltonian(int a,int b) const
     {

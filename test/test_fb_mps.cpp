@@ -284,3 +284,128 @@ TEST_CASE("Fb_mps_spin_block: rotateToNaturalOrbitals matches spin on symmetric 
     REQUIRE(norm(fb_sp.rot - fb_bl.rot) < 1e-10);
     REQUIRE(norm(fb_sp.cc  - fb_bl.cc)  < 1e-10);
 }
+
+// ---- correlator: real-space <c_i^dagger c_j> via rot ----
+//
+// Setup: SIAM in star geometry, [bath_up | imp_up | imp_dw | bath_dw], built the same way
+// as computeKstar() in example/impurity_dyn_siam_center.cpp.
+//
+// Convention (impurity_param.h): rot satisfies  K_real = rot * Kstar * rot.t(),
+// i.e. c_i = sum_a rot[i,a] * d_a, where d_a is the orbital living on MPS site a.
+// Therefore real-space correlations:
+//   <c_i^dagger c_j> = (conj(rot) * cc * rot.st())[i,j]   (= rot * cc * rot.t() for real rot)
+//
+// On a Slater state cc = diag(occ), this gives the exact real-space correlator analytically,
+// so it serves as the ground-truth that every correlator_* function must reproduce.
+
+namespace {
+// Build a real-space SIAM kinetic matrix and its star-geometry counterpart.
+// Layout: [bath_up:0..nBath-1 | imp_up:nBath | imp_dw:L/2 | bath_dw:L/2+1..L-1]  (nImp=2)
+// Returns (K_real, Kstar, rot) with rot * Kstar * rot.t() == K_real.
+std::tuple<mat,mat,mat> build_siam_real_and_star(int L, double V=0.1, double U=0.2) {
+    const int nImp = 2;
+    const int nBath = L/2 - nImp/2;
+
+    mat K(L, L, fill::zeros);
+    for (int i = 0; i < L/2-1; i++) K(i,i+1) = K(i+1,i) = 0.5;
+    for (int i = L/2; i < L-1; i++) K(i,i+1) = K(i+1,i) = 0.5;
+    K(nBath+nImp/2-1, nBath+nImp/2-1) = -U/2;
+    K(L/2, L/2)                       = -U/2;
+    K(nBath, nBath+nImp/2-1) = K(nBath+nImp/2-1, nBath) = V;
+    K(L/2, L/2+nImp/2-1)     = K(L/2+nImp/2-1, L/2)     = V;
+
+    mat Kstar(L, L, fill::zeros);
+    mat rot(L, L, fill::eye);
+    auto pos_up = regspace<uvec>(0, L/2-1);
+    auto pos_dw = regspace<uvec>(L/2, L-1);
+    for (int s : {0, 1}) {
+        uvec pos      = (s==0) ? pos_up : pos_dw;
+        uvec pos_bath = (s==0) ? pos.head(nBath)  : pos.tail(nBath);
+        uvec pos_impu = (s==0) ? pos.tail(nImp/2) : pos.head(nImp/2);
+        mat Kbath = K.submat(pos_bath, pos_bath);
+        mat evec1; vec ek1;
+        eig_sym(ek1, evec1, Kbath);
+        uvec iek = (s==0) ? sort_index(abs(ek1), "descend") : sort_index(abs(ek1));
+        mat evec = evec1.cols(iek);
+        vec ek   = ek1.rows(iek);
+        mat vk   = K.submat(pos_impu, pos_bath).eval() * evec;
+        Kstar.submat(pos_impu, pos_impu) = K.submat(pos_impu, pos_impu);
+        for (auto j=0u; j<ek.size(); j++) {
+            int jj = pos_bath[j];
+            Kstar(jj, jj) = ek[j];
+            for (auto i=0u; i<pos_impu.size(); i++) {
+                int ii = pos_impu[i];
+                Kstar(ii, jj) = Kstar(jj, ii) = vk(i, j);
+            }
+        }
+        rot.cols(pos_bath) = rot.cols(pos_bath).eval() * evec;
+    }
+    return {K, Kstar, rot};
+}
+} // namespace
+
+TEST_CASE("Fb_mps_spin: real-space correlator on SIAM star matches rot*cc*rot.t()", "[fb_mps_spin][correlator]") {
+    const int L = 12, nImp = 2;
+    const int nBath = L/2 - nImp/2;
+    auto [Kreal, Kstar, rot] = build_siam_real_and_star(L);
+    REQUIRE(norm(rot * Kstar * rot.t() - Kreal, "fro") < 1e-10);
+
+    // Half-filled Slater state in the star basis, with physical impurities forced occupied.
+    vec ek = Kstar.diag();
+    ek[nBath + nImp/2 - 1] = -10;  // imp up
+    ek[L/2]                = -10;  // imp dw
+    auto fb = Fb_mps_spin<double>::from_slater(rot, ek, L/2, nImp);
+
+    // Ground truth: c_i = sum_a rot[i,a] d_a  =>  Corr = rot * cc * rot.t() for real rot.
+    mat Corr_true = rot * fb.cc * rot.t();
+
+    SECTION("correlator_all()") {
+        mat Corr_code = fb.correlator_all();
+        INFO("|Corr_code - Corr_true|_F = " << norm(Corr_code - Corr_true, "fro"));
+        REQUIRE(norm(Corr_code - Corr_true, "fro") < 1e-10);
+    }
+    SECTION("correlator(i,j)") {
+        for (int i : {0, 3, 5, 6, 8, L-1})
+            for (int j : {0, 3, 5, 6, 8, L-1})
+                REQUIRE(std::abs(fb.correlator(i, j) - Corr_true(i, j)) < 1e-10);
+    }
+    SECTION("correlator_all_i(j) is column j of Corr_true") {
+        for (int j : {0, 3, 5, 6, 8, L-1})
+            REQUIRE(norm(fb.correlator_all_i(j) - Corr_true.col(j), 2) < 1e-10);
+    }
+    SECTION("correlator_all_j(i) is row i of Corr_true") {
+        for (int i : {0, 3, 5, 6, 8, L-1})
+            REQUIRE(norm(fb.correlator_all_j(i) - Corr_true.row(i).t(), 2) < 1e-10);
+    }
+}
+
+TEST_CASE("Fb_mps_spin_block: real-space correlator on SIAM star matches rot*cc*rot.t()", "[fb_mps_spin_block][correlator]") {
+    const int L = 12, nImp = 2;
+    const int nBath = L/2 - nImp/2;
+    auto [Kreal, Kstar, rot] = build_siam_real_and_star(L);
+    REQUIRE(norm(rot * Kstar * rot.t() - Kreal, "fro") < 1e-10);
+
+    vec ek = Kstar.diag();
+    ek[nBath + nImp/2 - 1] = -10;
+    ek[L/2]                = -10;
+    auto fb = Fb_mps_spin_block<double>::from_slater(rot, ek, L/2, nImp);
+
+    mat Corr_true = rot * fb.cc * rot.t();
+
+    SECTION("correlator_all()") {
+        REQUIRE(norm(fb.correlator_all() - Corr_true, "fro") < 1e-10);
+    }
+    SECTION("correlator(i,j)") {
+        for (int i : {0, 3, 5, 6, 8, L-1})
+            for (int j : {0, 3, 5, 6, 8, L-1})
+                REQUIRE(std::abs(fb.correlator(i, j) - Corr_true(i, j)) < 1e-10);
+    }
+    SECTION("correlator_all_i(j)") {
+        for (int j : {0, 3, 5, 6, 8, L-1})
+            REQUIRE(norm(fb.correlator_all_i(j) - Corr_true.col(j), 2) < 1e-10);
+    }
+    SECTION("correlator_all_j(i)") {
+        for (int i : {0, 3, 5, 6, 8, L-1})
+            REQUIRE(norm(fb.correlator_all_j(i) - Corr_true.row(i).t(), 2) < 1e-10);
+    }
+}

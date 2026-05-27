@@ -187,6 +187,15 @@ struct Impurity_dyn {
         K.rows(0,nA-1)=rot1.t()*K.rows(0,nA-1).eval();
     }
 
+    /// Schrödinger-picture real-space <c_i^dag c_j> matrix.
+    /// In this spinless dynamics, fb.rot already absorbs the accumulated bath phase
+    /// (fb.rot = exp_ih * fb.rot every step), so fb.correlator_all() is directly the
+    /// Schrödinger-picture correlator.
+    arma::cx_mat correlator_all() const { return fb.correlator_all(); }
+    cmpx correlator(int i, int j) const { return fb.correlator(i, j); }
+    arma::cx_vec correlator_all_i(int j) const { return fb.correlator_all_i(j); }
+    arma::cx_vec correlator_all_j(int i) const { return fb.correlator_all_j(i); }
+
     /// return the mpo of the Hamiltoninan given by himp and the kinetic energy kin
     itensor::MPO fullHamiltonian(arma::cx_mat const& kin) const
     {

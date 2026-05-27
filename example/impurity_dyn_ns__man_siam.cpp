@@ -32,7 +32,7 @@ auto computeKstar(mat K, int nImp)
 
         Kstar.submat(pos_impu,pos_impu)=K.submat(pos_impu,pos_impu);
         for(auto j=0u;j<ek.size();j++) {
-            int jj=pos_bath[iek[j]];
+            int jj=pos_bath[j];
             Kstar(jj,jj)=ek[j];
             for(auto i=0u; i<pos_impu.size(); i++) {
                 int ii=pos_impu[i];
@@ -64,7 +64,7 @@ int main()
             K(1,1)=-U/2;
             K(0,2)=K(2,0)=K(1,3)=K(3,1)=V;
         }
-        Umat.zeros(nImp,nImp);
+        Umat.zeros(L,L);
         Umat(0,1)=U;
 
         std::tie(Kstar,rot) = computeKstar(K, nImp);
@@ -100,7 +100,7 @@ int main()
     // arma::real(solver.Kip0*1).eval().clean(1e-11).print("Kip0 before main() iterations");
     // terminate();
 
-    cout<<"time m <n0> <cd>  nActive\n"<<setprecision(12);
+    cout<<"time m <n0> <cd> nActive\n"<<setprecision(12);
     itensor::cpu_time t0;
     for(auto i=0; i*dt<L; i++){
         // arma::real(solver.K*1).eval().clean(1e-11).print("K");

@@ -75,6 +75,10 @@
 
 \begin_body
 
+\begin_layout Subsection
+Interaction picture
+\end_layout
+
 \begin_layout Standard
 The general anzats for the quantum state is
 \begin_inset Formula 
@@ -103,7 +107,7 @@ where
 \end_layout
 
 \begin_layout Standard
-The expression I find for time evolution 
+The expression for time evolution 
 \begin_inset Formula $dt=\tau$
 \end_inset
 
@@ -139,6 +143,22 @@ H_{\text{ip}}^{n}=\exp(iH_{b}n)H_{\text{ip}}\exp(-iH_{b}n)
 \begin_inset Formula 
 \[
 H_{\text{ip}}=H-H_{\text{bath}}-i\tau/2[H,H_{b}]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Correlations
+\end_layout
+
+\begin_layout Standard
+Our definition for the rotation is
+\begin_inset Formula 
+\[
+c_{i}=\sum
 \]
 
 \end_inset

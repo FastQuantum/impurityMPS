@@ -359,9 +359,12 @@ struct Fb_mps_spin_block
         arma::cout << arma::endl;
     }
 
+    /// Real-space correlator <c_i^dag c_j>.
+    /// Convention (impurity_param.h): c_i = sum_a rot[i,a] d_a, so
+    ///   <c_i^dag c_j> = (Qinv^dag cc Qinv)[i,j]  with Qinv = rot.st().
     arma::Mat<T> correlator_all() const
     {
-        arma::Mat<T> Qinv = rot.st().t();
+        arma::Mat<T> Qinv = rot.st();
         return Qinv.t() * cc * Qinv;
     }
 
@@ -374,16 +377,16 @@ struct Fb_mps_spin_block
 
     arma::Col<T> correlator_all_i(int j) const
     {
-        arma::Mat<T> Qinv = rot.st().t();
+        arma::Mat<T> Qinv = rot.st();
         arma::Col<T> ccQinv = cc * Qinv.col(j);
         return Qinv.t() * ccQinv;
     }
 
     arma::Col<T> correlator_all_j(int i) const
     {
-        arma::Mat<T> Qinv = rot.st().t();
-        arma::Col<T> Qinv_t_cc = Qinv.col(i).t() * cc;
-        return Qinv_t_cc * Qinv;
+        arma::Mat<T> Qinv = rot.st();
+        arma::Row<T> Qinv_t_cc = Qinv.col(i).t() * cc;
+        return (Qinv_t_cc * Qinv).st();
     }
 
 private:

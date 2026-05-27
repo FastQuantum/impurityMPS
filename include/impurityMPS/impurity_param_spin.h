@@ -101,8 +101,8 @@ struct ImpurityParamSpin {
         for (int i = 0; i < nImp(); i++) impPos[i] = L/2 - nUp + i;
 
         // 2) diagonalize the dw bath: dw submatrix has impurities at positions [0..nUp-1]
-        arma::mat Umat_half(nUp, nUp, arma::fill::zeros);
-        ImpurityParam half = {.Kmat = Kmat.submat(L/2, L/2, L-1, L-1), .Umat = Umat_half};
+        arma::mat Umat_half(L/2, L/2, arma::fill::zeros);
+        ImpurityParam half = {.Kmat = Kmat.submat(L/2, L/2, L-1, L-1), .Umat = Umat_half, .impPos=iota(nImp()/2)};
         half.toStar();
 
         // 3) duplicate by reflection to the up side
