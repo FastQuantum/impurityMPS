@@ -24,10 +24,19 @@ struct ImpurityParam {
     }
 
     /// transform Kmat to star geometry (Hbath is diagonal)
+    ///
+    /// If the bath block decomposes into disconnected islands (e.g. when the
+    /// input lattice contains independent spin sectors interleaved on the same
+    /// indices), each island is diagonalized separately and its eigenvectors
+    /// are placed back at the original bath positions of that island. This
+    /// preserves the geometric (and hence spin) structure: a bath site that
+    /// was, say, even-indexed in the input stays even-indexed in the star
+    /// geometry. Diagonalizing the full bath at once would mix the islands
+    /// (e.g. via degenerate eigenvalues), breaking spin coherence in the
+    /// resulting orbital ordering.
     void toStar()
     {
         initializeDefault();
-        // TODO : if the matrix is already in star then return *this;
         int L=length();
         int nImp=this->nImp();
 
@@ -37,25 +46,43 @@ struct ImpurityParam {
             rot.swap_cols(i,impPos[i]);
         }
         arma::mat Kbath=Kmat.submat(nImp,nImp,L-1,L-1).eval();
-        arma::mat evec1;
-        arma::vec ek1;
-        eig_sym(ek1,evec1,Kbath);
-
-        arma::uvec iek=arma::stable_sort_index(arma::abs(ek1));
-        arma::mat evec=evec1.cols(iek);
-        arma::vec ek=ek1.rows(iek);
-
-        arma::mat vk=Kmat.submat(0,nImp,nImp-1,L-1)*evec;
+        int nB=L-nImp;
+        auto labels = graph::find_islands(Kbath);
+        int n_islands = *std::max_element(labels.begin(), labels.end()) + 1;
 
         arma::mat Kstar(L,L,arma::fill::zeros);
         Kstar.submat(0,0,nImp-1,nImp-1)=Kmat.submat(0,0,nImp-1,nImp-1);
-        for(auto j=0u;j<ek.size();j++) {
-            Kstar(j+nImp,j+nImp)=ek[j];
-            for(auto i=0; i<nImp; i++)
-                Kstar(i,j+nImp)=Kstar(j+nImp,i)=vk(i,j);
+        arma::mat evec_full(nB,nB,arma::fill::zeros);
+
+        for(int k=0; k<n_islands; k++) {
+            std::vector<arma::uword> pos_v;
+            for(int i=0;i<nB;i++) if (labels[i]==k) pos_v.push_back(i);
+            arma::uvec pos_k(pos_v);
+
+            arma::mat Kk = Kbath.submat(pos_k, pos_k);
+            arma::vec ek1;
+            arma::mat evec1;
+            eig_sym(ek1, evec1, Kk);
+            arma::uvec iek = arma::stable_sort_index(arma::abs(ek1));
+            arma::mat evec = evec1.cols(iek);
+            arma::vec ek   = ek1.rows(iek);
+
+            arma::uvec pos_k_full = pos_k + nImp;
+            arma::mat vk = Kmat.submat(arma::regspace<arma::uvec>(0, nImp-1), pos_k_full) * evec;
+
+            for(auto j=0u; j<ek.n_elem; j++) {
+                int jj = nImp + pos_k[j];
+                Kstar(jj, jj) = ek[j];
+                for(int i=0; i<nImp; i++)
+                    Kstar(i, jj) = Kstar(jj, i) = vk(i, j);
+            }
+            for(auto j=0u; j<pos_k.n_elem; j++)
+                for(auto i=0u; i<pos_k.n_elem; i++)
+                    evec_full(pos_k[i], pos_k[j]) = evec(i, j);
         }
-        Kmat=Kstar;
-        rot.cols(nImp,L-1)=rot.cols(nImp,L-1).eval()*evec;
+
+        Kmat = Kstar;
+        rot.cols(nImp,L-1) = rot.cols(nImp,L-1).eval() * evec_full;
         // impPos=iota(nImp);
     }
 
