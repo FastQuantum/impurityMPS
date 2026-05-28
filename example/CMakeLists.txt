@@ -1,6 +1,8 @@
 # file(GLOB test_SRC CONFIGURE_DEPENDS "*.cpp")
 
 list(APPEND test_SRC
+    fbr_gs_irlm.cpp
+    fbr_dyn_irlm.cpp
     fbr_gs_siam.cpp
     fbr_dyn_siam.cpp
     fbr_dyn_ns_siam.cpp
