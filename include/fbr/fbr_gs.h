@@ -2,13 +2,13 @@
 #define FBR_GS_H
 
 #include "itensor_utils.h"
-#include "fbr_param.h"
+#include "impurity_param.h"
 #include "fb_mps.h"
 
 namespace fbr {
 
 struct Fbr_gs {
-    FbrParam param;
+    ImpurityParam param;
 
     /// these quantities are updated during the iterations
     Fb_mps<double> fb;

@@ -2,13 +2,13 @@
 #define FBR_GS_SPIN_H
 
 #include "itensor_utils.h"
-#include "fbr_param_spin.h"
+#include "impurity_param_spin.h"
 #include "fb_mps_spin.h"
 
 namespace fbr {
 
 struct Fbr_gs_spin {
-    FbrParamSpin param;
+    ImpurityParamSpin param;
 
     /// these quantities are updated during the iterations
     Fb_mps_spin<double> fb;

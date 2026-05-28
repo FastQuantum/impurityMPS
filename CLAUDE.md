@@ -50,7 +50,7 @@ All library types live in `namespace fbr`. Include as `#include "fbr/<header>.h"
 | Header | Purpose |
 |---|---|
 | `fb_mps.h` / `fb_mps_spin.h` | `Fb_mps<T>` — few-body MPS state with rotation matrix `rot` and correlation matrix `cc` |
-| `fbr_param.h` / `fbr_param_spin.h` | `FbrParam` / `FbrParamSpin` — kinetic matrix `Kmat`, interaction `Umat`, impurity positions; `toStar()` transforms to star geometry |
+| `impurity_param.h` / `impurity_param_spin.h` | `ImpurityParam` / `ImpurityParamSpin` — kinetic matrix `Kmat`, interaction `Umat`, impurity positions; `toStar()` transforms to star geometry |
 | `fbr_gs_spin.h` | `Fbr_gs_spin` — ground state solver: DMRG loop + orbital rotation |
 | `fbr_dyn.h` / `fbr_dyn_spin.h` | `Fbr_dyn` / `Fbr_dyn_spin` — dynamics: TDVP loop + orbital rotation |
 | `graph.h` | Index/set utilities (`iota`, `regspace`, `set_diff`) and `fbr::graph::find_islands` for connected-component detection |

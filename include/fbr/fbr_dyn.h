@@ -3,7 +3,7 @@
 
 #include "graph.h"
 #include "itensor_utils.h"
-#include "fbr_param.h"
+#include "impurity_param.h"
 #include "fb_mps.h"
 
 #include "tdvp.h"
@@ -12,7 +12,7 @@
 namespace fbr {
 
 struct Fbr_dyn {
-    FbrParam param;
+    ImpurityParam param;
     double dt;
     arma::cx_mat exp_ih;
     arma::cx_mat Kip0;

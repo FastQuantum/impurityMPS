@@ -1,7 +1,7 @@
 #ifndef FBR_PARAM_SPIN_H
 #define FBR_PARAM_SPIN_H
 
-#include "fbr_param.h"
+#include "impurity_param.h"
 #include <armadillo>
 #include <itensor/all.h>
 #include <set>
@@ -23,7 +23,7 @@ namespace fbr {
 ///
 /// Umat is L×L, indexed by site in the current Kmat layout: term
 ///   sum_{i,j} Umat(i,j) N_i N_j
-struct FbrParamSpin {
+struct ImpurityParamSpin {
     arma::mat Kmat;
     arma::mat Umat;
     std::vector<int> impPos;
@@ -40,11 +40,11 @@ struct FbrParamSpin {
         if (rot.empty()) rot = arma::mat(L, L, arma::fill::eye);
         if (Umat.empty()) Umat = arma::mat(L, L, arma::fill::zeros);
         if ((int)Umat.n_rows != L || (int)Umat.n_cols != L)
-            throw std::invalid_argument("FbrParamSpin: Umat must be L×L");
+            throw std::invalid_argument("ImpurityParamSpin: Umat must be L×L");
         if (impPos.empty())
-            throw std::invalid_argument("FbrParamSpin: impPos must be non-empty");
+            throw std::invalid_argument("ImpurityParamSpin: impPos must be non-empty");
         if (impPos.size() % 2)
-            throw std::invalid_argument("FbrParamSpin: impPos size must be even (nUp = nDw)");
+            throw std::invalid_argument("ImpurityParamSpin: impPos size must be even (nUp = nDw)");
     }
 
     /// Split sites into two ordered halves consistent with convention 2:
@@ -60,10 +60,10 @@ struct FbrParamSpin {
         int comp_up = islands[impPos[0]];
         for (int i = 0; i < nUp; i++)
             if (islands[impPos[i]] != comp_up)
-                throw std::invalid_argument("FbrParamSpin: impPos[0..nUp-1] must all be in one island");
+                throw std::invalid_argument("ImpurityParamSpin: impPos[0..nUp-1] must all be in one island");
         for (int i = nUp; i < nImp(); i++)
             if (islands[impPos[i]] == comp_up)
-                throw std::invalid_argument("FbrParamSpin: impPos[nUp..] must all be in the other island");
+                throw std::invalid_argument("ImpurityParamSpin: impPos[nUp..] must all be in the other island");
 
         std::set<int> imp_set(impPos.begin(), impPos.end());
 
@@ -74,7 +74,7 @@ struct FbrParamSpin {
             else                       bath_dw.push_back(i);
         }
         if ((int)(bath_up.size() + nUp) != L/2 || (int)(bath_dw.size() + nUp) != L/2)
-            throw std::runtime_error("FbrParamSpin::split_sites: spin block size mismatch");
+            throw std::runtime_error("ImpurityParamSpin::split_sites: spin block size mismatch");
 
         std::vector<int> sites_up = bath_up;
         for (int i = 0; i < nUp; i++) sites_up.push_back(impPos[i]);
@@ -104,7 +104,7 @@ struct FbrParamSpin {
 
         // 2) diagonalize the dw bath: dw submatrix has impurities at positions [0..nUp-1]
         arma::mat Umat_half(L/2, L/2, arma::fill::zeros);
-        FbrParam half = {.Kmat = Kmat.submat(L/2, L/2, L-1, L-1), .Umat = Umat_half, .impPos=iota(nImp()/2)};
+        ImpurityParam half = {.Kmat = Kmat.submat(L/2, L/2, L-1, L-1), .Umat = Umat_half, .impPos=iota(nImp()/2)};
         half.toStar();
 
         // 3) duplicate by reflection to the up side
@@ -117,9 +117,9 @@ struct FbrParamSpin {
 };
 
 struct FbrSpin {
-    FbrParamSpin param;
+    ImpurityParamSpin param;
     FbrSpin() = default;
-    FbrSpin(FbrParamSpin const& param_) : param(param_) { param.toStar(); }
+    FbrSpin(ImpurityParamSpin const& param_) : param(param_) { param.toStar(); }
 };
 
 } // namespace fbr

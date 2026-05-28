@@ -1,7 +1,7 @@
 #include "fbr/fb_mps_spin.h"
 #include "tdvp.h"
 #include "basisextension.h"
-#include "fbr/fbr_param_spin.h"
+#include "fbr/impurity_param_spin.h"
 #include <iostream>
 #include <iomanip>
 

@@ -3,7 +3,7 @@
 
 #include "graph.h"
 #include "itensor_utils.h"
-#include "fbr_param_spin.h"
+#include "impurity_param_spin.h"
 #include "fb_mps_spin.h"
 
 #include "tdvp.h"
@@ -12,7 +12,7 @@
 namespace fbr {
 
 struct Fbr_dyn_spin {
-    FbrParamSpin param;
+    ImpurityParamSpin param;
     double dt;
     arma::cx_mat Kbath;
     arma::cx_mat Kip0;

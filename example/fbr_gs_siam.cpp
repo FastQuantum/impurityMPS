@@ -1,5 +1,5 @@
 #include "fbr/fbr_gs_spin.h"
-#include "fbr/fbr_param_spin.h"
+#include "fbr/impurity_param_spin.h"
 #include <iostream>
 #include <iomanip>
 

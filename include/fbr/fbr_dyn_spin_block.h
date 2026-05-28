@@ -3,7 +3,7 @@
 
 #include "graph.h"
 #include "itensor_utils.h"
-#include "fbr_param_spin.h"
+#include "impurity_param_spin.h"
 #include "fb_mps_spin_block.h"
 
 #include "tdvp.h"
@@ -14,7 +14,7 @@ namespace fbr {
 /// Block version of Fbr_dyn_spin: spin up/down are treated as two independent
 /// fermionic blocks of a shared MPS chain.  No spin-flip symmetry of H is assumed.
 struct Fbr_dyn_spin_block {
-    FbrParamSpin param;
+    ImpurityParamSpin param;
     double dt;
     arma::cx_mat Kbath;
     arma::cx_mat Kip0;

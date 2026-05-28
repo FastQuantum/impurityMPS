@@ -1,5 +1,5 @@
 #include "fbr/fb_mps.h"
-#include "fbr/fbr_param.h"
+#include "fbr/impurity_param.h"
 #include "tdvp.h"
 #include "basisextension.h"
 #include <iostream>

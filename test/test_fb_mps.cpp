@@ -291,7 +291,7 @@ TEST_CASE("Fb_mps_spin_block: rotateToNaturalOrbitals matches spin on symmetric 
 // Setup: SIAM in star geometry, [bath_up | imp_up | imp_dw | bath_dw], built the same way
 // as computeKstar() in example/fbr_dyn_siam_center.cpp.
 //
-// Convention (fbr_param.h): rot satisfies  K_real = rot * Kstar * rot.t(),
+// Convention (impurity_param.h): rot satisfies  K_real = rot * Kstar * rot.t(),
 // i.e. c_i = sum_a rot[i,a] * d_a, where d_a is the orbital living on MPS site a.
 // Therefore real-space correlations:
 //   <c_i^dagger c_j> = (conj(rot) * cc * rot.st())[i,j]   (= rot * cc * rot.t() for real rot)

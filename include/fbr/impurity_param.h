@@ -7,7 +7,7 @@
 
 namespace fbr {
 
-struct FbrParam {
+struct ImpurityParam {
     arma::mat Kmat;           ///< the kinetic energy coefficient matrix
     arma::mat Umat;           ///< the Coulomb interaction coeff: U(i,j) ni nj
     std::vector<int> impPos;  ///< (default => {0,1,...,nImp-1}) the positions of interacting sites
@@ -22,7 +22,7 @@ struct FbrParam {
     {
         //TODO : verify correctness
         if (rot.empty()) rot=arma::mat(length(),length(), arma::fill::eye);
-        if (impPos.empty()) throw std::invalid_argument("FbrParam::impPos shoul be initialize");
+        if (impPos.empty()) throw std::invalid_argument("ImpurityParam::impPos shoul be initialize");
     }
 
     /// transform Kmat to star geometry (Hbath is diagonal)
@@ -90,10 +90,10 @@ struct FbrParam {
 };
 
 struct Fbr {
-    FbrParam param;
+    ImpurityParam param;
 
     Fbr() = default;
-    Fbr(FbrParam const& param_) : param(param_) { param.toStar(); }
+    Fbr(ImpurityParam const& param_) : param(param_) { param.toStar(); }
 };
 
 } // namespace fbr
