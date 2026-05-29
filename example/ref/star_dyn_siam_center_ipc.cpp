@@ -215,7 +215,7 @@ int main()
     uvec impIdx  = join_vert(imp_up,  imp_dw);    // 0-indexed, length = nImp
 
     // Original star bath energies (diagonal of Kstar at bath sites)
-    vec bathEk = Kstar.diag()(bathIdx);           // length 2*nBath
+    vec bathEk = Kstar.diag().eval()(bathIdx);           // length 2*nBath
 
     // --- Accumulated bath unitary (interaction picture) ---
     //
