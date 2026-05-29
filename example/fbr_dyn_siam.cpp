@@ -58,7 +58,7 @@ int main()
         // auto [a,b]=solver.fb.interval_active_full();
         // solver.fb.occupations_ni().as_row().eval().cols(a,b-1).eval().print("ni");
 
-        solver.iterate({.max_bond_dim=1024, .nIter_diag=16, .noise=0.0, .epsilonM=1e-8, .nKrylov=15, .err_goal=1e-8});
+        solver.iterate({.max_bond_dim=1024, .nIter_diag=8, .noise=0.0, .epsilonM=0e-8, .nKrylov=15, .err_goal=1e-8});
         // double n0 = solver.fb.correlator(1,1).real();
         double n0= solver.fb.occupations_ni()(L/2);
         double n1= solver.fb.occupations_ni()(L/2+1);

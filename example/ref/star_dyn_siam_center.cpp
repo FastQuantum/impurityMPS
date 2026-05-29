@@ -63,7 +63,7 @@ void doTdvp(itensor::MPS &psi, itensor::MPO const mpo, double dt, double tol=1e-
     itensor::addBasis(psi, mpo, epsilonK,
                       {"Cutoff", 1e-8,
                        "Method", "DensityMatrix",
-                       "KrylovOrd", 15,
+                       "KrylovOrd", 3,
                        "DoNormalize", true,
                        "Quiet", true,
                        "Silent", true});
