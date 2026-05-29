@@ -18,6 +18,7 @@ struct Fb_mps
     arma::Mat<T> rot;           ///< the actual rotation frame
     arma::Mat<T> cc;            ///< the correlation matrix or one-particle density matrix
     int nActive;                ///< the number of active orbitals (the rest nActive...sites.length() is considered Slater)
+    int imp_size=0;             ///< the number of non-rotating impurity orbitals, located at [0,imp_size)
     bool spin=false;            ///< whether the sites can be splitted in even/odd for cc
     double tol=1e-10;           ///< the tolerance used for both applying the gates and defining active orbitals.
 
@@ -45,6 +46,7 @@ struct Fb_mps
         fb.psi=itensor::MPS(state);
         fb.rot=rot;
         fb.nActive=nActive;
+        fb.imp_size=nActive;   // initially the active window is exactly the non-rotating impurity
         fb.spin=spin;
         return fb;
     }
@@ -184,7 +186,41 @@ struct Fb_mps
         int nActive_new= pos_active.empty() ? start+1 : pos_active.back()+1+start;
         nActive=nActive_new;
         return rot1.st();
-    }    
+    }
+
+    /// Map a real-space site i to the MPS orbital index a (0-based) that carries it.
+    /// Convention (see correlator_all): c_i = sum_a rot[i,a] d_a, so the orbital is
+    /// argmax_a |rot[i,a]|, i.e. the largest entry of *row* i of rot. For an impurity
+    /// site (whose orbital is never rotated) row i is a unit vector and the mapping is exact.
+    int frame_site(int i) const
+    {
+        arma::vec w = arma::abs(rot.row(i)).t();   // |rot[i,a]| over a (real, length L)
+        return (int) w.index_max();
+    }
+
+    /// Apply the single-site operator op to the (real-space) site i of the mps, where op
+    /// is one of {"C", "Cdag", "N"} as in itensor. Only valid on the non-rotating impurity
+    /// orbitals [0,imp_size): there site i maps exactly onto a single MPS site, so the
+    /// operator is a genuine single-site operator.
+    void applyLocalOp(std::string op, int i)
+    {
+        using namespace std;
+        static const set<string> op_all={"C", "Cdag", "N"};
+        if (op_all.count(op)==0)
+            throw invalid_argument("Fb::applyLocalOp: op is not in my list. See itensor op for Fermion");
+
+        int i0 = frame_site(i);   // 0-based MPS orbital
+        if (i0 >= imp_size)
+            throw invalid_argument("Fb::applyLocalOp: site i is not a non-rotating impurity site");
+
+        // ITensor MPS sites/operators are 1-based.
+        psi.position(i0+1);
+        auto G=sites.op(op,i0+1);
+        auto newA = G*psi(i0+1);
+        newA.noPrime();
+        psi.set(i0+1,newA);
+        update_cc();
+    }
 
     /// Energy of the Slater part. K is the kinetic energy matrix
     double SlaterEnergy(arma::Mat<T> const& K) const

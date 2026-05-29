@@ -410,3 +410,55 @@ TEST_CASE("Fb_mps_spin_block: real-space correlator on SIAM star matches rot*cc*
             REQUIRE(norm(fb.correlator_all_j(i) - Corr_true.row(i).t(), 2) < 1e-10);
     }
 }
+
+// ---- applyLocalOp ----
+// With an identity rotation frame_site(i)==i, so the real-space site maps directly
+// onto the MPS orbital. We check: (a) the frame mapping, (b) "N" on an occupied
+// impurity site leaves occupations unchanged, (c) "Cdag" on an empty impurity site
+// creates a particle, and (d) sites outside the active window are rejected.
+
+TEST_CASE("Fb_mps applyLocalOp: N on impurity and active-window guard", "[fb_mps][applyLocalOp]") {
+    const int L = 8, imp_size = 2, nPart = 4;
+    // ascending ek occupies the 4 lowest -> sites 0,1,2,3; impurity sites 0,1 occupied.
+    vec ek = {-2, -2, 1, 1, 2, 2, 3, 3};
+    auto fb = Fb_mps<double>::from_slater(mat(L, L, fill::eye), ek, nPart, imp_size, /*spin=*/false);
+
+    REQUIRE(fb.frame_site(1) == 1);
+    REQUIRE(std::real(fb.cc(0,0)) == Approx(1.0));
+    fb.applyLocalOp("N", 0);                                   // occupied impurity, in active window
+    REQUIRE(std::real(fb.cc(0,0)) == Approx(1.0));
+    REQUIRE_THROWS_AS(fb.applyLocalOp("N", 5), std::invalid_argument);  // Slater site rejected
+}
+
+TEST_CASE("Fb_mps_spin applyLocalOp: N/Cdag and active-window guard", "[fb_mps_spin][applyLocalOp]") {
+    const int L = 8, imp_size = 2, nPart = 4;
+    // ascending ek occupies {2,3,5,6}; impurity sites are 3 (up) and 4 (dw):
+    // site 3 occupied, site 4 empty.
+    vec ek = {2, 1, -3, -2, 5, -1, 0.5, 3};
+    auto fb = Fb_mps_spin<double>::from_slater(mat(L, L, fill::eye), ek, nPart, imp_size);
+
+    REQUIRE(fb.frame_site(3) == 3);
+    REQUIRE(fb.interval_active_full() == std::make_pair(3, 5));
+    REQUIRE(fb.occupations_ni()(3) == Approx(1.0));
+    REQUIRE(fb.occupations_ni()(4) == Approx(0.0).margin(1e-12));
+
+    fb.applyLocalOp("N", 3);                                   // occupied impurity, unchanged
+    REQUIRE(fb.occupations_ni()(3) == Approx(1.0));
+
+    fb.applyLocalOp("Cdag", 4);                                // create on empty impurity (dw)
+    REQUIRE(fb.occupations_ni()(4) == Approx(1.0));
+
+    REQUIRE_THROWS_AS(fb.applyLocalOp("N", 0), std::invalid_argument);  // Slater site rejected
+}
+
+TEST_CASE("Fb_mps_spin_block applyLocalOp: N and active-window guard", "[fb_mps_spin_block][applyLocalOp]") {
+    const int L = 8, imp_size = 2, nPart = 4;
+    vec ek = {2, 1, -3, -2, 5, -1, 0.5, 3};
+    auto fb = Fb_mps_spin_block<double>::from_slater(mat(L, L, fill::eye), ek, nPart, imp_size);
+
+    REQUIRE(fb.frame_site(3) == 3);
+    REQUIRE(fb.occupations_ni()(3) == Approx(1.0));
+    fb.applyLocalOp("N", 3);                                   // occupied impurity, unchanged
+    REQUIRE(fb.occupations_ni()(3) == Approx(1.0));
+    REQUIRE_THROWS_AS(fb.applyLocalOp("N", 0), std::invalid_argument);  // Slater site rejected
+}

@@ -381,6 +381,41 @@ struct Fb_mps_spin
         arma::cout<<arma::endl;
     }
 
+    /// Map a real-space site i to the MPS orbital index a (0-based) that carries it.
+    /// Convention (see correlator_all): c_i = sum_a rot[i,a] d_a, so the orbital is
+    /// argmax_a |rot[i,a]|, i.e. the largest entry of *row* i of rot. For an impurity
+    /// site (whose orbital is never rotated) row i is a unit vector and the mapping is exact.
+    int frame_site(int i) const
+    {
+        arma::vec w = arma::abs(rot.row(i)).t();   // |rot[i,a]| over a (real, length L)
+        return (int) w.index_max();
+    }
+
+    /// Apply the single-site operator op to the (real-space) site i of the mps, where op
+    /// is one of {"C", "Cdag", "N"} as in itensor. Only valid on the non-rotating impurity
+    /// orbitals (interval_impurity_full): there site i maps exactly onto a single MPS site,
+    /// so the operator is a genuine single-site operator.
+    void applyLocalOp(std::string op, int i)
+    {
+        using namespace std;
+        static const set<string> op_all={"C", "Cdag", "N"};
+        if (op_all.count(op)==0)
+            throw invalid_argument("Fb_mps_spin::applyLocalOp: op is not in my list. See itensor op for Fermion");
+
+        int i0 = frame_site(i);   // 0-based MPS orbital
+        auto [a_imp,b_imp] = interval_impurity_full();
+        if (i0 < a_imp || i0 >= b_imp)
+            throw invalid_argument("Fb_mps_spin::applyLocalOp: site i is not a non-rotating impurity site");
+
+        // ITensor MPS sites/operators are 1-based.
+        psi.position(i0+1);
+        auto G=sites.op(op,i0+1);
+        auto newA=G*psi(i0+1);
+        newA.noPrime();
+        psi.set(i0+1,newA);
+        update_cc();
+    }
+
     /// compute all the correlator <ci^ cj> where i and j are original sites (i.e. before the rotation).
     /// Convention (impurity_param.h): c_i = sum_a rot[i,a] d_a, so
     ///   <c_i^dag c_j> = sum_{a,b} conj(rot[i,a]) cc[a,b] rot[j,b] = (Qinv^dag cc Qinv)[i,j]
