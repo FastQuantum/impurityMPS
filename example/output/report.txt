@@ -1,0 +1,109 @@
+FBR SIAM dynamics comparison report
+===================================
+
+
+fbr_dyn_siam
+------------
+
+Compared against all compatible files in example/output/old.
+
+Best match: example/output/old/impurity_dyn_siam_center.txt
+
+    rows compared: 200
+    n0 max abs diff: 1.978342e-06 at t = 20.0
+    n1 max abs diff: 7.06343e-07 at t = 19.2
+
+At t = 20:
+
+    current:   n0 = 0.634711945509   n1 = 0.519736756100
+    reference: n0 = 0.634709967167   n1 = 0.519737449494
+    diff:      n0 =  1.978e-06       n1 = -6.934e-07
+
+For comparison with the old file originally checked first:
+
+Reference: example/output/old/impurity_dyn_siam.txt
+
+    rows compared: 200
+    n0 max abs diff: 1.8991793e-05 at t = 20.0
+    n1 max abs diff: 1.051105e-06 at t = 20.0
+
+At t = 20:
+
+    current:   n0 = 0.634711945509   n1 = 0.519736756100
+    reference: n0 = 0.634730937302   n1 = 0.519737807205
+    diff:      n0 = -1.899e-05       n1 = -1.051e-06
+
+
+fbr_dyn_siam_block
+------------------
+
+Compared against all compatible files in example/output/old.
+
+Best match: example/output/old/impurity_dyn_siam_block.txt
+
+    rows compared: 200
+    n0 max abs diff: 9.5584e-08 at t = 9.5
+    n1 max abs diff: 2.14095e-07 at t = 12.4
+
+At t = 20:
+
+    current:   n0 = 0.634730820490   n1 = 0.519737769035
+    reference: n0 = 0.634730884727   n1 = 0.519737714968
+    diff:      n0 = -6.424e-08       n1 =  5.407e-08
+
+
+fbr_dyn_siam_center
+-------------------
+
+Compared against all compatible files in example/output/old.
+
+Best match: example/output/old/fbr_ns_siam.txt
+
+    rows compared: 200
+    n0 max abs diff: 1.4486217e-05 at t = 20.0
+    n1 max abs diff: 4.867637e-06 at t = 2.5
+
+At t = 20:
+
+    current:   n0 = 0.634690858472   n1 = 0.519737173855
+    reference: n0 = 0.634705344689   n1 = 0.519738051269
+    diff:      n0 = -1.449e-05       n1 = -8.774e-07
+
+
+
+
+star_dyn_siam_center
+--------------------
+
+Compared against all compatible files in example/output/old.
+
+Best match: example/output/old/impurity_dyn_siam.txt
+
+    rows compared: 150
+    n0 max abs diff: 1.19101832e-04 at t = 12.3
+    n1 max abs diff: 1.570964657e-03 at t = 1.7
+
+At t = 15:
+
+    current:   n0 = 0.709045163182   n1 = 0.522409326841
+    reference: n0 = 0.708998057803   n1 = 0.522486524035
+    diff:      n0 =  4.711e-05       n1 = -7.720e-05
+
+
+chain_dyn_siam_center
+---------------------
+
+Compared against all compatible files in example/output/old.
+
+Best match: example/output/old/impurity_dyn_siam_block.txt
+
+    rows compared: 150
+    n0 max abs diff: 3.9114192e-05 at t = 12.1
+    n1 max abs diff: 1.68235621e-04 at t = 2.0
+
+At t = 15:
+
+    current:   n0 = 0.708959456161   n1 = 0.522500260749
+    reference: n0 = 0.708998074531   n1 = 0.522486489322
+    diff:      n0 = -3.862e-05       n1 =  1.377e-05
+    
