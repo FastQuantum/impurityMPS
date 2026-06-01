@@ -20,7 +20,7 @@ int main()
     arma::mat Umat(L,L,arma::fill::zeros);
     Umat(0,1)=U;
 
-    auto model = Fbr {{.Kmat=K, .Umat=Umat, .impPos={0,1}}};
+    auto model = Impurity {{.Kmat=K, .Umat=Umat, .impPos={0,1}}};
 
     auto ek=arma::vec {model.param.Kmat.diag()};
     // force impurity occupation |10>

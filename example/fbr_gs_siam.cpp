@@ -24,7 +24,7 @@ int main()
     Umat(0, 1) = U;
     // impPos in convention 2 (outer up, inner up=imp_up, inner dw=imp_dw, outer dw).
     // Only physical impurities here (no buffer): impPos = {0, 1}.
-    auto model = FbrSpin {{.Kmat=K, .Umat=Umat, .impPos={0,1}}};
+    auto model = ImpuritySpin {{.Kmat=K, .Umat=Umat, .impPos={0,1}}};
 
     auto ek=arma::vec {model.param.Kmat.diag()};
     // optional: force impurity ocupation |10>

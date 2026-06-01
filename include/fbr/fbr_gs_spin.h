@@ -15,7 +15,7 @@ struct Fbr_gs_spin {
     arma::mat K;
     double energy=-1000;
 
-    Fbr_gs_spin(FbrSpin const& imp, Fb_mps_spin<double> const& fb_)
+    Fbr_gs_spin(ImpuritySpin const& imp, Fb_mps_spin<double> const& fb_)
         : param(imp.param)
         , fb { fb_ }
         , K(param.Kmat)

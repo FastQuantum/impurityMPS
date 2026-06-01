@@ -134,7 +134,7 @@ int main()
     }
 
     // Construct model from pre-computed star geometry (bypassing toStar)
-    FbrSpin model;
+    ImpuritySpin model;
     {
         int nBath=L/2-nImp/2;
         model.param.Kmat = Kstar;

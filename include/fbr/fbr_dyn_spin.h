@@ -26,7 +26,7 @@ struct Fbr_dyn_spin {
     double energy=-1000;        // TODO remove energy (or compute it)
     int nIter=0;
 
-    explicit Fbr_dyn_spin(FbrSpin const& imp, Fb_mps_spin<cmpx> const& fb_, double dt_=0.1)
+    explicit Fbr_dyn_spin(ImpuritySpin const& imp, Fb_mps_spin<cmpx> const& fb_, double dt_=0.1)
         : param(imp.param)
         , dt(dt_)
         , fb { fb_ }

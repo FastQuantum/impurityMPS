@@ -26,7 +26,7 @@ struct Fbr_dyn {
     // arma::cx_mat Kip;       ///< the current Hamiltonian in the interaction picture of the bath
     double energy=-1000;
 
-    explicit Fbr_dyn(Fbr const& imp, Fb_mps<cmpx> const& fb_, double dt_=0.1)
+    explicit Fbr_dyn(Impurity const& imp, Fb_mps<cmpx> const& fb_, double dt_=0.1)
         : param(imp.param)
         , dt(dt_)
         , fb { fb_ }

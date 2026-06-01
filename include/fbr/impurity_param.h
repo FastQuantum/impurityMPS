@@ -89,11 +89,11 @@ struct ImpurityParam {
     }
 };
 
-struct Fbr {
+struct Impurity {
     ImpurityParam param;
 
-    Fbr() = default;
-    Fbr(ImpurityParam const& param_) : param(param_) { param.toStar(); }
+    Impurity() = default;
+    Impurity(ImpurityParam const& param_) : param(param_) { param.toStar(); }
 };
 
 } // namespace fbr

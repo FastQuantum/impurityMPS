@@ -81,7 +81,7 @@ int main()
     }
 
     // Construct model from pre-computed star geometry (bypassing toStar)
-    Fbr model;
+    Impurity model;
     {
         model.param.Kmat = Kstar;
         model.param.Umat = Umat;

@@ -9,7 +9,7 @@ using namespace fbr;
 int main()
 {
     int L=100;
-    Fbr model;
+    Impurity model;
     {
         double U=0.2;
         double V=0.1;
@@ -24,7 +24,7 @@ int main()
         arma::mat Umat(L,L,arma::fill::zeros);
         Umat(0,1)=U;
 
-        model = Fbr {{.Kmat=K, .Umat=Umat, .impPos={0,1,2,3}}};
+        model = Impurity {{.Kmat=K, .Umat=Umat, .impPos={0,1,2,3}}};
 
         K.print("Kmat before star ns");
     }

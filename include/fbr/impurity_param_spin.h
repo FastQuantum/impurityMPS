@@ -116,10 +116,10 @@ struct ImpurityParamSpin {
     }
 };
 
-struct FbrSpin {
+struct ImpuritySpin {
     ImpurityParamSpin param;
-    FbrSpin() = default;
-    FbrSpin(ImpurityParamSpin const& param_) : param(param_) { param.toStar(); }
+    ImpuritySpin() = default;
+    ImpuritySpin(ImpurityParamSpin const& param_) : param(param_) { param.toStar(); }
 };
 
 } // namespace fbr

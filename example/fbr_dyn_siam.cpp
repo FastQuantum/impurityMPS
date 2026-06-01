@@ -8,7 +8,7 @@ using namespace fbr;
 int main()
 {
     int L=100;
-    FbrSpin model;
+    ImpuritySpin model;
     {
         double U=0.2;
         double V=0.1;
@@ -26,7 +26,7 @@ int main()
         // Convention 2 (outer..inner..outer): {buf_up, imp_up, imp_dw, buf_dw} = {2, 0, 1, 3}.
         std::vector<int> impPos = {2, 0, 1, 3};
 
-        model = FbrSpin {{.Kmat=K, .Umat=Umat, .impPos=impPos}};
+        model = ImpuritySpin {{.Kmat=K, .Umat=Umat, .impPos=impPos}};
     }
     Fb_mps_spin<cmpx> fb;
     {

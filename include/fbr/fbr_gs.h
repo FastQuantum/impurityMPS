@@ -15,7 +15,7 @@ struct Fbr_gs {
     arma::mat K;
     double energy=-1000;
 
-    Fbr_gs(Fbr const& imp, Fb_mps<double> const& fb_)
+    Fbr_gs(Impurity const& imp, Fb_mps<double> const& fb_)
         : param(imp.param)
         , fb { fb_ }
         , K(param.Kmat)

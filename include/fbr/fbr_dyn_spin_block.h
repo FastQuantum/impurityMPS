@@ -27,7 +27,7 @@ struct Fbr_dyn_spin_block {
     double energy = -1000;
     int nIter = 0;
 
-    explicit Fbr_dyn_spin_block(FbrSpin const& imp,
+    explicit Fbr_dyn_spin_block(ImpuritySpin const& imp,
                                      Fb_mps_spin_block<cmpx> const& fb_,
                                      double dt_=0.1)
         : param(imp.param), dt(dt_), fb { fb_ }
