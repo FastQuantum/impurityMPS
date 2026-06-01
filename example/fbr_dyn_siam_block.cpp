@@ -41,7 +41,7 @@ int main()
     cout<<"time m <n0> <n1>  nActive\n"<<setprecision(12);
     itensor::cpu_time t0;
     for(auto i=0; i*dt<L; i++){
-        solver.iterate({.max_bond_dim=1024, .nIter_diag=16, .noise=0.0, .epsilonM=1e-8, .nKrylov=15, .err_goal=1e-8});
+        solver.iterate({.err_goal=1e-8, .epsilonM=1e-8, .nKrylov=15});
         double n0= solver.fb.occupations_ni()(L/2);
         double n1= solver.fb.occupations_ni()(L/2+1);
         cout<<(i+1)*solver.dt<<" "<<maxLinkDim(solver.fb.psi)<<" "

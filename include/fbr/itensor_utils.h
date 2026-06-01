@@ -12,15 +12,17 @@ struct DmrgParam {
     double noise=1e-8;
 };
 
-/// Parameters used by the local basis expansion and TDVP sweep.
+/// Control parameters for a TDVP time step: bond-dimension limits, local Krylov evolution, and addBasis local basis expansion.
 struct TdvpParam {
+    // --- pure TDVP parameters ---
     int max_bond_dim=1024;  ///< Maximum MPS bond dimension during the TDVP sweep.
-    int nIter_diag=16;      ///< Krylov iterations used to apply exp(-i * Heff * dt) locally.
     double noise=0;         ///< ITensor sweep noise term.
-    double epsilonM=1e-5;   ///< addBasis density-matrix cutoff; set to 0 to skip basis expansion.
-    int nKrylov=3;          ///< Krylov order used by addBasis and size of the epsilonK vector.
+    int nIter_diag=16;      ///< Krylov iterations used to apply exp(-i * Heff * dt) locally.
     double err_goal=1e-6;   ///< TDVP local evolution error goal.
-    double epsilonK=1e-6;   ///< Value used to fill the addBasis epsilonK vector.
+    // --- addBasis (global subspace expansion) parameters ---
+    double epsilonM=1e-5;   ///< addBasis density-matrix cutoff; set to 0 to skip basis expansion.
+    int nKrylov=3;          ///< Krylov order of the addBasis global subspace expansion
+    double epsilonK=1e-6;   ///< add basis cutoff for each Krylov-vector
 };
 
 template<class T>
