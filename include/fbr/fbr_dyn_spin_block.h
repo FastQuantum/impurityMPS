@@ -101,7 +101,7 @@ struct Fbr_dyn_spin_block {
         sweeps.noise() = args.noise;
 
         if (args.epsilonM != 0) {
-            std::vector<double> epsilonK(args.nKrylov, 1E-8);
+            std::vector<double> epsilonK(args.nKrylov, args.epsilonK);
             itensor::addBasis(fb.psi, mpo, epsilonK,
                               {"Cutoff", args.epsilonM,
                                "Method", "DensityMatrix",

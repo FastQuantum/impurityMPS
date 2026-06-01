@@ -59,11 +59,12 @@ void doTdvp(itensor::MPS &psi, itensor::MPO const mpo, double dt, double tol=1e-
     sweeps.niter() = 16;
     sweeps.noise() = 0e-8;
 
-    std::vector<double> epsilonK(15, 1e-8);   // match epsilonM from fbr_dyn
+    int nKrylov=3;
+    std::vector<double> epsilonK(nKrylov, 1e-6);   // match epsilonM from fbr_dyn
     itensor::addBasis(psi, mpo, epsilonK,
-                      {"Cutoff", 1e-8,
+                      {"Cutoff", 1e-5,
                        "Method", "DensityMatrix",
-                       "KrylovOrd", 3,
+                       "KrylovOrd", nKrylov,
                        "DoNormalize", true,
                        "Quiet", true,
                        "Silent", true});
@@ -75,7 +76,7 @@ void doTdvp(itensor::MPS &psi, itensor::MPO const mpo, double dt, double tol=1e-
                    "Quiet", true,
                    "Silent", true,
                    "NumCenter", 2,
-                   "ErrGoal", 1e-8});
+                   "ErrGoal", 1e-6});
 }
 
 itensor::MPO getHamiltonian(itensor::Fermion sites, mat const& K, mat const& Umat)

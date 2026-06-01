@@ -162,7 +162,7 @@ struct Fbr_dyn {
 
         if (args.epsilonM != 0)
         {
-            std::vector<double> epsilonK(args.nKrylov,1E-8);  // Global subspace expansion
+            std::vector<double> epsilonK(args.nKrylov,args.epsilonK);  // Global subspace expansion
             itensor::addBasis(fb.psi,mpo,epsilonK,
                               {"Cutoff", args.epsilonM,
                                "Method", "DensityMatrix",
