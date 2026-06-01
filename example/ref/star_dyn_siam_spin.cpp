@@ -1,4 +1,5 @@
 #include "fbr/fb_mps_spin.h"
+#include "fbr/itensor_utils.h"
 #include "tdvp.h"
 #include "basisextension.h"
 #include "fbr/impurity_param_spin.h"
@@ -55,17 +56,18 @@ auto computeKstar(mat K, int nImp)
 
 void doTdvp(itensor::MPS &psi, itensor::MPO const mpo, double dt, double tol=1e-12)
 {
+    TdvpParam args;
     auto sweeps = itensor::Sweeps(1);
-    sweeps.maxdim() = 1024;
+    sweeps.maxdim() = args.max_bond_dim;
     sweeps.cutoff() = tol;
-    sweeps.niter() = 16;
-    sweeps.noise() = 0e-8;
+    sweeps.niter() = args.nIter_diag;
+    sweeps.noise() = args.noise;
 
-    std::vector<double> epsilonK(15, 1e-8);
+    std::vector<double> epsilonK(args.nKrylov, args.epsilonK);
     itensor::addBasis(psi, mpo, epsilonK,
-                      {"Cutoff", 1e-8,
+                      {"Cutoff", args.epsilonM,
                        "Method", "DensityMatrix",
-                       "KrylovOrd", 15,
+                       "KrylovOrd", args.nKrylov,
                        "DoNormalize", true,
                        "Quiet", true,
                        "Silent", true});
@@ -76,7 +78,7 @@ void doTdvp(itensor::MPS &psi, itensor::MPO const mpo, double dt, double tol=1e-
                    "Quiet", true,
                    "Silent", true,
                    "NumCenter", 2,
-                   "ErrGoal", 1e-8});
+                   "ErrGoal", args.err_goal});
 }
 
 itensor::MPO getHamiltonian(itensor::Fermion sites, mat const& K, mat const& Umat)
