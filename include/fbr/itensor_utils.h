@@ -25,6 +25,25 @@ struct TdvpParam {
     double epsilonK=1e-6;   ///< add basis cutoff for each Krylov-vector
 };
 
+inline arma::cx_mat getCc(itensor::Fermion const& sites, itensor::MPS const& psi)
+{
+    arma::cx_mat cc(sites.length(), sites.length());
+    auto ccz=correlationMatrixC(psi, sites,"Cdag","C");
+    for(auto i=0u; i<ccz.size(); i++)
+        for(auto j=0u; j<ccz[i].size(); j++)
+            cc(i,j)=ccz.at(i).at(j);
+    return cc;
+}
+
+inline arma::vec getNi(itensor::Fermion const& sites, itensor::MPS const& psi)
+{
+    arma::vec ni(sites.length());
+    auto niz=expectC(psi, sites,"N");
+    for(auto i=0u; i<sites.length(); i++)
+        ni[i]=std::real(niz[i]);
+    return ni;
+}
+
 template<class T>
 std::vector<itensor::BondGate> NOGates(itensor::Fermion const& sites, std::vector<GivensRot<T>> const& gs)
 {
