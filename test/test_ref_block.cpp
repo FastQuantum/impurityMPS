@@ -1,6 +1,6 @@
 #include <catch2/catch.hpp>
 
-#include "fbr/fbr_dyn_spin.h"
+#include "fbr/fbr_dyn_spin_block.h"
 
 #include <armadillo>
 #include <fstream>
@@ -70,7 +70,7 @@ std::map<std::string, SnapshotData> loadChainReference()
     return refs;
 }
 
-Fbr_dyn_spin makeFbrRun(int L, double dt)
+Fbr_dyn_spin_block makeFbrRun(int L, double dt)
 {
     ImpuritySpin model;
     {
@@ -89,13 +89,15 @@ Fbr_dyn_spin makeFbrRun(int L, double dt)
     auto ek = vec{model.param.Kmat.diag()};
     ek[L / 2 - 1] = ek[L / 2] = -10;
     ek[L / 2 - 2] = ek[L / 2 + 1] = 10;
-    auto fb = Fb_mps_spin<cmpx>::from_slater(model.param.rot * cmpx(1, 0), ek,
-                                             model.param.nPart(), model.param.nImp());
-    auto solver = Fbr_dyn_spin(model, fb, dt);
+    auto fb = Fb_mps_spin_block<cmpx>::from_slater(model.param.rot * cmpx(1, 0), ek,
+                                                   model.param.nPart(), model.param.nImp());
+    auto solver = Fbr_dyn_spin_block(model, fb, dt);
     solver.fb.tol = 1e-12;
     return solver;
 }
 
+// Star-geometry spin layout: bath orbitals are energy-sorted eigenmodes, so the
+// FBR site -> chain index map is the discontinuous permutation below.
 uvec fbrIndexToChainIndex(int L)
 {
     uvec p(L);
@@ -141,7 +143,7 @@ RefComparison runRefComparison()
     RefComparison out;
     out.initial = compare(toChainOrder(fbr.correlator_all(), p), refs.at("initial"));
     for (int step = 1; step <= 50; step++) {
-        fbr.iterate({.nIter_diag = 8, .err_goal = 1e-8, .epsilonM = 0e-8, .nKrylov = 15});
+        fbr.iterate({.err_goal = 1e-8, .epsilonM = 1e-8, .nKrylov = 15});
         if (step == 1)
             out.t01 = compare(toChainOrder(fbr.correlator_all(), p), refs.at("t=0.1"));
         if (step == 50)
@@ -158,19 +160,19 @@ RefComparison const &refComparison()
 
 } // namespace
 
-TEST_CASE("FBR vs saved chain center reference: initial GS", "[fb_ref_output]") {
+TEST_CASE("fbr_block vs saved chain center reference: initial GS", "[fb_ref_block]") {
     auto const &result = refComparison();
     REQUIRE(result.initial.niMax < 1e-8);
     REQUIRE(result.initial.ccMax < 1e-5);
 }
 
-TEST_CASE("FBR vs saved chain center reference: t=0.1", "[fb_ref_output]") {
+TEST_CASE("fbr_block vs saved chain center reference: t=0.1", "[fb_ref_block]") {
     auto const &result = refComparison();
     REQUIRE(result.t01.niMax < 2e-6);
     REQUIRE(result.t01.ccMax < 4e-5);
 }
 
-TEST_CASE("FBR vs saved chain center reference: t=5.0", "[fb_ref_output]") {
+TEST_CASE("fbr_block vs saved chain center reference: t=5.0", "[fb_ref_block]") {
     auto const &result = refComparison();
     REQUIRE(result.t50.niMax < 1e-4);
     REQUIRE(result.t50.ccMax < 2e-4);
