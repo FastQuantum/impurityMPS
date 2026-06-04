@@ -41,15 +41,25 @@ struct Fbr_dyn_spin {
 
             mat Kstar=param.Kmat;
 
-            cx_mat Kbath_full(L,L,arma::fill::zeros);
-            Kbath_full(bath_pos,bath_pos) = Kstar(bath_pos,bath_pos) * cmpx(1,0);
-            cx_mat commutator = Kstar*Kbath_full - Kbath_full*Kstar;
-            Kip0 = Kstar - Kbath_full - cmpx(0,0.5*dt)*commutator;
+            // Star geometry: the bath-bath block of Kstar is diagonal. Let d be
+            // that diagonal embedded in an L-vector (zero on impurity sites).
+            // With D=diag(d), the commutator entries are
+            //   (Kstar*D - D*Kstar)(i,j) = Kstar(i,j)*(d(j)-d(i)),
+            // so column/row scaling gives it in O(L^2) instead of the two dense
+            // O(L^3) products Kstar*Kbath_full and Kbath_full*Kstar.
+            vec d(L, fill::zeros);
+            d(bath_pos) = vec(Kstar.diag())(bath_pos);
+            mat c1 = Kstar; c1.each_row() %= d.t();   // Kstar*D
+            mat c2 = Kstar; c2.each_col() %= d;       // D*Kstar
+            mat commutator = c1 - c2;
+
+            Kip0 = Kstar * cmpx(1,0);
+            Kip0(bath_pos,bath_pos).zeros();          // Kstar - Kbath_full (arrow)
+            Kip0 -= cmpx(0,0.5*dt) * commutator;
 
             rotS = fb.rot;
 
-            arma::cx_mat K0 = param.Kmat * cmpx(1,0);
-            this->Kbath=K0.submat(bath_pos,bath_pos);
+            this->Kbath = Kstar.submat(bath_pos,bath_pos) * cmpx(1,0);
         }
 
         // Fix nSv = rank of the impurity–bath coupling block at construction.
