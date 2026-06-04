@@ -160,6 +160,28 @@ RefComparison const &refComparison()
 
 } // namespace
 
+TEST_CASE("buildK O(L^2) matches O(L^3) reference", "[fb_ref_fbr][buildK]") {
+    constexpr int L = 40;
+    constexpr double dt = 0.1;
+    auto fbr = makeFbrRun(L, dt);
+
+    arma::arma_rng::set_seed(12345);
+    // The K decomposition is algebraic, valid for any rot; use a random unitary fb.rot.
+    cx_mat G = cx_mat(L, L, fill::randn) + imag_1 * cx_mat(L, L, fill::randn);
+    cx_mat Q, R;
+    qr(Q, R, G);
+    fbr.fb.rot = Q;
+
+    for (int n : {0, 1, 5, 37, 200}) {
+        fbr.nIter = n;
+        cx_mat Knew = fbr.buildK();
+        cx_mat Kref = fbr.buildK_reference();
+        double err = abs(Knew - Kref).max();
+        INFO("nIter = " << n << ", max abs error = " << err);
+        REQUIRE(err < 1e-9);
+    }
+}
+
 TEST_CASE("fbr vs saved chain center reference: initial GS", "[fb_ref_fbr]") {
     auto const &result = refComparison();
     REQUIRE(result.initial.niMax < 1e-8);

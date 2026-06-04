@@ -11,6 +11,47 @@ TEST_CASE("arma") {
     //A.print("A=");
 }
 
+TEST_CASE("index-aware applyGivens matches dense embedding", "[givens]")
+{
+    arma::arma_rng::set_seed(777);
+    const int n = 6;      // local block size
+    const int nSv = 2;    // number of columns to rotate out
+    const int L = 14;     // full matrix size
+
+    // Build a Givens list as the dynamics does (daggered left-rotation).
+    cx_mat Vfull = cx_mat(n, n, fill::randn) + imag_1 * cx_mat(n, n, fill::randn);
+    cx_mat Q, R;
+    qr(Q, R, Vfull);
+    cx_mat V = Q.head_cols(nSv);
+    auto givens = GivensRotForRot_left(V);
+    GivensDaggerInPlace(givens);
+
+    // Non-contiguous target positions of size n inside [0,L).
+    uvec pos = {1, 2, 4, 7, 9, 12};
+    REQUIRE(pos.n_elem == (uword)n);
+
+    // Dense embedding E (eye with the rotation block placed at pos).
+    cx_mat rot_block = matrot_from_Givens(givens, n);
+    cx_mat E(L, L, fill::eye);
+    E(pos, pos) = rot_block;
+
+    cx_mat A = cx_mat(L, L, fill::randn) + imag_1 * cx_mat(L, L, fill::randn);
+
+    cx_mat Acols = A;
+    applyGivensCols(Acols, givens, pos);           // A * E
+    REQUIRE(abs(Acols - A * E).max() < 1e-12);
+
+    cx_mat Arows = A;
+    applyGivensRows(givens, Arows, pos);           // E * A
+    REQUIRE(abs(Arows - E * A).max() < 1e-12);
+
+    // Full conjugation E^dag * A * E built from the two primitives.
+    cx_mat Aconj = A;
+    applyGivensCols(Aconj, givens, pos);
+    applyGivensRows(GivensDagger(givens), Aconj, pos);
+    REQUIRE(abs(Aconj - E.t() * A * E).max() < 1e-12);
+}
+
 TEST_CASE( "spin" )
 {
     int L=8;

@@ -69,23 +69,59 @@ struct Fbr_dyn_spin {
 
     void iterate(TdvpParam args={})
     {
-        arma::cx_mat exp_ih;
-        {  // interaction picture update
-            int L=fb.length();
-            exp_ih=arma::cx_mat(L,L,arma::fill::eye);
-            exp_ih.submat(bath_pos,bath_pos)=expIH<cmpx>(Kbath * nIter * dt);
-
-            arma::cx_mat rot = exp_ih * rotS.t() * fb.rot;
-            K = rot.t() * Kip0 * rot;
-            nIter++;
-        }
-
+        K = buildK();   // interaction-picture Hamiltonian, O(L^2)
+        nIter++;
 
         extract_representative(0);
         extract_representative(1);
         extract_representative_final();
         doTdvp(args);
         rotateToNaturalOrbitals();
+    }
+
+    /// Diagonal of the interaction-picture phase exp(-i H_bath * n*dt).
+    /// In star geometry H_bath is diagonal, so this is computed in O(L_bath),
+    /// avoiding the O(L^3) dense matrix exponential.
+    arma::cx_vec ipPhase(int n) const
+    {
+        int L = fb.length();
+        arma::cx_vec d(L, arma::fill::ones);
+        if (n > 0)
+            d(bath_pos) = arma::exp(-imag_1 * Kbath.diag() * (static_cast<double>(n)*dt));
+        return d;
+    }
+
+    /// Interaction-picture Hamiltonian K = rot^dag * Kip0 * rot, with
+    /// rot = diag(ipPhase) * rotS^dag * fb.rot.
+    /// O(L^2): Kip0 is Hermitian and its bath-bath block is exactly zero (a "cross"
+    /// matrix), so only the nImp impurity rows of rot are ever needed. Writing
+    /// Kip0 = e_I M + M^dag e_I^dag - e_I D e_I^dag (I = impurity indices,
+    /// M = Kip0.rows(I), D = Kip0(I,I)) gives the rank-2*nImp update
+    ///   K = A^dag B + B^dag A - A^dag D A,   A = rot.rows(I),  B = M*rot.
+    arma::cx_mat buildK() const
+    {
+        arma::cx_vec d = ipPhase(nIter);
+        // A = rot.rows(imp_pos); exp_ih is identity on impurity rows, so it drops out.
+        arma::cx_mat A = rotS.cols(imp_pos).t() * fb.rot;   // nImp x L
+        // B = M * rot, evaluated left-to-right to keep every factor nImp x L.
+        arma::cx_mat B = Kip0.rows(imp_pos);                // M (nImp x L)
+        B.each_row() %= d.st();                             // M * diag(exp_ih)
+        B = B * rotS.t();                                   // nImp x L
+        B = B * fb.rot;                                     // nImp x L
+        arma::cx_mat D = Kip0.submat(imp_pos, imp_pos);     // nImp x nImp
+        return A.t()*B + B.t()*A - A.t()*(D*A);
+    }
+
+    /// Reference O(L^3) full conjugation. Numerically identical to buildK();
+    /// kept only for validation tests.
+    arma::cx_mat buildK_reference() const
+    {
+        int L = fb.length();
+        arma::cx_mat exp_ih(L, L, arma::fill::eye);
+        if (nIter > 0)
+            exp_ih.submat(bath_pos,bath_pos) = expIH<cmpx>(Kbath * (static_cast<double>(nIter)*dt));
+        arma::cx_mat rot = exp_ih * rotS.t() * fb.rot;
+        return rot.t() * Kip0 * rot;
     }
 
     /// extract representative orbital of the sites with ni=nRef where nRef can be 0 or 1

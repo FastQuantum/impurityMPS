@@ -329,6 +329,36 @@ void applyGivens(arma::Mat<T>& A, std::vector<GivensRot<T>> const& gs)
 }
 
 
+/// Apply a Givens list to the columns of A indexed by `pos` (possibly non-contiguous).
+/// Equivalent to A <- A * E, where E embeds matrot_from_Givens(gs) into the index
+/// set `pos` (i.e. E(pos[i],pos[j]) = matrot_from_Givens(gs)(i,j)). Cost O(|gs|*n_rows),
+/// avoiding the O(n^2 * n_rows) dense product when `pos` spans O(n) indices.
+template<class T>
+void applyGivensCols(arma::Mat<T>& A, std::vector<GivensRot<T>> const& gs, arma::uvec const& pos)
+{
+    for(auto it=gs.crbegin(); it!=gs.crend(); ++it) {
+        auto m = it->matrix();
+        arma::uword c0=pos[it->b], c1=pos[it->b+1];
+        arma::Col<T> a0=A.col(c0), a1=A.col(c1);
+        A.col(c0)=a0*m(0,0)+a1*m(1,0);
+        A.col(c1)=a0*m(0,1)+a1*m(1,1);
+    }
+}
+
+/// Apply a Givens list to the rows of A indexed by `pos` (possibly non-contiguous).
+/// Equivalent to A <- E * A, with E embedding matrot_from_Givens(gs) into `pos`.
+template<class T>
+void applyGivensRows(std::vector<GivensRot<T>> const& gs, arma::Mat<T>& A, arma::uvec const& pos)
+{
+    for(auto const& g : gs) {
+        auto m = g.matrix();
+        arma::uword r0=pos[g.b], r1=pos[g.b+1];
+        arma::Row<T> a0=A.row(r0), a1=A.row(r1);
+        A.row(r0)=m(0,0)*a0+m(0,1)*a1;
+        A.row(r1)=m(1,0)*a0+m(1,1)*a1;
+    }
+}
+
 template<class T>
 arma::Mat<T> matrot_from_Givens(std::vector<GivensRot<T>> const& gates, size_t n)
 {

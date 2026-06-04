@@ -131,7 +131,8 @@ struct Fb_mps_spin
 
         // 2. find the Givens rotations
         int nSv; // number of singular values
-        arma::Mat<T> rot1; // rotation of the slater
+        std::vector<GivensRot<T>> givens, givens_up;
+        arma::uvec pos0_up;
         {
             auto [a,b]=use_active ? interval_active(spin):
                               interval_impurity(spin);
@@ -143,25 +144,23 @@ struct Fb_mps_spin
                     ? std::min<int>(this->nSv, (int)V.n_cols)
                     : (int)arma::find(s>tol*s[0]).eval().size();
             arma::Mat<T> V_slater=V.head_cols(nSv);
-            auto givens= spin==dw ? GivensRotForRot_left(V_slater):
+            givens= spin==dw ? GivensRotForRot_left(V_slater):
                               GivensRotForRot_right(V_slater);
             GivensDaggerInPlace(givens);
-            auto rot_half=matrot_from_Givens(givens, k12.n_cols)/*.st()*/;
-            auto rot_half_up=matrot_from_Givens(GivensReflect(givens,(int)k12.n_cols), k12.n_cols);
-            auto pos0_up=length()-1 - arma::reverse(pos0);
-            rot1=arma::Mat<T>(length(),length(), arma::fill::eye);
-            rot1(pos0,pos0)=rot_half;
-            rot1(pos0_up,pos0_up)=rot_half_up;
+            givens_up=GivensReflect(givens,(int)k12.n_cols);
+            pos0_up=length()-1 - arma::reverse(pos0);
         }
 
-        // K.print("\nKsp before rot1");
-
-        // 3. update K, rot and cc
-        K=rot1.t()*K*rot1;
-        rot=rot*rot1;
+        // 3. update K and rot via the Givens directly (rot1 = I + block(pos0) + block(pos0_up)).
+        //    K = rot1^dag * K * rot1, rot = rot * rot1. Cost O(nSv * L^2) instead of O(L^3),
+        //    since rot1 is a product of O(nSv*|pos0|) Givens rotations.
+        applyGivensCols(K, givens, pos0);                  // K * rot1 (cols)
+        applyGivensCols(K, givens_up, pos0_up);
+        applyGivensRows(GivensDagger(givens), K, pos0);    // rot1^dag * K (rows)
+        applyGivensRows(GivensDagger(givens_up), K, pos0_up);
+        applyGivensCols(rot, givens, pos0);                // rot * rot1 (cols)
+        applyGivensCols(rot, givens_up, pos0_up);
         // no need to update cc
-
-        // K.print("\nKsp after rot1");
 
         // NEW: Compute spin=up by reflection
         ensure_reflection_mat(K);  // maybe we don't need this
@@ -276,11 +275,12 @@ struct Fb_mps_spin
     arma::Mat<T> rotateToNaturalOrbitals()
     {
         auto [a_full,b_full]=interval_active_full();
-        arma::Mat<T> rot_update(length(), length(), arma::fill::eye);
+        int n_full=b_full-a_full;
+        arma::Mat<T> rot_update(n_full, n_full, arma::fill::eye);
 
         auto spin=dw;
         auto [a,b]=interval_rotating(spin);
-        if (a==b) return rot_update.submat(a_full,a_full,b_full-1,b_full-1);
+        if (a==b) return rot_update;
 
         // 1. find the Givens that diagonalize cc
         std::vector<GivensRot<T>> givens;
@@ -320,9 +320,14 @@ struct Fb_mps_spin
             // int  a_up = length()-b, b_up = length()-a;
             auto [a_up,b_up]=interval_rotating(up);
 
-            rot_update.submat(a,   a,   b-1,   b-1   ) = rot1.st();    // dw
-            rot_update.submat(a_up,a_up,b_up-1,b_up-1) = rot1_up.st(); // up
-            rot = rot * rot_update;
+            // rot_update is the active-block (n_full x n_full) frame change; the two
+            // rotating sub-blocks sit at offsets relative to a_full.
+            rot_update.submat(a-a_full,       a-a_full,       b-1-a_full,    b-1-a_full   ) = rot1.st();    // dw
+            rot_update.submat(a_up-a_full,    a_up-a_full,    b_up-1-a_full, b_up-1-a_full) = rot1_up.st(); // up
+
+            // rot = rot * (I + block); only columns [a,b) and [a_up,b_up) change. O(L * nActive^2).
+            rot.cols(a,b-1)       = rot.cols(a,b-1).eval()       * rot1.st();
+            rot.cols(a_up,b_up-1) = rot.cols(a_up,b_up-1).eval() * rot1_up.st();
 
             cc.cols(a,b-1) = cc.cols(a,b-1).eval() * rot1.t();
             cc.rows(a,b-1) = rot1 * cc.rows(a,b-1).eval();
@@ -346,7 +351,7 @@ struct Fb_mps_spin
             p1 -= delta;               // symmetric: same shrinkage on up-spin side
         }
 
-        return rot_update.submat(a_full,a_full,b_full-1,b_full-1);
+        return rot_update;
     }
 
     /// Energy of the Slater part. K is the kinetic energy matrix

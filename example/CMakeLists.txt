@@ -9,6 +9,7 @@ list(APPEND test_SRC
     fbr_dyn_siam_center.cpp
     fbr_dyn_ns__man_siam.cpp
     fbr_dyn_siam_block.cpp
+    bench_buildK.cpp
 )
 
 option(FBR_EXAMPLE_REF "Build reference star/chain examples" OFF)
