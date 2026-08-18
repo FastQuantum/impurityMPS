@@ -7,10 +7,10 @@ using namespace fbr;
 
 int main()
 {
-    int L=100;
+    int L=1000;
     ImpuritySpin model;
     {
-        double U=0.2;
+        double U=0.1;
         double V=0.1;
         arma::mat K(L,L, arma::fill::zeros);
         {
@@ -38,15 +38,15 @@ int main()
         fb=Fb_mps_spin<cmpx>::from_slater(model.param.rot*cmpx(1,0), ek, model.param.nPart(), model.param.nImp());
         // fb.occupations_ni().as_row().eval().print("ni");
     }
+    // fb.tol=1e-10;
 
     double dt=0.1;
     auto solver=Fbr_dyn_spin(model,fb,dt);
-    solver.fb.tol=1e-12;
 
     // arma::real(fb.rot*1).eval().clean(1e-11).print("fb.rot");
     // arma::real(model.param.rot*1).eval().clean(1e-11).print("param.rot");
     // auto Q=solver.param.rot;
-    arma::real(solver.K*1).eval().clean(1e-11).print("K inicial");
+    // arma::real(solver.K*1).eval().clean(1e-11).print("K inicial");
     // arma::real(solver.param.Kmat*1).eval().clean(1e-11).print("Kmat original");
     // arma::real(solver.Kip0*1).eval().clean(1e-11).print("Kip0 before main() iterations");
     // terminate();
@@ -58,11 +58,12 @@ int main()
         // auto [a,b]=solver.fb.interval_active_full();
         // solver.fb.occupations_ni().as_row().eval().cols(a,b-1).eval().print("ni");
 
-        solver.iterate({.nIter_diag=8, .err_goal=1e-8, .epsilonM=0e-8, .nKrylov=15});
+        solver.iterate({.epsilonM=0e-8});
         // double n0 = solver.fb.correlator(1,1).real();
         double n0= solver.fb.occupations_ni()(L/2);
         double n1= solver.fb.occupations_ni()(L/2+1);
-        cout<<(i+1)*solver.dt<<" "<<maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<n1<<" "<<solver.fb.p2-solver.fb.p1<<endl;
+        cout<<(i+1)*solver.dt<<" "<<maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<n1<<" "<<solver.fb.p2-solver.fb.p1
+             <<" "<<t0.sincemark().wall<<endl;
         t0.mark();
     }
     return 0;
