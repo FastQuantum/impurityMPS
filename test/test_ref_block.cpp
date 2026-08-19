@@ -62,7 +62,7 @@ TrajResult const &resultFor(double U, std::string const &us)
     auto fbr = makeFbrRun(L, dt, U);
     auto p = fbrIndexToChainIndex(L);
     auto iter = [](Fbr_dyn_spin_block &f) {
-        f.iterate({.err_goal = 1e-8, .epsilonM = 1e-8, .nKrylov = 15});
+        f.iterate({.err_goal = 1e-8, .epsilonM = 0, .nKrylov = 15});
     };
     auto corr = [](Fbr_dyn_spin_block &f) { return f.correlator_all(); };
 
