@@ -1,0 +1,19 @@
+star vs chain reference comparison
+==================================
+max_i |ni_star - ni_chain|  and  max_ij |cc_star - cc_chain|,  per snapshot.
+
+U=0.2
+  snapshot      max|dni|    max|dcc|
+  initial       6.08e-09    7.16e-06
+  t=0.1         1.17e-04    1.14e-03
+  t=5.0         8.01e-03    8.01e-03
+  t=10.0        1.07e-02    1.07e-02
+  t=20.0        4.00e-03    5.86e-03
+
+U=0.1
+  snapshot      max|dni|    max|dcc|
+  initial       6.08e-09    7.16e-06
+  t=0.1         1.17e-04    1.14e-03
+  t=5.0         8.06e-03    8.06e-03
+  t=10.0        1.06e-02    1.06e-02
+  t=20.0        3.89e-03    5.60e-03

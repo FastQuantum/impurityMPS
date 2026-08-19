@@ -4,11 +4,45 @@
 #include <basisextension.h>
 #include <armadillo>
 
+#include <fstream>
 #include <iostream>
 #include <iomanip>
+#include <string>
+#include <utility>
+#include <vector>
 
 using namespace std;
 using namespace arma;
+
+// One measured time slice of the trusted chain run: occupations and the full
+// one-particle correlation matrix <c_i^dag c_j>, in chain-site order.
+struct Snap {
+    string label;
+    arma::vec ni;
+    arma::cx_mat cc;
+};
+
+// Serialize snapshots in the chain_dyn_siam_center_ref_v1 format read by
+// test/test_ref_*.cpp (whitespace-token stream: header, then per snapshot a
+// label, an "ni" vector of length L, and a row-major "cc" of L*L (re im) pairs).
+void writeReference(string const& path, vector<Snap> const& snaps, int L)
+{
+    ofstream out(path);
+    out << setprecision(17);
+    out << "chain_dyn_siam_center_ref_v1 L " << L
+        << " snapshots " << snaps.size() << "\n";
+    for (auto const& s : snaps) {
+        out << "snapshot " << s.label << "\n";
+        out << "ni";
+        for (int i = 0; i < L; i++) out << " " << s.ni[i];
+        out << "\n";
+        out << "cc";
+        for (int i = 0; i < L; i++)
+            for (int j = 0; j < L; j++)
+                out << " " << s.cc(i, j).real() << " " << s.cc(i, j).imag();
+        out << "\n";
+    }
+}
 
 void findGs(itensor::MPS &psi, itensor::MPO const mpo, double tol=1e-12)
 {
@@ -75,16 +109,17 @@ itensor::MPO getHamiltonian(itensor::Fermion sites, mat const& K, mat const& Uma
     return itensor::toMPO(h);
 }
 
-int main()
+int main(int argc, char** argv)
 {
     int L=100;
     int nImp=4;
     double dt=0.1;
     int nBath=L/2-nImp/2;  // =4 for L=12, nImp=4
+    double U = argc>1 ? std::stod(argv[1]) : 0.2;   // Hubbard U (default 0.2)
+    int maxBondDim = 1024;   // stop the run (and keep snapshots so far) if exceeded
 
     mat Kchain, Umat; // define the Hamiltonian
     {
-        double U=0.2;
         double V=0.1;
         arma::mat K(L,L, arma::fill::zeros);
         {
@@ -136,12 +171,44 @@ int main()
     }
 
     auto mpo=getHamiltonian(sites,Kchain,Umat);
+
+    // Steps at which to snapshot the full state (dt=0.1): t = 0, 0.1, 5, 10, 20.
+    // The first three reproduce the committed reference; t=10 and t=20 extend it
+    // to catch long-time drift between the chain baseline and the FBR run.
+    vector<pair<int,string>> wanted = {
+        {0, "initial"}, {1, "t=0.1"}, {50, "t=5.0"}, {100, "t=10.0"}, {200, "t=20.0"},
+    };
+    int nSteps = wanted.back().first;
+    vector<Snap> snaps;
+
+    // Rewrite the whole file after each snapshot so a run interrupted early (e.g.
+    // killed once the bond dimension gets too large) still leaves a valid file
+    // with every snapshot collected so far.
+    string out = "chain_dyn_siam_center_U" + string(argc>1?argv[1]:"0.2") + "_ref.txt";
+    auto capture = [&](int step, string const& label) {
+        snaps.push_back({label, fbr::getNi(sites, psi), fbr::getCc(sites, psi)});
+        writeReference(out, snaps, L);
+    };
+    // t=0 snapshot: the prepared ground state, before any time evolution.
+    capture(0, "initial");
+
     cout<<"time m n_dw n_dw_bf\n"<<setprecision(12);
-    for(auto i=0;i*dt<L;i++){
+    for(auto i=0;i<nSteps;i++){
         doTdvp(psi,mpo,dt);
+        int step=i+1;
+        int m=itensor::maxLinkDim(psi);
         double n_dw=itensor::expectC(psi,sites,"N",{nBath+nImp/2+1})[0].real();
         double n_dw_bf=itensor::expectC(psi,sites,"N",{nBath+nImp/2+2})[0].real();
-        cout<<(i+1)*dt<<" "<<itensor::maxLinkDim(psi)<<" "<<n_dw<<" "<<n_dw_bf<<endl;
+        cout<<step*dt<<" "<<m<<" "<<n_dw<<" "<<n_dw_bf<<endl;
+        for(auto const& w: wanted)
+            if(w.first==step) capture(step, w.second);
+        if(m>maxBondDim){
+            cout<<"# bond dim "<<m<<" exceeded "<<maxBondDim
+                <<" at t="<<step*dt<<"; stopping and keeping snapshots so far\n";
+            break;
+        }
     }
+
+    cout<<"wrote "<<out<<" with "<<snaps.size()<<" snapshots\n";
     return 0;
 }

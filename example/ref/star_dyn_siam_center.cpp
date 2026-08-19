@@ -4,21 +4,59 @@
 #include <basisextension.h>
 #include <armadillo>
 
+#include <fstream>
 #include <iostream>
 #include <iomanip>
+#include <string>
+#include <utility>
+#include <vector>
 
 using namespace std;
 using namespace arma;
 
-/// return the kinetic energy in star geometry.
+// One measured time slice: occupations and the full one-particle correlation
+// matrix <c_i^dag c_j>, expressed in the ORIGINAL real-space basis (rotated back
+// from the star basis) so it is directly comparable to chain_dyn_siam_center and
+// to Fb_mps_spin::correlator_all().
+struct Snap {
+    string label;
+    arma::vec ni;
+    arma::cx_mat cc;
+};
+
+// Serialize snapshots in the chain_dyn_siam_center_ref_v1 format read by
+// test/test_ref_*.cpp (whitespace-token stream).
+void writeReference(string const& path, vector<Snap> const& snaps, int L)
+{
+    ofstream out(path);
+    out << setprecision(17);
+    out << "chain_dyn_siam_center_ref_v1 L " << L
+        << " snapshots " << snaps.size() << "\n";
+    for (auto const& s : snaps) {
+        out << "snapshot " << s.label << "\n";
+        out << "ni";
+        for (int i = 0; i < L; i++) out << " " << s.ni[i];
+        out << "\n";
+        out << "cc";
+        for (int i = 0; i < L; i++)
+            for (int j = 0; j < L; j++)
+                out << " " << s.cc(i, j).real() << " " << s.cc(i, j).imag();
+        out << "\n";
+    }
+}
+
+/// return the kinetic energy in star geometry and the rotation that produced it.
 /// Layout: [spin-up bath | spin-up imp | spin-down imp | spin-down bath]
 /// For spin-up the impurity is at the right end; for spin-down at the left end.
+/// rot maps star operators back to the original basis: c_i = sum_a rot(i,a) d_a,
+/// so <c_i^dag c_j> = (rot * cc_star * rot^T)(i,j).
 auto computeKstar(mat K, int nImp)
 {
     int L=K.n_rows;
     int nBath=L/2-nImp/2;  // bath sites per spin
 
     mat Kstar(L,L,arma::fill::zeros);
+    mat rot(L,L,fill::eye);
 
     auto pos_up=regspace<uvec>(0,L/2-1);
     auto pos_dw=regspace<uvec>(L/2,L-1);
@@ -47,13 +85,17 @@ auto computeKstar(mat K, int nImp)
                 Kstar(ii,jj)=Kstar(jj,ii)=vk(i,j);
             }
         }
+        rot.cols(pos_bath)=rot.cols(pos_bath).eval()*evec;
     }
 
-    return Kstar;
+    return make_pair(Kstar, rot);
 }
 
 void doTdvp(itensor::MPS &psi, itensor::MPO const mpo, double dt, double tol=1e-12)
 {
+    // Default TdvpParam: its smaller subspace-expansion cutoffs (epsilonM=1e-5,
+    // epsilonK=1e-6) resolve the long-range star-basis correlations better than
+    // the looser expansion the chain reference can afford.
     fbr::TdvpParam args;
     auto sweeps = itensor::Sweeps(1);
     sweeps.maxdim() = args.max_bond_dim;
@@ -102,16 +144,18 @@ itensor::MPO getHamiltonian(itensor::Fermion sites, mat const& K, mat const& Uma
     return itensor::toMPO(h);
 }
 
-int main()
+int main(int argc, char** argv)
 {
     int L=100;
     int nImp=4;
     double dt=0.1;
     int nBath=L/2-nImp/2;  // =4 for L=12, nImp=4
+    double U = argc>1 ? std::stod(argv[1]) : 0.2;   // Hubbard U (default 0.2)
+    int maxBondDim = 1024;   // stop the run (and keep snapshots so far) if exceeded
 
     mat Kstar, Umat; // define the Hamiltonian
+    mat rot;         // star -> original basis rotation
     {
-        double U=0.2;
         double V=0.1;
         arma::mat K(L,L, arma::fill::zeros);
         {
@@ -128,8 +172,9 @@ int main()
         Umat.zeros(nImp,nImp);
         Umat(nImp/2-1,nImp/2)=U;  // Hubbard U between spin-up imp (cluster idx nImp/2-1) and spin-down imp (nImp/2)
 
-        Kstar = computeKstar(K, nImp);
+        std::tie(Kstar, rot) = computeKstar(K, nImp);
     }
+    cx_mat cxrot = conv_to<cx_mat>::from(rot);  // for rotating cc back to original basis
 
     itensor::Fermion sites=itensor::Fermion(L, {"ConserveNf",true});
     itensor::MPS psi;  // should be  bath--|0110|--bath
@@ -152,12 +197,42 @@ int main()
 
     auto mpo=getHamiltonian(sites,Kstar,Umat);
 
-    cout<<"time m n_up n_dw\n"<<setprecision(12);
-    for(auto i=0;i*dt<L;i++){
+    // Snapshot steps (dt=0.1): t = 0, 0.1, 5, 10, 20, matching chain_dyn_siam_center.
+    vector<pair<int,string>> wanted = {
+        {0, "initial"}, {1, "t=0.1"}, {50, "t=5.0"}, {100, "t=10.0"}, {200, "t=20.0"},
+    };
+    int nSteps = wanted.back().first;
+    vector<Snap> snaps;
+
+    // Rewrite the whole file after each snapshot so a run interrupted early (e.g.
+    // killed once the bond dimension gets too large) still leaves a valid file.
+    // Measure in the star basis, then rotate the correlator back to the original
+    // real-space basis: cc_orig = rot * cc_star * rot^T.
+    string out = "star_dyn_siam_center_U" + string(argc>1?argv[1]:"0.2") + "_ref.txt";
+    auto capture = [&](int step, string const& label) {
+        cx_mat cc = cxrot * fbr::getCc(sites, psi) * cxrot.t();
+        snaps.push_back({label, arma::real(cc.diag()), cc});
+        writeReference(out, snaps, L);
+    };
+    capture(0, "initial");  // t=0: prepared initial state, before time evolution
+
+    cout<<"time m n_dw n_dw_bf\n"<<setprecision(12);
+    for(auto i=0;i<nSteps;i++){
         doTdvp(psi,mpo,dt);
+        int step=i+1;
+        int m=itensor::maxLinkDim(psi);
         double n_dw=itensor::expectC(psi,sites,"N",{nBath+nImp/2+1})[0].real();       // spin-down physical imp (1-indexed)
         double n_dw_bf=itensor::expectC(psi,sites,"N",{nBath+nImp/2+2})[0].real();    // spin-down buffer site (1-indexed)
-        cout<<(i+1)*dt<<" "<<itensor::maxLinkDim(psi)<<" "<<n_dw<<" "<<n_dw_bf<<endl;
+        cout<<step*dt<<" "<<m<<" "<<n_dw<<" "<<n_dw_bf<<endl;
+        for(auto const& w: wanted)
+            if(w.first==step) capture(step, w.second);
+        if(m>maxBondDim){
+            cout<<"# bond dim "<<m<<" exceeded "<<maxBondDim
+                <<" at t="<<step*dt<<"; stopping and keeping snapshots so far\n";
+            break;
+        }
     }
+
+    cout<<"wrote "<<out<<" with "<<snaps.size()<<" snapshots\n";
     return 0;
 }
