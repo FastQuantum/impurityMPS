@@ -1,0 +1,39 @@
+# Minimal FetchContent cache recipe
+
+Put this before `FetchContent_Declare()` calls:
+
+```cmake
+include(FetchContent)
+
+set(FETCHCONTENT_BASE_DIR
+    "$ENV{HOME}/.cache/${PROJECT_NAME}/fetchcontent"
+    CACHE PATH
+    "Shared FetchContent cache")
+
+set(FETCHCONTENT_UPDATES_DISCONNECTED ON CACHE BOOL
+    "Do not update FetchContent dependencies automatically")
+```
+
+Then use `FetchContent` normally:
+
+```cmake
+FetchContent_Declare(
+  Catch2
+  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+  GIT_TAG        v3.7.1
+  GIT_SHALLOW    TRUE
+)
+
+FetchContent_MakeAvailable(Catch2)
+```
+
+Default behavior:
+
+- The dependency is downloaded once if missing.
+- Future build directories reuse the same cache.
+- CMake does not check Git remotes for updates.
+- To force a fresh download, delete:
+
+```text
+$HOME/.cache/<project-name>/fetchcontent
+```

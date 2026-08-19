@@ -1,0 +1,500 @@
+#LyX 2.3 created this file. For more info see https://www.lyx.org/
+\lyxformat 544
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures true
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\use_minted 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\is_math_indent 0
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Impurity-only enrichment for the ground state
+\end_layout
+
+\begin_layout Standard
+Partition the single-particle space into
+\begin_inset Formula $I$
+\end_inset
+
+ (impurity),
+\begin_inset Formula $A$
+\end_inset
+
+ (active bath),
+\begin_inset Formula $S$
+\end_inset
+
+ (Slater), with sizes
+\begin_inset Formula $n_{I},n_{A},n_{S}$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Section
+Blocks and state
+\end_layout
+
+\begin_layout Standard
+The one-body matrix in block form:
+\begin_inset Formula \[
+K=\begin{pmatrix} K_{II} & K_{IA} & K_{IS}\\ K_{AI} & K_{AA} & K_{AS}\\ K_{SI} & K_{SA} & K_{SS}\end{pmatrix},\qquad
+B\equiv\begin{pmatrix}K_{AA}&K_{AS}\\ K_{SA}&K_{SS}\end{pmatrix}\ \text{(bath one-body)}.
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Write
+\begin_inset Formula $H=H_{\mathrm{imp}}+V+H_{\mathrm{bath}}$
+\end_inset
+
+ with
+\begin_inset Formula $H_{\mathrm{imp}}$
+\end_inset
+
+ the impurity (
+\begin_inset Formula $K_{II}$
+\end_inset
+
+ plus interaction
+\begin_inset Formula $U$
+\end_inset
+
+),
+\begin_inset Formula $V$
+\end_inset
+
+ the impurity-bath hopping (
+\begin_inset Formula $K_{IA},K_{IS}$
+\end_inset
+
+ and h.c.), and
+\begin_inset Formula $H_{\mathrm{bath}}=\sum_{ab}B_{ab}c_{a}^{\dagger}c_{b}$
+\end_inset
+
+ over
+\begin_inset Formula $a,b\in A\cup S$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+State ansatz: an entangled block on
+\begin_inset Formula $I\cup A$
+\end_inset
+
+ times a Slater determinant on
+\begin_inset Formula $S$
+\end_inset
+
+,
+\begin_inset Formula \[
+|\Psi\rangle=|\mathrm{MPS}\rangle_{I\cup A}\otimes|\Phi\rangle_{S},\qquad
+|\Phi\rangle_{S}=\prod_{\mu=1}^{N_{S}}\Big(\sum_{i\in S}\Phi_{i\mu}\,c_{i}^{\dagger}\Big)|0\rangle,\qquad\Phi^{\dagger}\Phi=\mathbb{1}_{N_{S}},
+\]
+
+\end_inset
+
+so
+\begin_inset Formula $\Phi$
+\end_inset
+
+ is the
+\begin_inset Formula $n_{S}\times N_{S}$
+\end_inset
+
+ matrix of occupied orbitals, columns orthonormal.
+\end_layout
+
+\begin_layout Section
+The split-step
+\end_layout
+
+\begin_layout Standard
+Trotter the imaginary-time step,
+\begin_inset Formula \[
+e^{-H\,d\tau}\;\approx\;\underbrace{e^{-H_{\mathrm{bath}}\,d\tau}}_{\text{single-particle}}\;\cdot\;\underbrace{e^{-(H_{\mathrm{imp}}+\tilde{V})\,d\tau}}_{\text{MPS step}}.
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The second factor is taken in the interaction picture w.r.t.
+
+\begin_inset Formula $B$
+\end_inset
+
+, so
+\begin_inset Formula $B$
+\end_inset
+
+ is
+\series bold
+removed
+\series default
+ from the generator and
+\begin_inset Formula $V$
+\end_inset
+
+ is replaced by its first Magnus-corrected form
+\begin_inset Formula \[
+\tilde{V}=V-\tfrac{d\tau}{2}\,[\,B,V\,]+\mathcal{O}(d\tau^{2}),
+\]
+
+\end_inset
+
+whose impurity
+\begin_inset Formula $\to$
+\end_inset
+
+bath block is, in matrix terms,
+\begin_inset Formula $K_{I,\mathrm{bath}}\big(\mathbb{1}-\tfrac{d\tau}{2}B\big)$
+\end_inset
+
+.
+ This is the imaginary-time analog of the commutator term in the dynamics (there it carried a
+\begin_inset Formula $-i\,d\tau/2$
+\end_inset
+
+; here it is real,
+\begin_inset Formula $-d\tau/2$
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Section
+Why enrichment becomes impurity-only
+\end_layout
+
+\begin_layout Standard
+Enrichment looks at the coupling from the MPS window
+\begin_inset Formula $I\cup A$
+\end_inset
+
+ to the Slater orbitals
+\begin_inset Formula $S$
+\end_inset
+
+, i.e.
+ the SVD of
+\begin_inset Formula \[
+\begin{pmatrix}K_{IS}\\ K_{AS}\end{pmatrix}.
+\]
+
+\end_inset
+
+Removing
+\begin_inset Formula $B$
+\end_inset
+
+ from the MPS generator sets the active-bath row to zero,
+\begin_inset Formula $K_{AS}\to0$
+\end_inset
+
+, leaving only
+\begin_inset Formula $K_{IS}$
+\end_inset
+
+.
+ So
+\begin_inset Formula \[
+\operatorname{rank}\!\begin{pmatrix}K_{IS}\\ K_{AS}\end{pmatrix}=n_{\mathrm{ch}}+\operatorname{rank}(K_{AS})\;\longrightarrow\;\operatorname{rank}(K_{IS})=n_{\mathrm{ch}}.
+\]
+
+\end_inset
+
+That
+\begin_inset Formula $\operatorname{rank}(K_{AS})$
+\end_inset
+
+ is exactly the surplus you pay now and the part that is
+\emph on
+invariant under any rotation of
+\begin_inset Formula $S$
+\end_inset
+
+
+\emph default
+ -- which is why rotating into the bath eigenbasis could never remove it; you have to drop the block, not rotate it.
+\end_layout
+
+\begin_layout Section
+The free-bath step and the QR
+\end_layout
+
+\begin_layout Standard
+The first factor,
+\begin_inset Formula $e^{-H_{\mathrm{bath}}d\tau}$
+\end_inset
+
+, acts on the Slater.
+ Restricted to
+\begin_inset Formula $S$
+\end_inset
+
+ the generator is
+\begin_inset Formula $K_{SS}$
+\end_inset
+
+, and the single-particle propagator is
+\begin_inset Formula \[
+g=e^{-K_{SS}\,d\tau}\qquad(n_{S}\times n_{S},\ \text{symmetric positive, non-unitary}).
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+By Thouless' theorem a one-body exponential maps a Slater determinant to a Slater determinant, with the occupied orbitals transported as
+\begin_inset Formula $\Phi\to\Phi'=g\,\Phi$
+\end_inset
+
+.
+ The problem:
+\begin_inset Formula $\Phi'$
+\end_inset
+
+ is
+\series bold
+no longer orthonormal
+\series default
+,
+\begin_inset Formula \[
+\Phi'^{\dagger}\Phi'=\Phi^{\dagger}g^{\dagger}g\,\Phi=\Phi^{\dagger}e^{-2K_{SS}d\tau}\Phi\neq\mathbb{1}.
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+A determinant is invariant, as a physical ray, under right-multiplication of its orbital matrix by any invertible
+\begin_inset Formula $N_{S}\times N_{S}$
+\end_inset
+
+ matrix
+\begin_inset Formula $M$
+\end_inset
+
+, changing only the scalar prefactor by
+\begin_inset Formula $\det M$
+\end_inset
+
+.
+ So pick
+\begin_inset Formula $M$
+\end_inset
+
+ to re-orthonormalize via a thin QR:
+\begin_inset Formula \[
+\boxed{\;\Phi'=Q\,R,\qquad Q^{\dagger}Q=\mathbb{1}_{N_{S}},\quad R\ \text{upper-triangular}.\;}
+\]
+
+\end_inset
+
+Then the canonical (orthonormal-orbital) representative of the
+\emph on
+same
+\emph default
+ state is
+\begin_inset Formula $Q=\Phi'R^{-1}$
+\end_inset
+
+, and the weight is carried by
+\begin_inset Formula $R$
+\end_inset
+
+:
+\begin_inset Formula \[
+|\Phi'\rangle=\det(R)\,|Q\rangle,\qquad\langle\Phi'|\Phi'\rangle=|\det R|^{2}.
+\]
+
+\end_inset
+
+So
+\begin_inset Formula $Q$
+\end_inset
+
+ feeds back as the new Slater orbitals, and
+\begin_inset Formula $\det R$
+\end_inset
+
+ is the imaginary-time weight folded into the energy/normalization.
+ Because
+\begin_inset Formula $g$
+\end_inset
+
+ is a contraction,
+\begin_inset Formula $|\det R|<1$
+\end_inset
+
+ and the occupied modes drift toward the bottom of the bath spectrum -- i.e.
+ occupations driven to
+\begin_inset Formula $0/1$
+\end_inset
+
+, which is exactly what makes those orbitals demote cleanly out of the active region.
+\end_layout
+
+\begin_layout Section
+Why this QR is invisible in real time
+\end_layout
+
+\begin_layout Standard
+For the dynamics the same step has
+\begin_inset Formula $g=e^{-iK_{SS}dt}$
+\end_inset
+
+,
+\series bold
+unitary
+\series default
+.
+ Then
+\begin_inset Formula \[
+\Phi'^{\dagger}\Phi'=\Phi^{\dagger}g^{\dagger}g\,\Phi=\Phi^{\dagger}\Phi=\mathbb{1},
+\]
+
+\end_inset
+
+so
+\begin_inset Formula $\Phi'$
+\end_inset
+
+ is already orthonormal: the QR returns
+\begin_inset Formula $Q=\Phi'$
+\end_inset
+
+,
+\begin_inset Formula $R=$
+\end_inset
+
+ diagonal phases.
+ No re-orthonormalization,
+\begin_inset Formula $|\det R|=1$
+\end_inset
+
+ -- the orbitals merely pick up phases.
+ In imaginary time the phase becomes a real damping,
+\begin_inset Formula $R$
+\end_inset
+
+ becomes nontrivially triangular, and the QR is the price of non-unitarity: one
+\begin_inset Formula $n_{S}\times N_{S}$
+\end_inset
+
+ factorization per step, entirely at the single-particle level, never touching the MPS bond dimension.
+\end_layout
+
+\begin_layout Standard
+In the bath eigenbasis
+\begin_inset Formula $K_{SS}=\operatorname{diag}(\varepsilon)$
+\end_inset
+
+ the whole thing is diagonal:
+\begin_inset Formula $g=\operatorname{diag}(e^{-\varepsilon d\tau})$
+\end_inset
+
+, and if
+\begin_inset Formula $\Phi$
+\end_inset
+
+ already occupies the lowest modes,
+\begin_inset Formula $\Phi'=g\Phi$
+\end_inset
+
+ is orthonormal up to per-column scalars --
+\begin_inset Formula $R$
+\end_inset
+
+ is diagonal and the QR collapses to a rescaling.
+ That is the cheapest realization of the idea, and it is exactly where ``rotate to the bath eigenbasis in between'' pays off: not to kill
+\begin_inset Formula $K_{AS}$
+\end_inset
+
+ (impossible by rotation), but to make this free-bath step trivially diagonal.
+\end_layout
+
+\end_body
+\end_document
