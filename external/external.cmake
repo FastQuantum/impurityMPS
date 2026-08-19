@@ -1,5 +1,11 @@
 include(FetchContent)
 
+# Keep downloaded dependency sources in a shared cache outside the build tree so
+# they are not re-downloaded every time a build directory is deleted/recreated.
+if(NOT DEFINED FETCHCONTENT_BASE_DIR)
+  set(FETCHCONTENT_BASE_DIR "$ENV{HOME}/.cache/${PROJECT_NAME}/fetchcontent")
+endif()
+
 FetchContent_Declare(
   armadillo
   GIT_REPOSITORY https://gitlab.com/conradsnicta/armadillo-code.git
