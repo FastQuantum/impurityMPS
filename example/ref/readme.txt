@@ -27,12 +27,11 @@ Pure-ITensor programs (raw itensor::MPS, no few-body state classes)
     eigenmodes). computeKstar also returns the rotation, so the correlator is
     rotated back to the original real-space basis before being written to
         output/star_dyn_siam_center_U<U>_ref.txt
-    in the same format and at the same times as the chain program. Because the
-    impurity couples to *all* bath eigenmodes (long-range), this basis is less
-    MPS-friendly; with the default TdvpParam it tracks the chain baseline to
-    ~1e-3-1e-2, so it is used in the tests as a looser cross-check. (The default
-    TdvpParam matters: its smaller subspace-expansion cutoffs resolve the
-    long-range correlations better than the looser expansion the chain can afford.)
+    in the same format and at the same times as the chain program. The impurity
+    couples to all bath eigenmodes (long-range), so the subspace expansion must be
+    resolved well: with epsilonM=1e-7, epsilonK=1e-8 it tracks the chain baseline
+    to ~3e-5 (as tight as FBR-vs-chain). Kept as a record only, not used in the
+    tests. (Coarser expansion cutoffs give a much worse ~1e-2 agreement.)
 
 - star_dyn_siam_center_ip.cpp
     Star geometry in the interaction picture of the bath: the bath phases are

@@ -93,10 +93,8 @@ auto computeKstar(mat K, int nImp)
 
 void doTdvp(itensor::MPS &psi, itensor::MPO const mpo, double dt, double tol=1e-12)
 {
-    // Default TdvpParam: its smaller subspace-expansion cutoffs (epsilonM=1e-5,
-    // epsilonK=1e-6) resolve the long-range star-basis correlations better than
-    // the looser expansion the chain reference can afford.
-    fbr::TdvpParam args;
+    // Small subspace-expansion cutoffs to resolve the star-basis correlations.
+    fbr::TdvpParam args{.err_goal=1e-8, .epsilonM=1e-7, .nKrylov=15, .epsilonK=1e-8};
     auto sweeps = itensor::Sweeps(1);
     sweeps.maxdim() = args.max_bond_dim;
     sweeps.cutoff() = tol;

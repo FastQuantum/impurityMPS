@@ -2,12 +2,10 @@
 
 ## Tests / references
 
-- [ ] **Improve star_vs_chain precision.** The star baseline
-  (`example/ref/star_dyn_siam_center.cpp`) tracks the chain baseline only to
-  ~1e-2 (peak near t=10; see `example/ref/output/star_vs_chain.txt`). Likely the
-  |energy|-sorted star bath makes the impurity couple to all modes (long-range,
-  MPS-unfriendly). Worth trying a more local bath ordering before concluding it
-  is an inherent limit of the naive star geometry.
+- [x] **Improve star_vs_chain precision.** Done: it was the TDVP subspace
+  expansion, not the ordering. With epsilonM=1e-7, epsilonK=1e-8 the star baseline
+  now tracks chain to ~3e-5 (see `example/ref/output/star_vs_chain.txt`), on par
+  with FBR-vs-chain.
 
 - [ ] **Use the default `TdvpParam` in the ref tests.** `test/test_ref_*.cpp`
   currently pass per-variant `iterate({...})` overrides. Switch them to the
