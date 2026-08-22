@@ -29,9 +29,18 @@ Pure-ITensor programs (raw itensor::MPS, no few-body state classes)
         output/star_dyn_siam_center_U<U>_ref.txt
     in the same format and at the same times as the chain program. The impurity
     couples to all bath eigenmodes (long-range), so the subspace expansion must be
-    resolved well: with epsilonM=1e-7, epsilonK=1e-8 it tracks the chain baseline
-    to ~3e-5 (as tight as FBR-vs-chain). Kept as a record only, not used in the
-    tests. (Coarser expansion cutoffs give a much worse ~1e-2 agreement.)
+    resolved well. TDVP params were tuned (star_dyn_tune.cpp) to match the earlier
+    overkill run (nKrylov=15, err_goal=1e-8, epsilonM=1e-7, epsilonK=1e-8) at
+    minimum cost. Findings, at U=0.2:
+      - nKrylov is the cheap knob: 15 -> 2 cuts runtime ~4x, leaves t=20 unchanged
+        (dcc 1.09e-3 vs 1.10e-3) and t<=10 within the same order (~5e-5 vs ~3e-5).
+      - err_goal and epsilonM/epsilonK are sensitive: err_goal 1e-8 -> 1e-7 is fine
+        (dcc 6.4e-5 at t=5) but 1e-6 breaks (4.9e-4); the expansion cutoffs tolerate
+        ~3x loosening (6.7e-5) but 10x breaks (8.8e-4).
+    The program now uses the tuned set nKrylov=2, err_goal=1e-7, epsilonM=3e-7,
+    epsilonK=3e-8, which tracks the chain baseline as well as the overkill run.
+    Kept as a record only, not used in the tests. (Much coarser expansion cutoffs
+    give a ~1e-2 agreement.)
 
 - star_dyn_siam_center_ip.cpp
     Star geometry in the interaction picture of the bath: the bath phases are

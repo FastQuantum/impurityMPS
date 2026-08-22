@@ -18,11 +18,17 @@ struct TdvpParam {
     int max_bond_dim=1024;  ///< Maximum MPS bond dimension during the TDVP sweep.
     double noise=0;         ///< ITensor sweep noise term.
     int nIter_diag=16;      ///< Krylov iterations used to apply exp(-i * Heff * dt) locally.
-    double err_goal=1e-6;   ///< TDVP local evolution error goal.
+    double err_goal=1e-7;   ///< TDVP local evolution error goal.
     // --- addBasis (global subspace expansion) parameters ---
-    double epsilonM=1e-5;   ///< addBasis density-matrix cutoff; set to 0 to skip basis expansion.
-    int nKrylov=3;          ///< Krylov order of the addBasis global subspace expansion
-    double epsilonK=1e-6;   ///< add basis cutoff for each Krylov-vector
+    // Defaults tuned on the star-geometry SIAM benchmark (example/ref/star_dyn_tune.cpp):
+    // this set tracks the chain baseline as tightly as the old overkill
+    // (nKrylov=15, err_goal=1e-8, epsilonM=1e-7, epsilonK=1e-8) at ~4x less cost.
+    // nKrylov is the cheap knob (15->2 is free); err_goal and the two epsilon cutoffs
+    // are sensitive (~1 order of loosening is the safe limit). FBR callers set
+    // epsilonM=0 to skip the expansion entirely, so nKrylov/epsilonK are inert there.
+    double epsilonM=3e-7;   ///< addBasis density-matrix cutoff; set to 0 to skip basis expansion.
+    int nKrylov=2;          ///< Krylov order of the addBasis global subspace expansion
+    double epsilonK=3e-8;   ///< add basis cutoff for each Krylov-vector
 };
 
 inline arma::cx_mat getCc(itensor::Fermion const& sites, itensor::MPS const& psi)

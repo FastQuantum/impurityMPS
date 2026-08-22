@@ -6,6 +6,8 @@ list(APPEND ref_SRC
     star_dyn_siam_spin.cpp
     star_dyn_siam_center_ip.cpp
     star_dyn_siam_center_ipc.cpp
+    star_dyn_tune.cpp
+    fbr_dyn_tune.cpp
 )
 
 foreach (src ${ref_SRC})

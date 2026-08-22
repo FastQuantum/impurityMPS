@@ -105,7 +105,12 @@ TEST_CASE( "spin" )
 
 TEST_CASE( "GivensRotation real" )
 {
+    arma::arma_rng::set_seed(42);  // deterministic v, independent of test order
     double tol=1e-14;
+    // The ilogMatrix -> expmat round-trip goes through an eigendecomposition, whose
+    // reconstruction error reaches ~1e-11 for unlucky angles (measured over 2e6 draws),
+    // so it needs a looser bound than the exact algebraic checks. A real bug is O(1).
+    double tolExp=1e-9;
     vec v(2, fill::randu);
     auto g=GivensRot<>::createFromPair(0, v[0], v[1], true);
 
@@ -119,7 +124,7 @@ TEST_CASE( "GivensRotation real" )
     SECTION("ilogmat")
     {
         cx_mat h=g.ilogMatrix();
-        REQUIRE(norm(g.matrix()-expmat(h*cmpx(0,-1)))<tol);
+        REQUIRE(norm(g.matrix()-expmat(h*cmpx(0,-1)))<tolExp);
         REQUIRE(norm(h-h.t())<tol);
     }
 
@@ -165,7 +170,9 @@ TEST_CASE( "GivensRotation real" )
 
 TEST_CASE( "GivensRotation complex" )
 {
+    arma::arma_rng::set_seed(42);  // deterministic v, independent of test order
     double tol=1e-14;
+    double tolExp=1e-9;  // eig-based ilogMatrix round-trip; see "GivensRotation real"
     cx_vec v(2, fill::randu);
     auto g=GivensRot<cmpx>::createFromPair(0, v[0], v[1], true);
 
@@ -180,7 +187,7 @@ TEST_CASE( "GivensRotation complex" )
     {
         cx_mat h=g.ilogMatrix();
         REQUIRE(norm(h-h.t())<tol);
-        REQUIRE(norm(g.matrix()-expIH(h))<tol);
+        REQUIRE(norm(g.matrix()-expIH(h))<tolExp);
     }
 
     SECTION("3d case")
@@ -227,7 +234,9 @@ TEST_CASE( "GivensRotation complex" )
 
 TEST_CASE( "GivensRotation complex left" )
 {
+    arma::arma_rng::set_seed(42);  // deterministic v, independent of test order
     double tol=1e-14;
+    double tolExp=1e-9;  // eig-based ilogMatrix round-trip; see "GivensRotation real"
     cx_vec v(2, fill::randu);
     auto g=GivensRot<cmpx>::createFromPair(0, v[0], v[1], false);
 
@@ -242,7 +251,7 @@ TEST_CASE( "GivensRotation complex left" )
     {
         cx_mat h=g.ilogMatrix();
         REQUIRE(norm(h-h.t())<tol);
-        REQUIRE(norm(g.matrix()-expIH(h))<tol);
+        REQUIRE(norm(g.matrix()-expIH(h))<tolExp);
     }
 
     SECTION("3d case")

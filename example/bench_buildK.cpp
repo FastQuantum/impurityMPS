@@ -48,7 +48,7 @@ static double ms_since(clock_t_::time_point t0)
 int main()
 {
     double dt = 0.1;
-    TdvpParam args{.nIter_diag = 6, .err_goal = 1e-8, .epsilonM = 0, .nKrylov = 10};
+    TdvpParam args{.nIter_diag = 6, .epsilonM = 0};  // epsilonM=0 -> no expansion; nKrylov inert
 
     std::printf("%8s %14s %14s %14s\n", "L", "buildK_ms", "iterate_ms", "iterate/L^2");
     std::printf("%8s %14s %14s %14s\n", "----", "--------", "----------", "-----------");

@@ -66,7 +66,10 @@ TrajResult const &resultFor(double U, std::string const &us)
     auto fbr = makeFbrRun(L, dt, U);
     auto p = fbrIndexToChainIndex(L);
     auto iter = [](Fbr_dyn_spin &f) {
-        f.iterate({.nIter_diag = 8, .err_goal = 1e-8, .epsilonM = 0e-8, .nKrylov = 15});
+        // FBR: epsilonM=0 skips the subspace expansion, so nKrylov/epsilonK are
+        // inert and err_goal (default 1e-7) is the only TDVP knob; FBR is insensitive
+        // to it (identical to 1e-8, tolerant to 1e-6). See example/ref/fbr_dyn_tune.cpp.
+        f.iterate({.nIter_diag = 8, .epsilonM = 0});
     };
     auto corr = [](Fbr_dyn_spin &f) { return f.correlator_all(); };
 
