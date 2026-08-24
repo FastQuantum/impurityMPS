@@ -79,15 +79,21 @@ struct Fbr_dyn_spin_block {
         K = rot.t() * Kip0 * rot;
         nIter++;
 
-        extract_representative(0);
-        extract_representative(1);
-        extract_representative_final();
+        applyPlan(fb.planRepresentative(K,0));
+        applyPlan(fb.planRepresentative(K,1));
+        applyPlan(fb.planActiveRepresentative(K));
         doTdvp(args);
-        rotateToNaturalOrbitals();
+        applyPlan(fb.planNaturalOrbitals(fb.cc));
     }
 
-    void extract_representative(int nRef) { fb.extract_representative(K, nRef, /*use_active=*/false); }
-    void extract_representative_final()   { fb.extract_representative_final(K); }
+    void extract_representative(int nRef) { applyPlan(fb.planRepresentative(K,nRef)); }
+    void extract_representative_final()   { applyPlan(fb.planActiveRepresentative(K)); }
+
+    void applyPlan(OrbitalUpdate<cmpx> const& update)
+    {
+        update.applyAsBasis(K);
+        fb.applyUpdate(update);
+    }
 
     void doTdvp(TdvpParam args={})
     {
@@ -124,10 +130,7 @@ struct Fbr_dyn_spin_block {
 
     void rotateToNaturalOrbitals()
     {
-        auto [a, b] = fb.interval_active_full();
-        auto rot1 = fb.rotateToNaturalOrbitals();
-        K.cols(a, b-1) = K.cols(a, b-1).eval() * rot1;
-        K.rows(a, b-1) = rot1.t() * K.rows(a, b-1).eval();
+        applyPlan(fb.planNaturalOrbitals(fb.cc));
     }
 
     /// Effective MPS->real rotation in the Schrödinger picture.

@@ -27,11 +27,18 @@ struct Fbr_gs_spin {
         extract_representative(0);
         extract_representative(1);
         doDmrg(args);
-        rotateToNaturalOrbitals();
+        applyPlan(fb.planNaturalOrbitals(fb.cc));
     }
 
     /// extract representative orbital of the sites with ni=nRef where nRef can be 0 or 1
     void extract_representative(int nRef){ fb.extract_representative(K,nRef,/*use_active=*/true); }
+
+    void applyPlan(OrbitalUpdate<double> const& update)
+    {
+        update.applyAsBasis(K);
+        Fb_mps_spin<double>::ensure_reflection_mat(K);
+        fb.applyUpdate(update);
+    }
 
     void doDmrg(DmrgParam args={})
     {
@@ -50,10 +57,7 @@ struct Fbr_gs_spin {
 
     void rotateToNaturalOrbitals()
     {
-        auto [a,b]=fb.interval_active_full(); // the interval will change
-        auto rot1=fb.rotateToNaturalOrbitals();
-        K.cols(a,b-1)=K.cols(a,b-1).eval()*rot1;
-        K.rows(a,b-1)=rot1.t()*K.rows(a,b-1).eval();
+        applyPlan(fb.planNaturalOrbitals(fb.cc));
     }
 
     /// return the mpo of the Hamiltoninan given by himp and the kinetic energy kin

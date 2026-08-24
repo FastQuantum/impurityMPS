@@ -3,6 +3,7 @@
 
 #include "givens_rotation.h"
 #include "itensor_utils.h"
+#include "orbital_update.h"
 
 #include <armadillo>
 #include <itensor/all.h>
@@ -51,90 +52,146 @@ struct Fb_mps
         return fb;
     }
 
-    void extract_representative(arma::Mat<T>& K, int nRef) { extract_representative(K,nRef,nActive); }
-
-    /// extract representative orbitals of the sites with ni=nRef where nRef can be 0 or 1,
-    /// @param start is the first site to consider
-    /// Return the Givens rotations used.
-    void extract_representative(arma::Mat<T>& K, int nRef, int nRows)
+    OrbitalUpdate<T> planRepresentative(arma::Mat<T> const& K,int nRef) const
     {
-        // 1. find the orbitals with the occupation nref
-        auto ni_bath=arma::vec( arma::real( cc.diag().eval().rows(nActive, cc.n_rows-1) ) );
-        arma::vec delta_n_bath=arma::abs(ni_bath-nRef);
-        arma::uvec pos0=arma::find(delta_n_bath<0.5).eval()+nActive ;
-        if (pos0.empty()) { std::cout<<"warning: no Slater?\n"; /*return {};*/ }
-
-        // 2. find the Givens rotations for them
-        auto k12 = K.head_rows(nRows).eval().cols(pos0).eval();
-        arma::vec s;
-        arma::Mat<T> U, V;
-        my_svd(U,s,V, k12, spin);
-        int nSv=arma::find(s>tol*s[0]).eval().size();
-        auto givens=GivensRotForRot_left(V.head_cols(nSv).eval());
-        GivensDaggerInPlace(givens);
-
-        // arma::Mat<T> rot1=matrot_from_Givens(givens, k12.n_cols)/*.st()*/;
-        // K.cols(pos0)=K.cols(pos0).eval()*rot1;
-        // K.rows(pos0)=rot1.t()*K.rows(pos0).eval();
-        // rot.cols(pos0)=rot.cols(pos0)*rot1;
-
-        // 3. rotate K and cc
-        auto Kcol=K.cols(pos0).eval();
-        applyGivens(Kcol,givens);
-        K.cols(pos0)=Kcol;
-        {
-            arma::inplace_trans(K);
-            auto Kcol=K.cols(pos0).eval();
-            applyGivens(Kcol,givens);
-            K.cols(pos0)=Kcol;
-            arma::inplace_trans(K);
-        }
-        auto Rcol=rot.cols(pos0).eval();
-        applyGivens(Rcol,givens);
-        rot.cols(pos0)=Rcol;
-
-        // no need to update cc
-        // 4. move the nSv representative orbitals to the beginning of the Slater
-        for(auto i=0; i<nSv; i++) {
-            SlaterWaveFunctionSwap (nActive,pos0.at(i));
-            K.swap_cols(nActive,pos0.at(i));
-            K.swap_rows(nActive,pos0.at(i));
-            rot.swap_cols(nActive,pos0.at(i));            
-            cc.swap_cols(nActive,pos0.at(i));
-            cc.swap_rows(nActive,pos0.at(i));
-            nActive++;
-        }
-        //return givens; // TODO: wrong, we need to add swap gates
+        return planRepresentative(K,nRef,imp_size);
     }
 
-    void extract_representative_final(arma::Mat<T>& K, int start, int end )
+    OrbitalUpdate<T> planRepresentative(arma::Mat<T> const& K,int nRef,int nRows) const
     {
-        // 1. find the interval for the transformation
-        int p1=start;  // first position
-        int p2=end-1;  // last position
+        OrbitalUpdate<T> update(0,nActive);
+        if (nActive>=(int)cc.n_rows) return update;
 
-        // 2. find the Givens rotations
-        arma::Mat<T> k12=K.submat(0,p1,p1-1,p2);
-        arma::vec s;
-        arma::Mat<T> U, V;
-        my_svd(U,s,V,k12,spin);
-        int nSv=arma::find(s>tol*s[0]).eval().size();  // it should be nSv==nChannel
+        arma::vec ni=arma::real(cc.diag()).eval().rows(nActive,cc.n_rows-1);
+        arma::uvec positions=arma::find(arma::abs(ni-nRef)<0.5).eval()+nActive;
+        if (positions.empty()) return update;
+
+        auto k12=K.head_rows(nRows).eval().cols(positions).eval();
+        arma::vec singular_values;
+        arma::Mat<T> U,V;
+        my_svd(U,singular_values,V,k12,spin);
+        if (singular_values.empty() || singular_values[0]==0) return update;
+
+        int nSv=(int)arma::find(singular_values>tol*singular_values[0]).eval().size();
         auto givens=GivensRotForRot_left(V.head_cols(nSv).eval());
         GivensDaggerInPlace(givens);
+        update.append(positions,givens);
+        for (int i=0; i<nSv; ++i)
+            update.gates.emplace_back(nActive+i,(int)positions[i]);
+        update.active={0,nActive+nSv};
+        return update;
+    }
 
-        // 3. update K, rot and cc
-        arma::Mat<T> rot1=matrot_from_Givens(givens, k12.n_cols)/*.st()*/;
-        K.cols(p1,p2)=K.cols(p1,p2).eval()*rot1;
-        K.rows(p1,p2)=rot1.t()*K.rows(p1,p2).eval();
-        rot.cols(p1,p2)=rot.cols(p1,p2)*rot1;
-        cc.cols(p1,p2)=cc.cols(p1,p2).eval()*rot1.st().t();
-        cc.rows(p1,p2)=rot1.st()*cc.rows(p1,p2).eval();
-        // do not update nActive
+    OrbitalUpdate<T> planActiveRepresentative(arma::Mat<T> const& K) const
+    {
+        return planActiveRepresentative(K,imp_size,nActive);
+    }
 
-        // 4. update the mps
-        for(auto& g:givens) g.b+=p1;
-        auto gates=NOGates(sites, GivensTranspose(givens));
-        gateTEvol(gates,1,1,psi,{"Cutoff",tol,"Quiet",true, "Normalize",false,"ShowPercent",false});
+    OrbitalUpdate<T> planActiveRepresentative(arma::Mat<T> const& K,
+                                               int start,int end) const
+    {
+        OrbitalUpdate<T> update(0,nActive);
+        if (start>=end) return update;
+
+        arma::Mat<T> k12=K.submat(0,start,start-1,end-1);
+        arma::vec singular_values;
+        arma::Mat<T> U,V;
+        my_svd(U,singular_values,V,k12,spin);
+        if (singular_values.empty() || singular_values[0]==0) return update;
+
+        int nSv=(int)arma::find(singular_values>tol*singular_values[0]).eval().size();
+        auto givens=GivensRotForRot_left(V.head_cols(nSv).eval());
+        GivensDaggerInPlace(givens);
+        update.append(arma::regspace<arma::uvec>(start,end-1),givens);
+        return update;
+    }
+
+    OrbitalUpdate<T> planNaturalOrbitals(arma::Mat<T> const& cc_source) const
+    {
+        return planNaturalOrbitals(cc_source,imp_size);
+    }
+
+    OrbitalUpdate<T> planNaturalOrbitals(arma::Mat<T> const& cc_source,int start) const
+    {
+        OrbitalUpdate<T> update(0,nActive);
+        if (start>=nActive) return update;
+
+        auto cc_block=cc_source.submat(start,start,nActive-1,nActive-1).eval();
+        arma::vec occupations;
+        arma::Mat<T> orbitals;
+        my_eig_sym(occupations,orbitals,cc_block,spin);
+        arma::vec activity=occupations;
+        for (auto& x : activity) x=std::min(x,1-x);
+        arma::uvec order=my_sort_index(activity,spin);
+        auto givens=GivensRotForRot_right(orbitals.cols(order).eval());
+        for (auto& g : givens) g.b+=start;
+
+        update.append(arma::regspace<arma::uvec>(0,nActive-1),
+                      GivensTranspose(givens));
+
+        arma::Mat<T> rotated_cc=cc_source;
+        for (auto const& gate : update.gates)
+            gate.applyAsCorrelator(rotated_cc);
+        arma::vec ni=arma::real(rotated_cc.diag()).eval().rows(start,rotated_cc.n_rows-1);
+        arma::uvec active=arma::find(ni>tol && ni<1-tol).eval();
+        update.active={0,active.empty() ? start+1 : (int)active.back()+1+start};
+        return update;
+    }
+
+    void applyUpdate(OrbitalUpdate<T> const& update)
+    {
+        std::vector<GivensRot<T>> circuit;
+        auto flushCircuit=[&]() {
+            auto gates=NOGates(sites,circuit);
+            if (!gates.empty())
+                itensor::gateTEvol(gates,1,1,psi,
+                                   {"Cutoff",tol,"Quiet",true,"Normalize",false,"ShowPercent",false});
+            circuit.clear();
+        };
+
+        for (auto const& gate : update.gates) {
+            if (gate.swap) {
+                flushCircuit();
+                SlaterWaveFunctionSwap(gate.a,gate.b);
+            }
+            else {
+                bool a_active=gate.a<nActive;
+                bool b_active=gate.b<nActive;
+                if (a_active!=b_active)
+                    throw std::logic_error("orbital rotation crosses the active boundary");
+                if (a_active) {
+                    if (gate.b!=gate.a+1)
+                        throw std::logic_error("active orbital rotation is not nearest-neighbor");
+                    circuit.push_back(gate.givens(gate.a).transpose());
+                }
+            }
+            gate.applyAsFrame(rot);
+            gate.applyAsCorrelator(cc);
+        }
+        flushCircuit();
+        nActive=update.active.second;
+    }
+
+    // Compatibility wrappers for the previous mutating API.
+    void extract_representative(arma::Mat<T>& K,int nRef)
+    {
+        auto update=planRepresentative(K,nRef,nActive);
+        update.applyAsBasis(K);
+        applyUpdate(update);
+    }
+
+    void extract_representative(arma::Mat<T>& K,int nRef,int nRows)
+    {
+        auto update=planRepresentative(K,nRef,nRows);
+        update.applyAsBasis(K);
+        applyUpdate(update);
+    }
+
+    void extract_representative_final(arma::Mat<T>& K,int start,int end)
+    {
+        auto update=planActiveRepresentative(K,start,end);
+        update.applyAsBasis(K);
+        applyUpdate(update);
     }
 
     /// update the cc in the active sector using the psi
@@ -159,33 +216,13 @@ struct Fb_mps
     /// @return the rotation Q applied: ci=Qij*dj (where ci are the old orbitals)
     arma::Mat<T> rotateToNaturalOrbitals(int start)
     {
-        auto cc1 = arma::Mat<T>( cc.submat(start,start,nActive-1, nActive-1).eval() );
-        std::vector<GivensRot<T>> givens;
-        { // find the Givens
-            arma::vec eval;
-            arma::Mat<T> evec;
-            my_eig_sym(eval,evec,cc1,spin);
-            arma::vec activity=eval;
-            for(auto &x : activity) x=std::min(x,1-x);
-            arma::uvec iek=my_sort_index(activity,spin);
-            arma::Mat<T> rotation=evec.cols(iek);
-            givens=GivensRotForRot_right(rotation);
-        }
-        if (!givens.empty()) {
-            for(auto& g:givens) g.b+=start;
-            auto gates=NOGates(sites,givens);
-            itensor::gateTEvol(gates,1,1,psi,{"Cutoff",tol/*,"MaxDim",512*/,"Quiet",true, "Normalize",false,"ShowPercent",false});
-        }        
-
-        auto rot1=matrot_from_Givens(givens,nActive);
-        rot.cols(0,nActive-1)=rot.cols(0,nActive-1).eval()*rot1.st();
-        cc.cols(0,nActive-1)=cc.cols(0,nActive-1).eval()*rot1.t();
-        cc.rows(0,nActive-1)=rot1*cc.rows(0,nActive-1).eval();
-        auto ni_bath = arma::vec( arma::real(cc.diag()).eval().rows(start,cc.n_rows-1).eval() );
-        arma::uvec pos_active=arma::find(ni_bath>tol && ni_bath<1-tol).eval();
-        int nActive_new= pos_active.empty() ? start+1 : pos_active.back()+1+start;
-        nActive=nActive_new;
-        return rot1.st();
+        int old_active=nActive;
+        auto update=planNaturalOrbitals(cc,start);
+        arma::Mat<T> frame(old_active,old_active,arma::fill::eye);
+        for (auto const& gate : update.gates)
+            gate.applyAsFrame(frame);
+        applyUpdate(update);
+        return frame;
     }
 
     /// Map a real-space site i to the MPS orbital index a (0-based) that carries it.
@@ -302,5 +339,3 @@ private:
 } // namespace fbr
 
 #endif // FBR_FB_MPS_H
-
-

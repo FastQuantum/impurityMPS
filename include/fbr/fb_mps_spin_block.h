@@ -80,150 +80,130 @@ struct Fb_mps_spin_block
 
     Fb_mps_spin_block<cmpx> to_complex() const { return *this; }
 
-    /// Promote bath orbitals with occupation ~nRef into the active window, processing
-    /// each spin block independently.  p1 and p2 are updated independently per spin.
-    void extract_representative(arma::Mat<T>& K, int nRef, bool use_active)
+    OrbitalUpdate<T> planRepresentative(arma::Mat<T> const& K,int nRef) const
     {
-        struct PerSpin {
-            arma::uvec pos0;
-            std::vector<GivensRot<T>> givens;
-            arma::Mat<T> rot_block;
-            int nSv_use = 0;
-        };
-
-        arma::vec ni = occupations_ni();
-
-        auto compute = [&](Spin spin) -> PerSpin {
-            PerSpin r;
-            auto [a_s, b_s] = interval_slater(spin);
-            if (a_s >= b_s) return r;
-            arma::vec ni_slater = ni.rows(a_s, b_s-1);
-            arma::vec delta = arma::abs(ni_slater - nRef);
-            r.pos0 = arma::find(delta < 0.5).eval() + a_s;
-            if (r.pos0.empty()) return r;
-
-            auto [a, b] = use_active ? interval_active(spin) : interval_impurity(spin);
-            arma::Mat<T> k12 = K.rows(a, b-1).eval().cols(r.pos0).eval();
-            arma::vec s;
-            arma::Mat<T> U, V;
-            arma::svd_econ(U, s, V, k12);
-            r.nSv_use = (this->nSv >= 0)
-                          ? std::min<int>(this->nSv, (int)V.n_cols)
-                          : (int)arma::find(s > tol*s[0]).eval().size();
-            if (r.nSv_use <= 0) return r;
-            arma::Mat<T> V_eff = V.head_cols(r.nSv_use);
-            r.givens = (spin == dw) ? GivensRotForRot_left(V_eff)
-                                    : GivensRotForRot_right(V_eff);
-            GivensDaggerInPlace(r.givens);
-            r.rot_block = matrot_from_Givens(r.givens, k12.n_cols);
-            return r;
-        };
-
-        PerSpin du = compute(up);
-        PerSpin dd = compute(dw);
-
-        if (du.pos0.empty() && dd.pos0.empty()) return;
-
-        // 3. apply per-spin rotation to K, rot (cc is unchanged because pos0 lie in slater,
-        //    where cc is diagonal == nRef on those entries)
-        auto apply_rot = [&](PerSpin const& d) {
-            if (d.pos0.empty() || d.givens.empty()) return;
-            arma::Mat<T> rot1(length(), length(), arma::fill::eye);
-            rot1(d.pos0, d.pos0) = d.rot_block;
-            K = rot1.t() * K * rot1;
-            rot = rot * rot1;
-        };
-        apply_rot(du);
-        apply_rot(dd);
-
-        // 4. promote each spin's orbitals independently — p1 and p2 evolve separately.
-        auto promote = [&](Spin spin, PerSpin const& d) {
-            int n = std::min<int>(d.nSv_use, (int)d.pos0.size());
-            for (int i = 0; i < n; i++) {
-                auto [a, b] = interval_active_full();
-                int i1, i2;
-                if (spin == dw) {
-                    i1 = b;
-                    i2 = d.pos0[i];
-                } else {
-                    i1 = a - 1;
-                    i2 = d.pos0[d.pos0.size() - 1 - i];
-                }
-                if (i1 != i2) {
-                    SlaterWaveFunctionSwap(i1, i2);
-                    K.swap_cols(i1, i2);
-                    K.swap_rows(i1, i2);
-                    rot.swap_cols(i1, i2);
-                    cc.swap_cols(i1, i2);
-                    cc.swap_rows(i1, i2);
-                }
-                if (spin == dw) p2++; else p1--;
-            }
-        };
-        promote(up, du);
-        promote(dw, dd);
+        return planRepresentativeFrom(K,nRef,interval_impurity(up),interval_impurity(dw));
     }
 
-    /// Rotate each spin's rotating interval to concentrate the impurity-bath
-    /// coupling at the leading positions next to the impurity.
+    OrbitalUpdate<T> planActiveRepresentative(arma::Mat<T> const& K) const
+    {
+        OrbitalUpdate<T> update(p1,p2);
+        for (Spin spin : {up,dw}) {
+            auto [a,b]=interval_rotating(spin);
+            if (a>=b) continue;
+            auto [a_imp,b_imp]=interval_impurity(spin);
+            arma::Mat<T> k12=K.rows(a_imp,b_imp-1).eval().cols(a,b-1);
+            arma::vec singular_values;
+            arma::Mat<T> U,V;
+            arma::svd_econ(U,singular_values,V,k12);
+            if (singular_values.empty()) continue;
+            int n=(nSv>=0)
+                    ? std::min<int>(nSv,(int)V.n_cols)
+                    : (int)arma::find(singular_values>tol*singular_values[0]).eval().size();
+            if (n<=0) continue;
+            auto givens=(spin==dw)
+                          ? GivensRotForRot_left(V.head_cols(n).eval())
+                          : GivensRotForRot_right(V.head_cols(n).eval());
+            GivensDaggerInPlace(givens);
+            update.append(arma::regspace<arma::uvec>(a,b-1),givens);
+        }
+        return update;
+    }
+
+    OrbitalUpdate<T> planNaturalOrbitals(arma::Mat<T> const& cc_source) const
+    {
+        OrbitalUpdate<T> update(p1,p2);
+        for (Spin spin : {up,dw}) {
+            auto [a,b]=interval_rotating(spin);
+            if (a>=b) continue;
+            arma::Mat<T> block=cc_source.submat(a,a,b-1,b-1).eval();
+            if (spin==up)
+                block=arma::fliplr(arma::flipud(block).eval()).eval();
+            arma::vec occupations;
+            arma::Mat<T> orbitals;
+            arma::eig_sym(occupations,orbitals,block);
+            arma::vec activity=occupations;
+            for (auto& x : activity) x=std::min(x,1-x);
+            arma::uvec order=arma::stable_sort_index(activity);
+            arma::Mat<T> rotation=orbitals.cols(order);
+            if (spin==up) rotation=arma::flipud(rotation).eval();
+            auto givens=(spin==dw) ? GivensRotForRot_right(rotation)
+                                    : GivensRotForRot_left(rotation);
+            update.append(arma::regspace<arma::uvec>(a,b-1),
+                          GivensTranspose(givens));
+        }
+
+        arma::Mat<T> rotated_cc=cc_source;
+        for (auto const& gate : update.gates)
+            gate.applyAsCorrelator(rotated_cc);
+
+        auto [a_up,b_up]=interval_rotating(up);
+        if (a_up<b_up) {
+            arma::vec ni=arma::real(rotated_cc.diag()).eval().rows(a_up,b_up-1);
+            arma::uvec active=arma::find(ni>tol && ni<1-tol).eval();
+            update.active.first=active.empty() ? std::max(b_up-2,a_up)
+                                                : a_up+(int)active.front();
+        }
+        auto [a_dw,b_dw]=interval_rotating(dw);
+        if (a_dw<b_dw) {
+            arma::vec ni=arma::real(rotated_cc.diag()).eval().rows(a_dw,b_dw-1);
+            arma::uvec active=arma::find(ni>tol && ni<1-tol).eval();
+            update.active.second=active.empty() ? std::min(a_dw+2,b_dw)
+                                                 : a_dw+(int)active.back()+1;
+        }
+        return update;
+    }
+
+    void applyUpdate(OrbitalUpdate<T> const& update)
+    {
+        std::vector<GivensRot<T>> circuit;
+        auto flushCircuit=[&]() {
+            auto gates=NOGates(sites,circuit);
+            if (!gates.empty())
+                itensor::gateTEvol(gates,1,1,psi,
+                                   {"Cutoff",tol,"Quiet",true,"Normalize",false,"ShowPercent",false});
+            circuit.clear();
+        };
+
+        for (auto const& gate : update.gates) {
+            if (gate.swap) {
+                flushCircuit();
+                SlaterWaveFunctionSwap(gate.a,gate.b);
+            }
+            else {
+                bool a_active=gate.a>=p1 && gate.a<p2;
+                bool b_active=gate.b>=p1 && gate.b<p2;
+                if (a_active!=b_active)
+                    throw std::logic_error("orbital rotation crosses the active boundary");
+                if (a_active) {
+                    if (gate.b!=gate.a+1)
+                        throw std::logic_error("active orbital rotation is not nearest-neighbor");
+                    circuit.push_back(gate.givens(gate.a).transpose());
+                }
+            }
+            gate.applyAsFrame(rot);
+            gate.applyAsCorrelator(cc);
+        }
+        flushCircuit();
+        p1=update.active.first;
+        p2=update.active.second;
+    }
+
+    // Compatibility wrappers for the previous mutating API.
+    void extract_representative(arma::Mat<T>& K,int nRef,bool use_active)
+    {
+        auto up_source=use_active ? interval_active(up) : interval_impurity(up);
+        auto dw_source=use_active ? interval_active(dw) : interval_impurity(dw);
+        auto update=planRepresentativeFrom(K,nRef,up_source,dw_source);
+        update.applyAsBasis(K);
+        applyUpdate(update);
+    }
+
     void extract_representative_final(arma::Mat<T>& K)
     {
-        struct PerSpin {
-            std::vector<GivensRot<T>> givens;
-            int a = 0, b = 0;
-        };
-
-        auto compute = [&](Spin spin) -> PerSpin {
-            PerSpin r;
-            std::tie(r.a, r.b) = interval_rotating(spin);
-            if (r.a >= r.b) return r;
-            auto [a_imp, b_imp] = interval_impurity(spin);
-            arma::Mat<T> k12 = K.rows(a_imp, b_imp-1).eval().cols(r.a, r.b-1);
-            arma::vec s;
-            arma::Mat<T> U, V;
-            arma::svd_econ(U, s, V, k12);
-            int nSv_use = (this->nSv >= 0)
-                            ? std::min<int>(this->nSv, (int)V.n_cols)
-                            : (int)arma::find(s > tol*s[0]).eval().size();
-            if (nSv_use <= 0) return r;
-            arma::Mat<T> V_eff = V.head_cols(nSv_use);
-            r.givens = (spin == dw) ? GivensRotForRot_left(V_eff)
-                                    : GivensRotForRot_right(V_eff);
-            GivensDaggerInPlace(r.givens);
-            return r;
-        };
-
-        PerSpin u_data = compute(up);
-        PerSpin d_data = compute(dw);
-
-        auto apply_KCCRot = [&](PerSpin const& d) {
-            if (d.a >= d.b || d.givens.empty()) return;
-            arma::Mat<T> rot1 = matrot_from_Givens(d.givens, d.b - d.a);
-            K.cols(d.a, d.b-1) = K.cols(d.a, d.b-1).eval() * rot1;
-            K.rows(d.a, d.b-1) = rot1.t() * K.rows(d.a, d.b-1).eval();
-            cc.cols(d.a, d.b-1) = cc.cols(d.a, d.b-1).eval() * rot1.st().t();
-            cc.rows(d.a, d.b-1) = rot1.st() * cc.rows(d.a, d.b-1).eval();
-            rot.cols(d.a, d.b-1) = rot.cols(d.a, d.b-1).eval() * rot1;
-        };
-        apply_KCCRot(u_data);
-        apply_KCCRot(d_data);
-
-        // Apply gates on the MPS as ONE combined sweep so the orthogonality
-        // center traverses the chain once rather than twice.
-        {
-            std::vector<GivensRot<T>> gQ_all;
-            for (auto const& d : {u_data, d_data}) {
-                if (d.givens.empty()) continue;
-                auto gQ = d.givens;
-                for (auto& g : gQ) g.b += d.a;
-                gQ_all.insert(gQ_all.end(), gQ.begin(), gQ.end());
-            }
-            if (!gQ_all.empty()) {
-                auto gates = NOGates(sites, GivensTranspose(gQ_all));
-                itensor::gateTEvol(gates, 1, 1, psi,
-                                   {"Cutoff", tol, "Quiet", true, "Normalize", false, "ShowPercent", false});
-            }
-        }
+        auto update=planActiveRepresentative(K);
+        update.applyAsBasis(K);
+        applyUpdate(update);
     }
 
     void update_cc()
@@ -244,91 +224,17 @@ struct Fb_mps_spin_block
         }
     }
 
-    /// Diagonalize cc on each spin's rotating interval; keep p1, p2 symmetric.
-    /// Returns the rotation applied to the active_full block.
+    /// Compatibility wrapper returning the rotation on the old active interval.
     arma::Mat<T> rotateToNaturalOrbitals()
     {
-        auto [a_full, b_full] = interval_active_full();
-        arma::Mat<T> rot_update(length(), length(), arma::fill::eye);
-
-        struct PerSpin {
-            std::vector<GivensRot<T>> givens;
-            int a = 0, b = 0;
-        };
-
-        auto diag = [&](Spin spin) -> PerSpin {
-            PerSpin r;
-            std::tie(r.a, r.b) = interval_rotating(spin);
-            if (r.a >= r.b) return r;
-            arma::Mat<T> cc1(cc.submat(r.a, r.a, r.b-1, r.b-1).eval());
-            // For up: reflect the matrix before eig_sym so LAPACK sees the same layout
-            // as for dw under a reflection-symmetric input.  We reflect the resulting
-            // eigenvectors back afterwards.
-            if (spin == up) cc1 = arma::fliplr(arma::flipud(cc1).eval()).eval();
-            arma::vec eval;
-            arma::Mat<T> evec;
-            eig_sym(eval, evec, cc1);
-            arma::vec activity = eval;
-            for (auto& x : activity) x = std::min(x, 1-x);
-            arma::uvec iek = arma::stable_sort_index(activity);
-            arma::Mat<T> rotation = evec.cols(iek);
-            if (spin == up) rotation = arma::flipud(rotation).eval();
-            r.givens = (spin == dw) ? GivensRotForRot_right(rotation)
-                                    : GivensRotForRot_left(rotation);
-            return r;
-        };
-
-        PerSpin u_data = diag(up);
-        PerSpin d_data = diag(dw);
-
-        // Apply rotation to rot, cc per spin
-        auto apply_KCCRot = [&](PerSpin const& d) {
-            if (d.givens.empty()) return;
-            auto rot1 = matrot_from_Givens(d.givens, d.b - d.a);
-            rot_update.submat(d.a, d.a, d.b-1, d.b-1) = rot1.st();
-            cc.cols(d.a, d.b-1) = cc.cols(d.a, d.b-1).eval() * rot1.t();
-            cc.rows(d.a, d.b-1) = rot1 * cc.rows(d.a, d.b-1).eval();
-        };
-        apply_KCCRot(u_data);
-        apply_KCCRot(d_data);
-        rot = rot * rot_update;
-
-        // Apply gates on the MPS as ONE combined sweep so the orthogonality
-        // center traverses the chain once rather than twice.
-        {
-            std::vector<GivensRot<T>> gQ_all;
-            for (auto const& d : {u_data, d_data}) {
-                if (d.givens.empty()) continue;
-                auto gQ = d.givens;
-                for (auto& g : gQ) g.b += d.a;
-                gQ_all.insert(gQ_all.end(), gQ.begin(), gQ.end());
-            }
-            if (!gQ_all.empty()) {
-                auto gates = NOGates(sites, gQ_all);
-                itensor::gateTEvol(gates, 1, 1, psi,
-                                   {"Cutoff", tol, "Quiet", true, "Normalize", false, "ShowPercent", false});
-            }
-        }
-
-        // Determine new (p1, p2) per spin, independently — no symmetry constraint.
-        arma::vec ni = occupations_ni();
-
-        if (u_data.a < u_data.b) {
-            int a_up = u_data.a, b_up = u_data.b;
-            arma::vec ni_up = ni.rows(a_up, b_up-1);
-            arma::uvec pos_active = arma::find(ni_up > tol && ni_up < 1-tol).eval();
-            p1 = pos_active.empty() ? std::max(b_up - 2, a_up)
-                                    : (a_up + (int)pos_active.front());
-        }
-        if (d_data.a < d_data.b) {
-            int a_dw = d_data.a, b_dw = d_data.b;
-            arma::vec ni_dw = ni.rows(a_dw, b_dw-1);
-            arma::uvec pos_active = arma::find(ni_dw > tol && ni_dw < 1-tol).eval();
-            p2 = pos_active.empty() ? std::min(a_dw + 2, b_dw)
-                                    : (a_dw + (int)pos_active.back() + 1);
-        }
-
-        return rot_update.submat(a_full, a_full, b_full-1, b_full-1);
+        auto [a,b]=interval_active_full();
+        auto update=planNaturalOrbitals(cc);
+        arma::Mat<T> full(length(),length(),arma::fill::eye);
+        for (auto const& gate : update.gates)
+            gate.applyAsFrame(full);
+        auto result=full.submat(a,a,b-1,b-1).eval();
+        applyUpdate(update);
+        return result;
     }
 
     double SlaterEnergy(arma::Mat<T> const& K) const
@@ -427,6 +333,63 @@ struct Fb_mps_spin_block
     }
 
 private:
+    OrbitalUpdate<T> planRepresentativeFrom(arma::Mat<T> const& K,int nRef,
+                                             std::pair<int,int> up_source,
+                                             std::pair<int,int> dw_source) const
+    {
+        struct PerSpin {
+            arma::uvec positions;
+            std::vector<GivensRot<T>> givens;
+            int count=0;
+        };
+
+        auto compute=[&](Spin spin,std::pair<int,int> source) {
+            PerSpin result;
+            auto [a_slater,b_slater]=interval_slater(spin);
+            if (a_slater>=b_slater) return result;
+            arma::vec ni=occupations_ni().rows(a_slater,b_slater-1);
+            result.positions=arma::find(arma::abs(ni-nRef)<0.5).eval()+a_slater;
+            if (result.positions.empty()) return result;
+
+            auto [a_source,b_source]=source;
+            arma::Mat<T> k12=K.rows(a_source,b_source-1).eval()
+                               .cols(result.positions).eval();
+            arma::vec singular_values;
+            arma::Mat<T> U,V;
+            arma::svd_econ(U,singular_values,V,k12);
+            if (singular_values.empty()) return result;
+            result.count=(nSv>=0)
+                           ? std::min<int>(nSv,(int)V.n_cols)
+                           : (int)arma::find(singular_values>tol*singular_values[0]).eval().size();
+            if (result.count<=0) return result;
+            result.givens=(spin==dw)
+                            ? GivensRotForRot_left(V.head_cols(result.count).eval())
+                            : GivensRotForRot_right(V.head_cols(result.count).eval());
+            GivensDaggerInPlace(result.givens);
+            return result;
+        };
+
+        auto up_data=compute(up,up_source);
+        auto dw_data=compute(dw,dw_source);
+        OrbitalUpdate<T> update(p1,p2);
+        update.append(up_data.positions,up_data.givens);
+        update.append(dw_data.positions,dw_data.givens);
+
+        int active_begin=p1;
+        int active_end=p2;
+        for (int i=0; i<up_data.count; ++i) {
+            int source=(int)up_data.positions[up_data.positions.size()-1-i];
+            update.gates.emplace_back(active_begin-1,source);
+            active_begin--;
+        }
+        for (int i=0; i<dw_data.count; ++i) {
+            update.gates.emplace_back(active_end,(int)dw_data.positions[i]);
+            active_end++;
+        }
+        update.active={active_begin,active_end};
+        return update;
+    }
+
     void SlaterWaveFunctionSwap(int i, int j)
     {
         if (i == j) return;

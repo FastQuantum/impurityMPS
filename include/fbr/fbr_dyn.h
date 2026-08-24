@@ -65,24 +65,30 @@ struct Fbr_dyn {
         if (fb.nActive+2*nChannel < param.length()) {
             double nref=fb.cc(fb.nActive, fb.nActive).real();
             int occ= nref+0.5;
-            extract_representative(occ);
-            extract_representative(1-occ);
+            applyPlan(fb.planRepresentative(K,occ));
+            applyPlan(fb.planRepresentative(K,1-occ));
         }
         else fb.nActive=param.length();
 
-        extract_representative_final();
+        applyPlan(fb.planActiveRepresentative(K));
 
         // evolve();
         doTdvp(args);
 
-        rotateToNaturalOrbitals();
+        applyPlan(fb.planNaturalOrbitals(fb.cc));
     }
 
     /// extract representative orbital of the sites with ni=nRef where nRef can be 0 or 1
-    void extract_representative(int nRef){ fb.extract_representative(K,nRef,param.nImp()); }
+    void extract_representative(int nRef) { applyPlan(fb.planRepresentative(K,nRef)); }
 
     /// extract representative orbitals within the active sector
-    void extract_representative_final() { fb.extract_representative_final(K, param.nImp(), fb.nActive); }
+    void extract_representative_final() { applyPlan(fb.planActiveRepresentative(K)); }
+
+    void applyPlan(OrbitalUpdate<cmpx> const& update)
+    {
+        update.applyAsBasis(K);
+        fb.applyUpdate(update);
+    }
 
     template<class T>
     auto TrotterGatesExp(arma::Mat<T> const& Kip,int nTB,double dt) const
@@ -187,10 +193,7 @@ struct Fbr_dyn {
 
     void rotateToNaturalOrbitals()
     {
-        int nA=fb.nActive; // it will change
-        auto rot1=fb.rotateToNaturalOrbitals(param.nImp());
-        K.cols(0,nA-1)=K.cols(0,nA-1).eval()*rot1;
-        K.rows(0,nA-1)=rot1.t()*K.rows(0,nA-1).eval();
+        applyPlan(fb.planNaturalOrbitals(fb.cc));
     }
 
     /// Schrödinger-picture real-space <c_i^dag c_j> matrix.

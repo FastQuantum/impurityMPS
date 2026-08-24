@@ -23,13 +23,22 @@ struct Fbr_gs {
 
     void iterate(DmrgParam args={})
     {
-        extract_representative(0);
-        extract_representative(1);
+        applyPlan(fb.planRepresentative(K,0,fb.nActive));
+        applyPlan(fb.planRepresentative(K,1,fb.nActive));
         doDmrg(args);
-        rotateToNaturalOrbitals();
+        applyPlan(fb.planNaturalOrbitals(fb.cc,param.nImp()));
     }
 
-    void extract_representative(int nRef){ fb.extract_representative(K,nRef,fb.nActive); }
+    void extract_representative(int nRef)
+    {
+        applyPlan(fb.planRepresentative(K,nRef,fb.nActive));
+    }
+
+    void applyPlan(OrbitalUpdate<double> const& update)
+    {
+        update.applyAsBasis(K);
+        fb.applyUpdate(update);
+    }
 
     void doDmrg(DmrgParam args={})
     {
@@ -47,10 +56,7 @@ struct Fbr_gs {
 
     void rotateToNaturalOrbitals()
     {
-        int nA=fb.nActive;
-        auto rot1=fb.rotateToNaturalOrbitals(param.nImp());
-        K.cols(0,nA-1)=K.cols(0,nA-1).eval()*rot1;
-        K.rows(0,nA-1)=rot1.t()*K.rows(0,nA-1).eval();
+        applyPlan(fb.planNaturalOrbitals(fb.cc,param.nImp()));
     }
 
     itensor::MPO fullHamiltonian(arma::mat const& kin) const
