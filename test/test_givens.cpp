@@ -1,9 +1,55 @@
 #include<catch2/catch.hpp>
 #include "fbr/givens_rotation.h"
+#include "fbr/orbital_update.h"
 
 using namespace arma;
 using namespace std;
 using namespace fbr;
+
+TEST_CASE("OrbitalGate transformations match dense matrices", "[orbital_gate]")
+{
+    arma::arma_rng::set_seed(1701);
+    constexpr int L=7;
+    constexpr int a=2;
+    constexpr int b=3;
+
+    cx_vec pair(2,fill::randn);
+    auto givens=GivensRot<cmpx>::createFromPair(0,pair[0],pair[1],true);
+    OrbitalGate<cmpx> gate(a,b,givens);
+
+    cx_mat R(L,L,fill::eye);
+    R.submat(a,a,b,b)=givens.matrix();
+    cx_mat K=cx_mat(L,L,fill::randn)+imag_1*cx_mat(L,L,fill::randn);
+    K=K+K.t();
+    cx_mat frame=cx_mat(L,L,fill::randn)+imag_1*cx_mat(L,L,fill::randn);
+    cx_mat cc=cx_mat(L,L,fill::randn)+imag_1*cx_mat(L,L,fill::randn);
+    cc=cc+cc.t();
+
+    auto K_actual=K;
+    auto frame_actual=frame;
+    auto cc_actual=cc;
+    gate.applyAsBasis(K_actual);
+    gate.applyAsFrame(frame_actual);
+    gate.applyAsCorrelator(cc_actual);
+
+    REQUIRE(abs(K_actual-R.t()*K*R).max()<1e-13);
+    REQUIRE(abs(frame_actual-frame*R).max()<1e-13);
+    REQUIRE(abs(cc_actual-R.st()*cc*conj(R)).max()<1e-13);
+
+    OrbitalGate<cmpx> swap(1,5);
+    cx_mat P(L,L,fill::eye);
+    P.swap_cols(1,5);
+    K_actual=K;
+    frame_actual=frame;
+    cc_actual=cc;
+    swap.applyAsBasis(K_actual);
+    swap.applyAsFrame(frame_actual);
+    swap.applyAsCorrelator(cc_actual);
+
+    REQUIRE(abs(K_actual-P.t()*K*P).max()<1e-13);
+    REQUIRE(abs(frame_actual-frame*P).max()<1e-13);
+    REQUIRE(abs(cc_actual-P.st()*cc*conj(P)).max()<1e-13);
+}
 
 TEST_CASE("arma") {
     mat A = { {1, 3, 5},

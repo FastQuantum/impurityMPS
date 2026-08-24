@@ -1,6 +1,7 @@
 #include <catch2/catch.hpp>
 
 #include "fbr/fbr_dyn_spin.h"
+#include "fbr/fbr_ns_dyn_spin.h"
 #include "test_ref_common.h"
 
 #include <map>
@@ -118,4 +119,53 @@ TEST_CASE("fbr vs chain center reference U=0.2", "[fb_ref_fbr]") {
 }
 TEST_CASE("fbr vs chain center reference U=0.1", "[fb_ref_fbr]") {
     checkChain(resultFor(0.1, "0.1"), chainTol());
+}
+
+TEST_CASE("FbrNsDynSpin with one state matches Fbr_dyn_spin", "[fbr_ns_dyn_spin]") {
+    constexpr int L=12;
+    constexpr double dt=0.1;
+    constexpr double U=0.2;
+
+    mat K0(L,L,fill::zeros);
+    for (int i=0; i<L-2; ++i)
+        K0(i,i+2)=K0(i+2,i)=0.5;
+    K0(0,0)=K0(1,1)=-U/2;
+    K0(0,2)=K0(2,0)=K0(1,3)=K0(3,1)=0.1;
+    mat Umat(L,L,fill::zeros);
+    Umat(0,1)=U;
+    auto model=ImpuritySpin{{.Kmat=K0,.Umat=Umat,.impPos={2,0,1,3}}};
+
+    auto ek=vec{model.param.Kmat.diag()};
+    ek[L/2-1]=ek[L/2]=-10;
+    ek[L/2-2]=ek[L/2+1]=10;
+    auto fb=Fb_mps_spin<cmpx>::from_slater(model.param.rot*cmpx(1,0),ek,
+                                           model.param.nPart(),model.param.nImp());
+    fb.tol=1e-12;
+
+    auto incompatible=fb;
+    incompatible.cc(fb.p2,fb.p2)=1.0-incompatible.cc(fb.p2,fb.p2);
+    REQUIRE_THROWS_AS(FbrNsDynSpin(model,{fb,incompatible},dt),std::invalid_argument);
+
+    auto old_solver=Fbr_dyn_spin(model,fb,dt);
+    auto new_solver=FbrNsDynSpin(model,{fb},dt);
+    TdvpParam args {.max_bond_dim=512,.nIter_diag=8,.epsilonM=0};
+
+    for (int step=0; step<10; ++step) {
+        old_solver.iterate(args);
+        new_solver.iterate(args);
+
+        auto const& old=old_solver.fb;
+        auto const& current=new_solver.states.front();
+        CAPTURE(step,old.p1,old.p2,current.p1,current.p2);
+        INFO("correlator error = " << arma::abs(new_solver.correlator_all()-old_solver.correlator_all()).max());
+        INFO("energy error = " << std::abs(new_solver.energies.front()-old_solver.energy));
+        INFO("rot error = " << arma::abs(current.rot-old.rot).max());
+        INFO("cc error = " << arma::abs(current.cc-old.cc).max());
+        INFO("K error = " << arma::abs(new_solver.K-old_solver.K).max());
+
+        REQUIRE(current.p1==old.p1);
+        REQUIRE(current.p2==old.p2);
+        REQUIRE(arma::abs(new_solver.correlator_all()-old_solver.correlator_all()).max()<1e-8);
+        REQUIRE(std::abs(new_solver.energies.front()-old_solver.energy)<1e-8);
+    }
 }
