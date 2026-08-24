@@ -42,8 +42,9 @@ struct OrbitalGate {
             return;
         }
 
-        applyRight(K,givens());
-        applyLeft(givens().dagger(),K);
+        auto g=givens();
+        applyRight(K,g);
+        applyLeft(g.dagger(),K);
     }
 
     /// Apply rot -> rot R, or swap its columns.

@@ -116,6 +116,14 @@ struct Fb_mps_spin
         return planRepresentativeFrom(K,nRef,interval_impurity(dw));
     }
 
+    /// As above, but drawing the coupling subspace from the active window
+    /// (used by the ground-state solver) instead of the impurity block.
+    OrbitalUpdate<T> planRepresentative(arma::Mat<T> const& K,int nRef,bool use_active) const
+    {
+        return planRepresentativeFrom(K,nRef,
+                   use_active ? interval_active(dw) : interval_impurity(dw));
+    }
+
     OrbitalUpdate<T> planActiveRepresentative(arma::Mat<T> const& K) const
     {
         OrbitalUpdate<T> update(p1,p2);
@@ -252,21 +260,11 @@ struct Fb_mps_spin
         }
     }
 
-    /// Diagonalize the `cc` submatrix for the active orbitals that can be rotated.
-    /// Rotate the variables accordingly
-    /// @return the rotation Q applied: ci=Qij*dj (where ci are the old orbitals)
-    arma::Mat<T> rotateToNaturalOrbitals()
+    /// Diagonalize the `cc` submatrix for the active orbitals that can be rotated,
+    /// then rotate psi, rot and cc accordingly.
+    void rotateToNaturalOrbitals()
     {
-        auto [a_full,b_full]=interval_active_full();
-        int n_full=b_full-a_full;
-        arma::Mat<T> rot_update(n_full, n_full, arma::fill::eye);
-        auto update=planNaturalOrbitals(cc);
-        arma::Mat<T> full(length(),length(),arma::fill::eye);
-        for (auto const& gate : update.gates)
-            gate.applyAsFrame(full);
-        rot_update=full.submat(a_full,a_full,b_full-1,b_full-1);
-        applyUpdate(update);
-        return rot_update;
+        applyUpdate(planNaturalOrbitals(cc));
     }
 
     /// Energy of the Slater part. K is the kinetic energy matrix

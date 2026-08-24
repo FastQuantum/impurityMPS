@@ -211,20 +211,6 @@ struct Fb_mps
         }        
     }
 
-    /// Diagonalize the `cc` submatrix in the interval [start,nActive).
-    /// Rotate `psi`, and update the `nActive`, accordingly.
-    /// @return the rotation Q applied: ci=Qij*dj (where ci are the old orbitals)
-    arma::Mat<T> rotateToNaturalOrbitals(int start)
-    {
-        int old_active=nActive;
-        auto update=planNaturalOrbitals(cc,start);
-        arma::Mat<T> frame(old_active,old_active,arma::fill::eye);
-        for (auto const& gate : update.gates)
-            gate.applyAsFrame(frame);
-        applyUpdate(update);
-        return frame;
-    }
-
     /// Map a real-space site i to the MPS orbital index a (0-based) that carries it.
     /// Convention (see correlator_all): c_i = sum_a rot[i,a] d_a, so the orbital is
     /// argmax_a |rot[i,a]|, i.e. the largest entry of *row* i of rot. For an impurity

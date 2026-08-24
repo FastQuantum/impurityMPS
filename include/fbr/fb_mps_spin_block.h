@@ -224,17 +224,9 @@ struct Fb_mps_spin_block
         }
     }
 
-    /// Compatibility wrapper returning the rotation on the old active interval.
-    arma::Mat<T> rotateToNaturalOrbitals()
+    void rotateToNaturalOrbitals()
     {
-        auto [a,b]=interval_active_full();
-        auto update=planNaturalOrbitals(cc);
-        arma::Mat<T> full(length(),length(),arma::fill::eye);
-        for (auto const& gate : update.gates)
-            gate.applyAsFrame(full);
-        auto result=full.submat(a,a,b-1,b-1).eval();
-        applyUpdate(update);
-        return result;
+        applyUpdate(planNaturalOrbitals(cc));
     }
 
     double SlaterEnergy(arma::Mat<T> const& K) const

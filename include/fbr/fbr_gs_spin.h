@@ -31,7 +31,7 @@ struct Fbr_gs_spin {
     }
 
     /// extract representative orbital of the sites with ni=nRef where nRef can be 0 or 1
-    void extract_representative(int nRef){ fb.extract_representative(K,nRef,/*use_active=*/true); }
+    void extract_representative(int nRef){ applyPlan(fb.planRepresentative(K,nRef,/*use_active=*/true)); }
 
     void applyPlan(OrbitalUpdate<double> const& update)
     {
