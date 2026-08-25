@@ -357,7 +357,7 @@ struct Fbr_ns_dyn : detail::DynCommon<Model> {
         applyPlan(states.front().planRepresentative(this->K,1));
         applyPlan(states.front().planActiveRepresentative(this->K));
         doTdvp(args);
-        applyPlan(states.front().planNaturalOrbitals(combinedCc()));
+        applyPlan(widenToAllStates(states.front().planNaturalOrbitals(combinedCc())));
     }
 
     void applyPlan(OrbitalUpdate<cmpx> const& update)
@@ -412,7 +412,7 @@ private:
                     throw std::invalid_argument("Fbr_ns_dyn: states must share the same ITensor site indices");
         }
 
-        double slater_tol=std::max(100*first.tol,1e-10);
+        double slater_tol=slaterTol();
         for (int i=0; i<L; ++i) {
             if (i>=a && i<b) continue;
             double occupation=std::real(first.cc(i,i))>0.5 ? 1.0 : 0.0;
@@ -426,6 +426,62 @@ private:
                         throw std::invalid_argument("Fbr_ns_dyn: states do not share the same Slater correlator");
                 }
         }
+    }
+
+    /// How much the Slater part of two states may differ before they count as
+    /// incompatible. Used both to check the states and to keep the window wide
+    /// enough that they stay compatible.
+    double slaterTol() const { return std::max(100*states.front().tol,1e-10); }
+
+    /// The active window has to hold every orbital where the states differ: an
+    /// orbital may join the Slater part only if it is empty (or full) in all of
+    /// them. planNaturalOrbitals decides that from the averaged correlation
+    /// matrix, where a difference between states is divided by their number and
+    /// can fall below the tolerance, so widen its window to what each state
+    /// needs. Rotating the orbitals is unaffected: the average is the right
+    /// choice there, and only the resulting interval is widened.
+    OrbitalUpdate<cmpx> widenToAllStates(OrbitalUpdate<cmpx> update) const
+    {
+        if (states.size()<2) return update;
+        int L=this->param.length();
+        auto [lo,hi]=update.active;
+
+        std::vector<arma::cx_mat> cc;   // every correlator in the proposed basis
+        cc.reserve(states.size());
+        for (auto const& state : states) {
+            cc.push_back(state.cc);
+            for (auto const& gate : update.gates)
+                gate.applyAsCorrelator(cc.back());
+        }
+
+        for (std::size_t n=0; n<states.size(); ++n) {
+            // an orbital that is neither empty nor full is active, as usual
+            for (int i=0; i<L; i++) {
+                double ni=std::real(cc[n](i,i));
+                if (ni>states[n].tol && ni<1-states[n].tol) {
+                    lo=std::min(lo,i);
+                    hi=std::max(hi,i+1);
+                }
+            }
+            // and so is an orbital where this state differs from the first one.
+            // Occupations alone are not enough: a coherence goes like the square
+            // root of an occupation, so orbitals far too empty to look active
+            // still carry a difference well above the tolerance below.
+            if (n==0) continue;
+            arma::mat diff=arma::abs(cc[n]-cc[0]);
+            for (int i=0; i<L; i++)
+                if (diff.row(i).max()>slaterTol()) {
+                    lo=std::min(lo,i);
+                    hi=std::max(hi,i+1);
+                }
+        }
+        if (states.front().layout==spin_symmetric) {   // keep the window centered
+            int d=std::max(hi-L/2,L/2-lo);
+            lo=L/2-d;
+            hi=L/2+d;
+        }
+        update.active={lo,hi};
+        return update;
     }
 
     /// Natural orbitals are found from the states' average correlation matrix.

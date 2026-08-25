@@ -365,7 +365,17 @@ struct Fb_mps
         if (i0 < a_imp || i0 >= b_imp)
             throw invalid_argument("Fb_mps::applyLocalOp: site i is not a non-rotating impurity site");
 
+        // C and Cdag are odd operators: the sites to the left of i0 carry the
+        // Jordan-Wigner string. F is diagonal and unitary, so applying it does
+        // not move the orthogonality center. (N is even and needs no string.)
         // ITensor MPS sites/operators are 1-based.
+        if (op!="N")
+            for (int k=1; k<=i0; k++) {
+                auto FA=sites.op("F",k)*psi(k);
+                FA.noPrime();
+                psi.set(k,FA);
+            }
+
         psi.position(i0+1);
         auto G=sites.op(op,i0+1);
         auto newA=G*psi(i0+1);

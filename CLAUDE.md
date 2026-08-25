@@ -72,6 +72,7 @@ Each `.cpp` is a standalone executable. Key ones:
 - `fbr_gs_siam.cpp` — ground state, SIAM (spin)
 - `fbr_dyn_irlm.cpp` — real-time dynamics, spinless, complex MPS
 - `fbr_dyn_siam.cpp` — dynamics with spin
+- `fbr_green_irlm.cpp` — Green function from three states in one basis (`Fbr_ns_dyn`), checked against the exact non-interacting result
 
 ## Conventions
 

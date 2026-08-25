@@ -151,6 +151,7 @@ All example sources live in [`example/`](example/) and build to one binary each 
 | `fbr_gs_irlm` | Ground state, spinless IRLM |
 | `fbr_gs_siam` | Ground state, SIAM (spin-flip symmetric) |
 | `fbr_dyn_irlm` | Dynamics, spinless IRLM (complex MPS) |
+| `fbr_green_irlm` | Green function G(0,0), G(0,1) vs the exact non-interacting result |
 | `fbr_dyn_siam` | Dynamics, SIAM (spin-flip symmetric) |
 | `fbr_dyn_siam_block` | Dynamics, SIAM (generic spin / block) |
 | `fbr_dyn_siam_center` | Dynamics, SIAM with impurity kept at the chain center |
