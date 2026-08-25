@@ -34,7 +34,7 @@ int main()
         // force impurity ocupation |1100>
         ek[0]=ek[1]=-10; //TODO: the ek change the Hamiltonian
         ek[2]=ek[3]=10;
-        fb=Fb_mps<cmpx>::from_slater(model.param.rot*cmpx(1,0), ek, model.param.nPart(), model.param.nImp(), false);
+        fb=Fb_mps<cmpx>::from_slater(model.param.rot*cmpx(1,0), ek, model.param.nPart(), model.param.nImp(), leading, false);
         // fb.occupations_ni().as_row().eval().print("ni");
         // fb.occupations_ni2().as_row().eval().print("ni2");
     }
@@ -57,7 +57,7 @@ int main()
         solver.iterate({.max_bond_dim=2048, .epsilonM=1e-4});
         double n0= solver.fb.occupations_ni2()(0);
         double n1= solver.fb.occupations_ni2()(2);
-        cout<<(i+1)*solver.dt<<" "<<itensor::maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<n1<<" "<<solver.fb.nActive<<endl;
+        cout<<(i+1)*solver.dt<<" "<<itensor::maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<n1<<" "<<solver.fb.nActive()<<endl;
         t0.mark();
     }
     return 0;

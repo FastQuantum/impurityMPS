@@ -23,10 +23,10 @@ struct Fbr_gs {
 
     void iterate(DmrgParam args={})
     {
-        applyPlan(fb.planRepresentative(K,0,fb.nActive));
-        applyPlan(fb.planRepresentative(K,1,fb.nActive));
+        applyPlan(fb.planRepresentative(K,0,/*use_active=*/true));
+        applyPlan(fb.planRepresentative(K,1,/*use_active=*/true));
         doDmrg(args);
-        applyPlan(fb.planNaturalOrbitals(fb.cc,param.nImp()));
+        applyPlan(fb.planNaturalOrbitals(fb.cc));
     }
 
     void applyPlan(OrbitalUpdate<double> const& update)
@@ -37,7 +37,7 @@ struct Fbr_gs {
 
     void doDmrg(DmrgParam args={})
     {
-        int nA=fb.nActive;
+        int nA=fb.nActive();
         auto mpo=fullHamiltonian(K.submat(0,0,nA-1,nA-1));
         auto sweeps = itensor::Sweeps(1);
         sweeps.maxdim() = args.max_bond_dim;

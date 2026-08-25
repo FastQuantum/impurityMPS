@@ -64,7 +64,7 @@ Programs bridging to the few-body state classes (Fb_mps / Impurity[Spin])
     the impurity at sites 0..3.
 
 - star_dyn_siam_spin.cpp
-    Dynamics, spinful: ImpuritySpin + Fb_mps_spin<cmpx>. Block layout, constructing
+    Dynamics, spinful: ImpuritySpin + Fb_mps<cmpx> (spin_block). Block layout, constructing
     the star model directly (bypassing toStar) to check that building the state
     through the library types reproduces the raw-ITensor result.
 

@@ -32,8 +32,8 @@ static auto makeSolver(int L, double dt)
     auto ek = vec{model.param.Kmat.diag()};
     ek[L / 2 - 1] = ek[L / 2] = -10;
     ek[L / 2 - 2] = ek[L / 2 + 1] = 10;
-    auto fb = Fb_mps_spin<cmpx>::from_slater(model.param.rot * cmpx(1, 0), ek,
-                                             model.param.nPart(), model.param.nImp());
+    auto fb = Fb_mps<cmpx>::from_slater(model.param.rot * cmpx(1, 0), ek,
+                                             model.param.nPart(), model.param.nImp(), spin_symmetric);
     auto solver = Fbr_dyn(model, fb, dt);
     solver.fb.tol = 1e-10;
     return solver;

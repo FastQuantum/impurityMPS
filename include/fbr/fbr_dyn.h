@@ -6,42 +6,18 @@
 #include "impurity_param.h"
 #include "impurity_param_spin.h"
 #include "fb_mps.h"
-#include "fb_mps_spin.h"
-#include "fb_mps_spin_block.h"
 
 #include "tdvp.h"
 #include "basisextension.h"
 
 #include <stdexcept>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
 namespace fbr {
 
 namespace detail {
-
-/// Per-layout glue for the dynamics solvers: the model type and the few
-/// operations where the orbital layouts genuinely differ.
-template<class State> struct DynLayout;
-
-template<> struct DynLayout<Fb_mps<cmpx>> {
-    using Model = Impurity;
-    using Param = ImpurityParam;
-};
-template<> struct DynLayout<Fb_mps_spin<cmpx>> {
-    using Model = ImpuritySpin;
-    using Param = ImpurityParamSpin;
-};
-template<> struct DynLayout<Fb_mps_spin_block<cmpx>> {
-    using Model = ImpuritySpin;
-    using Param = ImpurityParamSpin;
-};
-
-/// Active MPS window [a,b): leading window for the spinless layout, centered
-/// window for the spin layouts.
-inline std::pair<int,int> activeWindow(Fb_mps<cmpx> const& fb) { return {0,fb.nActive}; }
-template<class State>
-std::pair<int,int> activeWindow(State const& fb) { return fb.interval_active_full(); }
 
 /// Rank of a coupling block: number of singular values above tol (relative).
 inline int svRank(arma::mat const& block, double tol)
@@ -52,34 +28,18 @@ inline int svRank(arma::mat const& block, double tol)
     return (int)arma::find(s>tol*s[0]).eval().size();
 }
 
-/// Rank of the impurity–bath coupling block of Kmat (per spin sector where
-/// applicable, taking the max).
+/// Rank of the impurity-bath coupling block of Kmat, per spin sector.
 inline int couplingRank(Fb_mps<cmpx> const& fb, arma::mat const& Kmat)
 {
-    int L=Kmat.n_rows, nImp=fb.imp_size;
-    if (nImp<=0 || nImp>=L) return 0;
-    return svRank(Kmat.submat(0,nImp,nImp-1,L-1),fb.tol);
-}
-template<class State>
-int couplingRank(State const& fb, arma::mat const& Kmat)
-{
     int rank=0;
-    for (Spin spin : {up,dw}) {
-        auto [a_imp,b_imp]=fb.interval_impurity(spin);
-        auto [a_sla,b_sla]=fb.interval_slater(spin);
+    for (Spin s : {up,dw}) {
+        auto [a_imp,b_imp]=fb.interval_impurity(s);
+        auto [a_sla,b_sla]=fb.interval_slater(s);
         if (a_imp>=b_imp || a_sla>=b_sla) continue;
         rank=std::max(rank,svRank(Kmat.submat(a_imp,a_sla,b_imp-1,b_sla-1),fb.tol));
     }
     return rank;
 }
-
-/// Only the reflection-symmetric spin layout re-symmetrizes K after a rotation.
-inline void ensureReflection(Fb_mps_spin<cmpx> const&, arma::cx_mat& K)
-{
-    Fb_mps_spin<cmpx>::ensure_reflection_mat(K);
-}
-template<class State>
-void ensureReflection(State const&, arma::cx_mat&) {}
 
 /// Machinery shared by the single-state (Fbr_dyn) and multi-state (Fbr_ns_dyn)
 /// dynamics solvers: the interaction picture of the diagonal bath Hamiltonian
@@ -87,10 +47,10 @@ void ensureReflection(State const&, arma::cx_mat&) {}
 /// phases, fb.rot tracks only the natural-orbital basis change, and
 /// Schrödinger-picture correlators are recovered by dressing with
 /// exp(-i Kbath t) (effective_rot).
-template<class State>
+template<class Model>
 struct DynCommon {
-    using Model = typename DynLayout<State>::Model;
-    using Param = typename DynLayout<State>::Param;
+    using State = Fb_mps<cmpx>;
+    using Param = std::decay_t<decltype(std::declval<Model const&>().param)>;
 
     Param param;
     double dt;
@@ -114,6 +74,13 @@ struct DynCommon {
             throw std::invalid_argument("Fbr_dyn: state length does not match the model");
         imp_pos = arma::conv_to<arma::uvec>::from(param.impPos);
         bath_pos = arma::conv_to<arma::uvec>::from(set_diff(L,param.impPos));
+
+        // The state layout must put its impurity where the model does: this is
+        // what tells a centered layout apart from a leading one.
+        auto [a_imp,b_imp]=first.interval_impurity_full();
+        if (imp_pos.empty() || b_imp-a_imp!=param.nImp()
+            || (int)imp_pos.min()!=a_imp || (int)imp_pos.max()!=b_imp-1)
+            throw std::invalid_argument("Fbr_dyn: the state layout does not match the impurity positions of the model");
 
         arma::mat Kstar=param.Kmat;
         if (!bath_pos.empty()) {
@@ -193,7 +160,7 @@ struct DynCommon {
     void applyPlanToK(State const& fb, OrbitalUpdate<cmpx> const& update)
     {
         update.applyAsBasis(K);
-        ensureReflection(fb,K);
+        fb.ensure_symmetry(K);
     }
 
     /// MPO of the interacting Hamiltonian: the full Umat plus the kinetic
@@ -238,7 +205,7 @@ struct DynCommon {
 
         // Sites beyond the active window are Slater orbitals with no
         // Hamiltonian support in the interaction picture: skip them.
-        auto [a,b]=activeWindow(fb);
+        auto [a,b]=fb.interval_active_full();
         double energy = itensor::tdvp(fb.psi,mpo, -imag_1*dt, sweeps,
                                       {"MaxSite",b,
                                        "Truncate", true,
@@ -303,10 +270,10 @@ struct DynCommon {
 /// the usual spelling simply
 ///   auto solver = Fbr_dyn(model, fb, dt);
 /// For several states evolving in one common orbital basis, see Fbr_ns_dyn.
-template<class State>
-struct Fbr_dyn : detail::DynCommon<State> {
-    using Common = detail::DynCommon<State>;
-    using Model = typename Common::Model;
+template<class Model>
+struct Fbr_dyn : detail::DynCommon<Model> {
+    using Common = detail::DynCommon<Model>;
+    using State = typename Common::State;
 
     /// these quantities are updated during the iterations
     State fb;               ///< the current few body MPS
@@ -340,7 +307,7 @@ struct Fbr_dyn : detail::DynCommon<State> {
 
     void doTdvp(TdvpParam args={})
     {
-        auto [a,b]=detail::activeWindow(fb);
+        auto [a,b]=fb.interval_active_full();
         auto mpo=Common::fullHamiltonian(fb,a,b);
         energy=this->evolveOne(fb,mpo,args);
     }
@@ -361,10 +328,10 @@ struct Fbr_dyn : detail::DynCommon<State> {
 /// (natural orbitals come from their averaged correlation matrix) and applied
 /// identically to every MPS. Each state is nevertheless evolved by its own
 /// TDVP call, since the TDVP projection and truncation are state-dependent.
-template<class State>
-struct Fbr_ns_dyn : detail::DynCommon<State> {
-    using Common = detail::DynCommon<State>;
-    using Model = typename Common::Model;
+template<class Model>
+struct Fbr_ns_dyn : detail::DynCommon<Model> {
+    using Common = detail::DynCommon<Model>;
+    using State = typename Common::State;
 
     /// these quantities are updated during the iterations
     std::vector<State> states;    ///< the current few body MPS states
@@ -402,7 +369,7 @@ struct Fbr_ns_dyn : detail::DynCommon<State> {
 
     void doTdvp(TdvpParam args={})
     {
-        auto [a,b]=detail::activeWindow(states.front());
+        auto [a,b]=states.front().interval_active_full();
         auto mpo=Common::fullHamiltonian(states.front(),a,b);
         for (std::size_t n=0; n<states.size(); ++n)
             energies[n]=this->evolveOne(states[n],mpo,args);
@@ -432,10 +399,10 @@ private:
         if (first.sites.length()!=L)
             throw std::invalid_argument("Fbr_ns_dyn: state length does not match the model");
 
-        auto [a,b]=detail::activeWindow(first);
+        auto [a,b]=first.interval_active_full();
         for (std::size_t n=1; n<states.size(); ++n) {
             auto const& state=states[n];
-            if (state.sites.length()!=L || detail::activeWindow(state)!=std::pair{a,b}
+            if (state.sites.length()!=L || state.interval_active_full()!=std::pair{a,b}
                 || state.imp_size!=first.imp_size)
                 throw std::invalid_argument("Fbr_ns_dyn: states do not share the same orbital layout");
             if (arma::norm(state.rot-first.rot,"fro")>10*first.tol)

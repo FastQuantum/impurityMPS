@@ -12,7 +12,7 @@ using namespace fbrtest;
 
 namespace {
 
-using Solver = Fbr_dyn<Fb_mps<cmpx>>;
+using Solver = Fbr_dyn<Impurity>;
 
 // Spinless (interleaved up/down) layout: the FBR site -> chain index map.
 uvec fbrIndexToChainIndex(int L)
@@ -44,7 +44,7 @@ Solver makeFbrRun(int L, double dt, double U)
     ek[0] = ek[1] = -10;
     ek[2] = ek[3] = 10;
     auto fb = Fb_mps<cmpx>::from_slater(model.param.rot * cmpx(1, 0), ek,
-                                        model.param.nPart(), model.param.nImp(), false);
+                                        model.param.nPart(), model.param.nImp(), leading, false);
     auto solver = Fbr_dyn(model, fb, dt);
     solver.fb.tol = 1e-12;
     return solver;
@@ -105,11 +105,11 @@ TEST_CASE("multi-state solver with one state matches single-state solver", "[mul
     ek[0]=ek[1]=-10;
     ek[2]=ek[3]=10;
     auto fb=Fb_mps<cmpx>::from_slater(model.param.rot*cmpx(1,0),ek,
-                                      model.param.nPart(),model.param.nImp(),false);
+                                      model.param.nPart(),model.param.nImp(), leading, false);
     fb.tol=1e-12;
 
     auto incompatible=fb;
-    incompatible.cc(fb.nActive,fb.nActive)=1.0-incompatible.cc(fb.nActive,fb.nActive);
+    incompatible.cc(fb.p2,fb.p2)=1.0-incompatible.cc(fb.p2,fb.p2);
     REQUIRE_THROWS_AS(Fbr_ns_dyn(model,std::vector{fb,incompatible},dt),std::invalid_argument);
 
     auto old_solver=Fbr_dyn(model,fb,dt);
@@ -122,14 +122,14 @@ TEST_CASE("multi-state solver with one state matches single-state solver", "[mul
 
         auto const& old=old_solver.fb;
         auto const& current=new_solver.states.front();
-        CAPTURE(step,old.nActive,current.nActive);
+        CAPTURE(step,old.nActive(),current.nActive());
         INFO("correlator error = " << arma::abs(new_solver.correlator_all()-old_solver.correlator_all()).max());
         INFO("energy error = " << std::abs(new_solver.energies.front()-old_solver.energy));
         INFO("rot error = " << arma::abs(current.rot-old.rot).max());
         INFO("cc error = " << arma::abs(current.cc-old.cc).max());
         INFO("K error = " << arma::abs(new_solver.K-old_solver.K).max());
 
-        REQUIRE(current.nActive==old.nActive);
+        REQUIRE(current.nActive()==old.nActive());
         REQUIRE(arma::abs(new_solver.correlator_all()-old_solver.correlator_all()).max()<1e-8);
         REQUIRE(std::abs(new_solver.energies.front()-old_solver.energy)<1e-8);
     }

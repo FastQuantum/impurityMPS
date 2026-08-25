@@ -77,7 +77,7 @@ int main()
         // force impurity occupation: physical imp sites occupied, buffer sites empty
         ek[0]=ek[1]=-10;    // spin-up and spin-down physical impurities
         ek[2]=ek[3]=10;     // spin-up and spin-down buffers
-        fb=Fb_mps<cmpx>::from_slater(rot*cmpx(1,0), ek, L/2, nImp,false);
+        fb=Fb_mps<cmpx>::from_slater(rot*cmpx(1,0), ek, L/2, nImp, leading, false);
     }
 
     // Construct model from pre-computed star geometry (bypassing toStar)
@@ -112,7 +112,7 @@ int main()
         // double n0 = solver.fb.correlator(1,1).real();
         double n0= solver.fb.occupations_ni2()(0);
         double n1= solver.fb.occupations_ni2()(2);
-        cout<<(i+1)*solver.dt<<" "<<itensor::maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<n1<<" "<<solver.fb.nActive<<endl;
+        cout<<(i+1)*solver.dt<<" "<<itensor::maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<n1<<" "<<solver.fb.nActive()<<endl;
         t0.mark();
     }
     return 0;

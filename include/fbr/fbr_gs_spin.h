@@ -3,7 +3,7 @@
 
 #include "itensor_utils.h"
 #include "impurity_param_spin.h"
-#include "fb_mps_spin.h"
+#include "fb_mps.h"
 
 namespace fbr {
 
@@ -11,11 +11,11 @@ struct Fbr_gs_spin {
     ImpurityParamSpin param;
 
     /// these quantities are updated during the iterations
-    Fb_mps_spin<double> fb;
+    Fb_mps<double> fb;
     arma::mat K;
     double energy=-1000;
 
-    Fbr_gs_spin(ImpuritySpin const& imp, Fb_mps_spin<double> const& fb_)
+    Fbr_gs_spin(ImpuritySpin const& imp, Fb_mps<double> const& fb_)
         : param(imp.param)
         , fb { fb_ }
         , K(param.Kmat)
@@ -32,7 +32,7 @@ struct Fbr_gs_spin {
     void applyPlan(OrbitalUpdate<double> const& update)
     {
         update.applyAsBasis(K);
-        Fb_mps_spin<double>::ensure_reflection_mat(K);
+        fb.ensure_symmetry(K);
         fb.applyUpdate(update);
     }
 

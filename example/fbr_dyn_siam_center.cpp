@@ -80,14 +80,14 @@ int main()
         std::tie(Kstar,rot) = computeKstar(K, nImp);
     }
 
-    Fb_mps_spin<cmpx> fb;
+    Fb_mps<cmpx> fb;
     {
         int nBath=L/2-nImp/2;
         auto ek=arma::vec {Kstar.diag()};
         // force impurity occupation: physical imp sites occupied, buffer sites empty
         ek[nBath+nImp/2-1]=ek[L/2]=-10;    // spin-up and spin-down physical impurities
         ek[nBath]=ek[L/2+nImp/2-1]=10;     // spin-up and spin-down buffers
-        fb=Fb_mps_spin<cmpx>::from_slater(rot*cmpx(1,0), ek, L/2, nImp);
+        fb=Fb_mps<cmpx>::from_slater(rot*cmpx(1,0), ek, L/2, nImp, spin_symmetric);
     }
 
     // Construct model from pre-computed star geometry (bypassing toStar)

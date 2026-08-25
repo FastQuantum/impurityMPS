@@ -26,7 +26,7 @@ int main()
     // force impurity occupation |10>
     ek[0]=-10;
     ek[1]=10;
-    auto fb=Fb_mps<cmpx>::from_slater(model.param.rot*cmpx(1,0), ek, model.param.nPart(), model.param.nImp(), false);
+    auto fb=Fb_mps<cmpx>::from_slater(model.param.rot*cmpx(1,0), ek, model.param.nPart(), model.param.nImp(), leading, false);
     fb.tol=1e-10;
 
     double dt=0.1;
@@ -38,7 +38,7 @@ int main()
         solver.iterate({.max_bond_dim=2048, .epsilonM=1e-4});
         double n0 = solver.correlator(0,0).real();
         double cd = 2*solver.correlator(0,1).real();
-        cout<<(i+1)*solver.dt<<" "<<solver.energy<<" "<<n0<<" "<<cd<<" "<<solver.fb.nActive<<endl;
+        cout<<(i+1)*solver.dt<<" "<<solver.energy<<" "<<n0<<" "<<cd<<" "<<solver.fb.nActive()<<endl;
         t0.mark();
     }
     return 0;

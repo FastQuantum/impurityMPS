@@ -12,7 +12,7 @@ using namespace fbrtest;
 
 namespace {
 
-using Solver = Fbr_dyn<Fb_mps_spin<cmpx>>;
+using Solver = Fbr_dyn<ImpuritySpin>;
 
 // Star-geometry spin layout: bath orbitals are energy-sorted eigenmodes, so the
 // FBR site -> chain index map is the discontinuous permutation below.
@@ -48,8 +48,8 @@ Solver makeFbrRun(int L, double dt, double U)
     auto ek = vec{model.param.Kmat.diag()};
     ek[L / 2 - 1] = ek[L / 2] = -10;
     ek[L / 2 - 2] = ek[L / 2 + 1] = 10;
-    auto fb = Fb_mps_spin<cmpx>::from_slater(model.param.rot * cmpx(1, 0), ek,
-                                             model.param.nPart(), model.param.nImp());
+    auto fb = Fb_mps<cmpx>::from_slater(model.param.rot * cmpx(1, 0), ek,
+                                             model.param.nPart(), model.param.nImp(), spin_symmetric);
     auto solver = Fbr_dyn(model, fb, dt);
     solver.fb.tol = 1e-12;
     return solver;
@@ -139,8 +139,8 @@ TEST_CASE("multi-state solver with one state matches single-state solver", "[mul
     auto ek=vec{model.param.Kmat.diag()};
     ek[L/2-1]=ek[L/2]=-10;
     ek[L/2-2]=ek[L/2+1]=10;
-    auto fb=Fb_mps_spin<cmpx>::from_slater(model.param.rot*cmpx(1,0),ek,
-                                           model.param.nPart(),model.param.nImp());
+    auto fb=Fb_mps<cmpx>::from_slater(model.param.rot*cmpx(1,0),ek,
+                                           model.param.nPart(),model.param.nImp(), spin_symmetric);
     fb.tol=1e-12;
 
     auto incompatible=fb;

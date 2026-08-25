@@ -28,14 +28,14 @@ int main()
 
         model = ImpuritySpin {{.Kmat=K, .Umat=Umat, .impPos=impPos}};
     }
-    Fb_mps_spin<cmpx> fb;
+    Fb_mps<cmpx> fb;
     {
         auto ek=arma::vec {model.param.Kmat.diag()};
         // force impurity ocupation |1100>
         ek[L/2-1]=ek[L/2]=-10;
         ek[L/2-2]=ek[L/2+1]=10;
         arma::cx_mat rot(L,L,arma::fill::eye);
-        fb=Fb_mps_spin<cmpx>::from_slater(model.param.rot*cmpx(1,0), ek, model.param.nPart(), model.param.nImp());
+        fb=Fb_mps<cmpx>::from_slater(model.param.rot*cmpx(1,0), ek, model.param.nPart(), model.param.nImp(), spin_symmetric);
         // fb.occupations_ni().as_row().eval().print("ni");
     }
     // fb.tol=1e-10;

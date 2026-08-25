@@ -26,7 +26,7 @@ int main()
     // force impurity occupation |10>
     ek[0]=-10;
     ek[1]=10;
-    auto fb=Fb_mps<double>::from_slater(model.param.rot, ek, model.param.nPart(), model.param.nImp(), false);
+    auto fb=Fb_mps<double>::from_slater(model.param.rot, ek, model.param.nPart(), model.param.nImp(), leading, false);
     fb.tol=1e-10;
 
     auto solver=Fbr_gs(model,fb);
@@ -35,7 +35,7 @@ int main()
     itensor::cpu_time t0;
     for(auto i=0;i<100;i++){
         solver.iterate();
-        cout<<i+1<<" "<<solver.fb.nActive<<" "<<solver.energy<<" "<<t0.sincemark().wall<<endl;
+        cout<<i+1<<" "<<solver.fb.nActive()<<" "<<solver.energy<<" "<<t0.sincemark().wall<<endl;
         t0.mark();
     }
     return 0;

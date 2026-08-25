@@ -26,7 +26,7 @@ int main()
     // optional: force impurity ocupation |10>
     ek[0]=-10;
     ek[1]=10;
-    auto fb=Fb_mps<double>::from_slater(model.param.rot, ek, model.param.nPart(), model.param.nImp(), spin);
+    auto fb=Fb_mps<double>::from_slater(model.param.rot, ek, model.param.nPart(), model.param.nImp(), leading, spin);
     itensor::AutoMPO h(fb.sites);
     for(auto i=0; i<model.param.nImp(); i++)
         for(auto j=0; j<model.param.nImp(); j++)
