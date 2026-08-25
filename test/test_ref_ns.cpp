@@ -1,6 +1,7 @@
 #include <catch2/catch.hpp>
 
 #include "fbr/fbr_dyn.h"
+#include "fbr/fbr_gs.h"
 #include "test_ref_common.h"
 
 #include <map>
@@ -133,4 +134,41 @@ TEST_CASE("multi-state solver with one state matches single-state solver", "[mul
         REQUIRE(arma::abs(new_solver.correlator_all()-old_solver.correlator_all()).max()<1e-8);
         REQUIRE(std::abs(new_solver.energies.front()-old_solver.energy)<1e-8);
     }
+}
+
+// A ground state coming out of Fbr_gs is no longer in the model's star frame,
+// which is the basis Kip0 and the interaction-picture phases are written in.
+// The dynamics takes that frame from the model, so such a state still evolves
+// correctly. Taking it from the initial state instead (as it used to) leaves the
+// solver evolving with a Hamiltonian written in a basis the MPS is not in, from
+// the very first step. At U=0 the ground state is an eigenstate, so its
+// correlator has to stay put; the broken version drifts by O(0.1) by t=1.
+TEST_CASE("dynamics starting from a rotated frame", "[fbr_dyn][frame]") {
+    constexpr int L=12;
+    constexpr double dt=0.05;
+
+    mat K(L,L,fill::zeros);
+    for (int i=1; i<L-1; ++i) K(i,i+1)=K(i+1,i)=0.5;
+    K(0,1)=K(1,0)=0.5;
+    mat Umat(L,L,fill::zeros);        // U=0: the ground state is an eigenstate
+    auto model=Impurity{{.Kmat=K,.Umat=Umat,.impPos={0,1}}};
+
+    auto gs=Fb_mps<double>::from_slater(model.param.rot,vec{model.param.Kmat.diag()},
+                                        model.param.nPart(),model.param.nImp(),leading);
+    gs.tol=1e-12;
+    auto gs_solver=Fbr_gs(model,gs);
+    for (int i=0; i<60; ++i) gs_solver.iterate({.max_bond_dim=256});
+
+    auto fb=gs_solver.fb.to_complex();
+    fb.tol=1e-12;
+    // the ground state really did leave the star frame
+    REQUIRE(arma::abs(fb.rot-model.param.rot*cmpx(1,0)).max()>0.1);
+
+    auto solver=Fbr_dyn(model,fb,dt);
+    cx_mat cc0=solver.correlator_all();
+    for (int step=0; step<20; ++step) solver.iterate({.epsilonM=0});
+
+    double drift=arma::abs(solver.correlator_all()-cc0).max();
+    INFO("correlator drift of a stationary state = "<<drift);
+    REQUIRE(drift<1e-3);
 }

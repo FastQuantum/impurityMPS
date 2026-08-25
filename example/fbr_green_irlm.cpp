@@ -21,17 +21,10 @@
 //     G(i,j,t) = -i sum_{a unoccupied} e^{-i e_a t} V_ia V_ja,
 // which is the reference printed next to the computed values.
 //
-// ACCURACY (measured at U=0, where the reference is exact): G is exact at t=0
-// and the deviation then grows with time, reaching ~1e-2 by t=2. It does NOT
-// shrink with dt, with the state tolerance, or by keeping every orbital in the
-// active window, so it is not a time-step, truncation or window effect. The
-// same G computed with a plain full-chain TDVP, with no orbital rotation and no
-// interaction picture, reproduces the reference to better than 1e-6, so the
-// formula and the measurement below are right: what the deviation measures is
-// the accuracy of the interaction-picture multi-state evolution for a matrix
-// element BETWEEN two states. An overlap is first order in the amplitude that
-// the method discards, whereas the correlators it is validated on are second
-// order, so this is the observable that shows the method's error first.
+// At U=0, where the reference is exact, G agrees with it to ~1e-5 over the
+// whole run. The ground state comes from Fbr_gs, so its frame is not the star
+// frame any more; the dynamics takes the star frame from the model itself, so
+// that is fine.
 //
 // Usage: fbr_green_irlm [U]     (the reference is only exact at U=0)
 

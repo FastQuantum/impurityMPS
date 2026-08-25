@@ -58,7 +58,7 @@ struct DynCommon {
     arma::cx_mat Kip0;       ///< second-order interaction-picture Hamiltonian at t=0
     arma::uvec imp_pos;      ///< impurity positions (star layout)
     arma::uvec bath_pos;     ///< bath positions (star layout)
-    arma::cx_mat rotS;       ///< the initial frame
+    arma::cx_mat rotS;       ///< the star frame, the basis Kip0 and Kbath are written in
     int nSv=0;               ///< fixed rank of the impurity–bath coupling
 
     /// these quantities are updated during the iterations
@@ -104,7 +104,13 @@ struct DynCommon {
         Kip0(bath_pos,bath_pos).zeros();              // Kstar - Kbath_full (arrow)
         Kip0 -= cmpx(0,0.5*dt) * (c1-c2);
 
-        rotS = first.rot;
+        // The star frame, which is what Kip0 and Kbath are written in. It is
+        // the model's own frame, NOT the initial state's: the two agree when the
+        // state comes straight from from_slater(param.rot,...), but not when it
+        // has already been rotated (a ground state from Fbr_gs, say). Taking it
+        // from the model makes rotS^dag * fb.rot express the current orbitals in
+        // the star basis whatever frame the state starts in.
+        rotS = param.rot * cmpx(1,0);
         Kbath = Kstar.submat(bath_pos,bath_pos) * cmpx(1,0);
 
         // Fix nSv = rank of the impurity–bath coupling block at construction.
