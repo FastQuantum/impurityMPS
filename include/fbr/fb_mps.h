@@ -172,28 +172,6 @@ struct Fb_mps
         nActive=update.active.second;
     }
 
-    // Compatibility wrappers for the previous mutating API.
-    void extract_representative(arma::Mat<T>& K,int nRef)
-    {
-        auto update=planRepresentative(K,nRef,nActive);
-        update.applyAsBasis(K);
-        applyUpdate(update);
-    }
-
-    void extract_representative(arma::Mat<T>& K,int nRef,int nRows)
-    {
-        auto update=planRepresentative(K,nRef,nRows);
-        update.applyAsBasis(K);
-        applyUpdate(update);
-    }
-
-    void extract_representative_final(arma::Mat<T>& K,int start,int end)
-    {
-        auto update=planActiveRepresentative(K,start,end);
-        update.applyAsBasis(K);
-        applyUpdate(update);
-    }
-
     /// update the cc in the active sector using the psi
     void update_cc()
     {
@@ -211,16 +189,6 @@ struct Fb_mps
         }        
     }
 
-    /// Map a real-space site i to the MPS orbital index a (0-based) that carries it.
-    /// Convention (see correlator_all): c_i = sum_a rot[i,a] d_a, so the orbital is
-    /// argmax_a |rot[i,a]|, i.e. the largest entry of *row* i of rot. For an impurity
-    /// site (whose orbital is never rotated) row i is a unit vector and the mapping is exact.
-    int frame_site(int i) const
-    {
-        arma::vec w = arma::abs(rot.row(i)).t();   // |rot[i,a]| over a (real, length L)
-        return (int) w.index_max();
-    }
-
     /// Apply the single-site operator op to the (real-space) site i of the mps, where op
     /// is one of {"C", "Cdag", "N"} as in itensor. Only valid on the non-rotating impurity
     /// orbitals [0,imp_size): there site i maps exactly onto a single MPS site, so the
@@ -232,7 +200,8 @@ struct Fb_mps
         if (op_all.count(op)==0)
             throw invalid_argument("Fb::applyLocalOp: op is not in my list. See itensor op for Fermion");
 
-        int i0 = frame_site(i);   // 0-based MPS orbital
+        arma::Mat<T> Qinv=rot.st();
+        int i0=(int)arma::abs(Qinv.col(i)).index_max();
         if (i0 >= imp_size)
             throw invalid_argument("Fb::applyLocalOp: site i is not a non-rotating impurity site");
 
@@ -253,8 +222,6 @@ struct Fb_mps
             energy += std::real(cc(i,i)*K(i,i));
         return energy;
     }
-
-    // arma::vec occupations_ni() const { return arma::vec( arma::real(cc.diag()) );}
 
     arma::vec occupations_ni2() const
     {
@@ -301,23 +268,23 @@ struct Fb_mps
 
 private:
 
-    /// Swap to sites inside the Slater part
+    /// Swap two sites inside the Slater part via a hopping MPO c†_i c_j - c†_j c_i.
+    /// AutoMPO supplies the Jordan-Wigner string between non-adjacent orbitals.
     void SlaterWaveFunctionSwap(int i,int j)
     {
         if (i==j) return;
-        if (i<nActive || j<nActive) throw std::runtime_error("SlaterSwap for active orbitals");
+        if (i<nActive) throw std::invalid_argument("SlaterSwap for active orbital i");
+        if (j<nActive) throw std::invalid_argument("SlaterSwap for active orbital j");
         T ni=cc(i,i), nj=cc(j,j);
-        if (std::abs(ni-nj)<0.5) throw std::runtime_error("SlaterSwap for equal occupations");
+        if (std::abs(ni-nj)<0.5)
+            throw std::invalid_argument("SlaterSwap for equal occupations");
 
-        auto flip=[&](int p) {
-            T np=cc(p,p);
-            auto G = std::abs(np)>0.5 ? sites.op("A",p+1) : sites.op("Adag",p+1) ;
-            auto newA = G*psi(p+1);
-            newA.noPrime();
-            psi.set(p+1,newA);
-        };
-        flip(i);
-        flip(j);
+        itensor::AutoMPO ampo(sites);
+        ampo+=1.0,"Cdag",i+1,"C",j+1;
+        ampo+=-1.0,"Cdag",j+1,"C",i+1;
+        auto H=itensor::toMPO(ampo);
+        psi=itensor::applyMPO(H,psi,{"Cutoff",tol,"Normalize",false});
+        psi.noPrime();
     }
 
 };

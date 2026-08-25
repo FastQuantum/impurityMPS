@@ -23,7 +23,7 @@ struct Fbr_dyn_spin {
     /// these quantities are updated during the iterations
     Fb_mps_spin<cmpx> fb;        ///< the current few body MPS
     arma::cx_mat K;         ///< the current Hamiltonian
-    double energy=-1000;        // TODO remove energy (or compute it)
+    double energy=-1000;
     int nIter=0;
 
     explicit Fbr_dyn_spin(ImpuritySpin const& imp, Fb_mps_spin<cmpx> const& fb_, double dt_=0.1)
@@ -63,7 +63,7 @@ struct Fbr_dyn_spin {
         }
 
         // Fix nSv = rank of the impurity–bath coupling block at construction.
-        // Same value used for every extract_representative* call thereafter.
+        // The same value is used for every representative plan thereafter.
         {
             auto [a_imp, b_imp] = fb.interval_impurity(dw);
             auto [a_sla, b_sla] = fb.interval_slater(dw);
@@ -134,12 +134,6 @@ struct Fbr_dyn_spin {
         return rot.t() * Kip0 * rot;
     }
 
-    /// extract representative orbital of the sites with ni=nRef where nRef can be 0 or 1
-    void extract_representative(int nRef){ applyPlan(fb.planRepresentative(K,nRef)); }
-
-    /// extract representative orbitals within the active sector
-    void extract_representative_final() { applyPlan(fb.planActiveRepresentative(K)); }
-
     void applyPlan(OrbitalUpdate<cmpx> const& update)
     {
         update.applyAsBasis(K);
@@ -179,11 +173,6 @@ struct Fbr_dyn_spin {
                                 "ErrGoal", args.err_goal});
         energy += fb.SlaterEnergy(K);
         fb.update_cc();
-    }
-
-    void rotateToNaturalOrbitals()
-    {
-        applyPlan(fb.planNaturalOrbitals(fb.cc));
     }
 
     /// Effective MPS->real rotation in the Schrödinger picture.

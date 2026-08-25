@@ -78,17 +78,8 @@ struct FbrNsDyn {
         for (auto& state : states)
             state.rot=exp_ih*state.rot;
 
-        if (states.front().nActive+2*nChannel < param.length()) {
-            int occupation=std::real(states.front().cc(states.front().nActive,
-                                                       states.front().nActive))+0.5;
-            applyPlan(states.front().planRepresentative(K,occupation));
-            applyPlan(states.front().planRepresentative(K,1-occupation));
-        }
-        else {
-            for (auto& state : states)
-                state.nActive=param.length();
-        }
-
+        applyPlan(states.front().planRepresentative(K,0));
+        applyPlan(states.front().planRepresentative(K,1));
         applyPlan(states.front().planActiveRepresentative(K));
         evolveAll(args);
         applyPlan(states.front().planNaturalOrbitals(combinedCc()));

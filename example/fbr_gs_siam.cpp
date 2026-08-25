@@ -31,7 +31,6 @@ int main()
     ek[0]=-10;
     ek[1]=10;
     auto fb=Fb_mps_spin<double>::from_slater(model.param.rot, ek, model.param.nPart(), model.param.nImp());
-    // fb.natOrbDepth=10;
     fb.tol=1e-10;
 
     auto solver=Fbr_gs_spin(model,fb);

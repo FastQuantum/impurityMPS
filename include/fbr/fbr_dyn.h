@@ -23,7 +23,6 @@ struct Fbr_dyn {
     /// these quantities are updated during the iterations
     Fb_mps<cmpx> fb;        ///< the current few body MPS
     arma::cx_mat K;         ///< the current Hamiltonian
-    // arma::cx_mat Kip;       ///< the current Hamiltonian in the interaction picture of the bath
     double energy=-1000;
 
     explicit Fbr_dyn(Impurity const& imp, Fb_mps<cmpx> const& fb_, double dt_=0.1)
@@ -62,98 +61,17 @@ struct Fbr_dyn {
         K.cols(imp_pos)=fb.rot.t()*K.cols(imp_pos).eval();
         fb.rot=this->exp_ih*fb.rot;   // update of the interaction picture
 
-        if (fb.nActive+2*nChannel < param.length()) {
-            double nref=fb.cc(fb.nActive, fb.nActive).real();
-            int occ= nref+0.5;
-            applyPlan(fb.planRepresentative(K,occ));
-            applyPlan(fb.planRepresentative(K,1-occ));
-        }
-        else fb.nActive=param.length();
-
+        applyPlan(fb.planRepresentative(K,0));
+        applyPlan(fb.planRepresentative(K,1));
         applyPlan(fb.planActiveRepresentative(K));
-
-        // evolve();
         doTdvp(args);
-
         applyPlan(fb.planNaturalOrbitals(fb.cc));
     }
-
-    /// extract representative orbital of the sites with ni=nRef where nRef can be 0 or 1
-    void extract_representative(int nRef) { applyPlan(fb.planRepresentative(K,nRef)); }
-
-    /// extract representative orbitals within the active sector
-    void extract_representative_final() { applyPlan(fb.planActiveRepresentative(K)); }
 
     void applyPlan(OrbitalUpdate<cmpx> const& update)
     {
         update.applyAsBasis(K);
         fb.applyUpdate(update);
-    }
-
-    template<class T>
-    auto TrotterGatesExp(arma::Mat<T> const& Kip,int nTB,double dt) const
-    {
-        using namespace itensor;
-        using namespace arma;
-
-        mat22 Id(fill::eye),
-                N={{0,0},{0,1}},
-                C={{0,1},{0,0}},
-                Cdag=C.t();
-
-        auto to_itgate=[&](int i,cx_mat44 const& rot) {
-            int b=i+1;
-            auto s1 = itensor::dag(fb.sites(b));
-            auto s2 = itensor::dag(fb.sites(b+1));
-            auto s1p = prime(fb.sites(b));
-            auto s2p = prime(fb.sites(b+1));
-            itensor::ITensor hterm(s1,s2,s1p,s2p);
-            hterm.set(s1(1),s2(1),s1p(1),s2p(1), rot(0,0));
-            hterm.set(s1(2),s2(2),s1p(2),s2p(2), rot(3,3));
-            hterm.set(s1(2),s2(1),s1p(2),s2p(1), rot(1,1));
-            hterm.set(s1(2),s2(1),s1p(1),s2p(2), rot(1,2));
-            hterm.set(s1(1),s2(2),s1p(2),s2p(1), rot(2,1));
-            hterm.set(s1(1),s2(2),s1p(1),s2p(2), rot(2,2));
-            return BondGate(fb.sites,b,b+1,hterm);
-        };
-
-        auto mykron=[](mat22 const& A,mat22 const& B) { return mat44 {kron(B,A).st()}; };
-
-        auto gates = std::vector<BondGate>();
-
-        auto U=param.Umat(0,1);
-        //Create the gates exp(-i*tstep/2*hterm)
-        for(int i=0; i<nTB-1; ++i)
-        {
-            cx_mat44 hloc = Kip(i,i+1)*mykron(Cdag,C);
-            hloc += Kip(i+1,i)*mykron(C,Cdag);
-            hloc += Kip(i,i)*mykron(N,Id);
-            if (i==nTB-2) hloc += Kip(i+1,i+1)*mykron(Id,N);
-            if (i==0) hloc += T(U)*mykron(N,N);
-
-            cx_mat44 rot=expIH<T>(hloc * (0.5*dt));
-            gates.push_back(to_itgate(i,rot));
-        }
-        //Create the gates exp(-i*tstep/2*hterm) in reverse
-        for(int i = nTB-2; i>=0; --i)
-        {
-            cx_mat44 hloc = Kip(i,i+1)*mykron(Cdag,C);
-            hloc += Kip(i+1,i)*mykron(C,Cdag);
-            hloc += Kip(i,i)*mykron(N,Id);
-            if (i==nTB-2) hloc += Kip(i+1,i+1)*mykron(Id,N);
-            if (i==0) hloc += T(U)*mykron(N,N);
-
-            cx_mat44 rot=expIH<T>(hloc * (0.5*dt));
-            gates.push_back(to_itgate(i,rot));
-        }
-        return gates;
-    }
-
-    void evolve()
-    {
-        auto gates=TrotterGatesExp(K,3,dt);
-        gateTEvol(gates,1,1,fb.psi,{"Cutoff=",fb.tol,"Quiet=",true, "Normalize",false,"ShowPercent",false});
-        fb.update_cc();
     }
 
     void doTdvp(TdvpParam args={})
@@ -186,14 +104,8 @@ struct Fbr_dyn {
                                 "Silent", true,
                                 "NumCenter", 2,
                                 "ErrGoal", args.err_goal});
-        //fb.psi.orthogonalize({"Cutoff",fb.tol});
         energy += fb.SlaterEnergy(K);
         fb.update_cc();
-    }
-
-    void rotateToNaturalOrbitals()
-    {
-        applyPlan(fb.planNaturalOrbitals(fb.cc));
     }
 
     /// Schrödinger-picture real-space <c_i^dag c_j> matrix.

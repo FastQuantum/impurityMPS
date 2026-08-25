@@ -1,8 +1,8 @@
 // Scaling benchmark for the spin dynamics timestep.
 //
 // Reports per-timestep wall time vs L. With the star Hamiltonian given, every
-// L-dependent operation inside iterate() (buildK, extract_representative,
-// rotateToNaturalOrbitals) is O(L^2); the TDVP/MPS work is independent of L.
+// L-dependent operation inside iterate() (building K and planning/applying orbital
+// updates) is O(L^2); the TDVP/MPS work is independent of L.
 //
 //   OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 ./bench_buildK
 

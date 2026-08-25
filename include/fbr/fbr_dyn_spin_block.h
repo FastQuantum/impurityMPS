@@ -49,8 +49,8 @@ struct Fbr_dyn_spin_block {
         this->Kbath = K0.submat(bath_pos, bath_pos);
 
         // Fix nSv = rank of the impurity–bath coupling block at construction
-        // (per spin, take max). Same value used for every extract_representative*
-        // call thereafter, for both spin up and spin down.
+        // (per spin, take max). The same value is used for every representative
+        // plan thereafter, for both spin up and spin down.
         {
             int nSv_max = 0;
             for (Spin spin : {up, dw}) {
@@ -85,9 +85,6 @@ struct Fbr_dyn_spin_block {
         doTdvp(args);
         applyPlan(fb.planNaturalOrbitals(fb.cc));
     }
-
-    void extract_representative(int nRef) { applyPlan(fb.planRepresentative(K,nRef)); }
-    void extract_representative_final()   { applyPlan(fb.planActiveRepresentative(K)); }
 
     void applyPlan(OrbitalUpdate<cmpx> const& update)
     {
@@ -126,11 +123,6 @@ struct Fbr_dyn_spin_block {
                                 "ErrGoal", args.err_goal});
         energy += fb.SlaterEnergy(K);
         fb.update_cc();
-    }
-
-    void rotateToNaturalOrbitals()
-    {
-        applyPlan(fb.planNaturalOrbitals(fb.cc));
     }
 
     /// Effective MPS->real rotation in the Schrödinger picture.

@@ -29,11 +29,6 @@ struct Fbr_gs {
         applyPlan(fb.planNaturalOrbitals(fb.cc,param.nImp()));
     }
 
-    void extract_representative(int nRef)
-    {
-        applyPlan(fb.planRepresentative(K,nRef,fb.nActive));
-    }
-
     void applyPlan(OrbitalUpdate<double> const& update)
     {
         update.applyAsBasis(K);
@@ -52,11 +47,6 @@ struct Fbr_gs {
         energy=itensor::dmrg(fb.psi,mpo,sweeps, {"MaxSite",nA,"Quiet", true, "Silent", true});
         energy += fb.SlaterEnergy(K);
         fb.update_cc();
-    }
-
-    void rotateToNaturalOrbitals()
-    {
-        applyPlan(fb.planNaturalOrbitals(fb.cc,param.nImp()));
     }
 
     itensor::MPO fullHamiltonian(arma::mat const& kin) const

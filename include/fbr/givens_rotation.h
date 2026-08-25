@@ -130,12 +130,8 @@ struct GivensRot {
     size_t b;     ///< bond b --- b+1
     T c=1, s=0;  ///< cos, sin, radius
 
-    //GivensRot(size_t b_) : b(b_) {}
-
     /// build the J s.t.  J * (p,q)=(0,r) is go_right=true. Adapted from eigen.tuxfamily.org
     static GivensRot<T> createFromPair(size_t b, T p,  T q, bool go_right, T* r=nullptr);
-
-    //double angle() const { return atan2(s,c); }
 
     matrix22 matrix() const;
 

@@ -23,15 +23,11 @@ struct Fbr_gs_spin {
 
     void iterate(DmrgParam args={})
     {
-        itensor::cpu_time t0;
-        extract_representative(0);
-        extract_representative(1);
+        applyPlan(fb.planRepresentative(K,0,/*use_active=*/true));
+        applyPlan(fb.planRepresentative(K,1,/*use_active=*/true));
         doDmrg(args);
         applyPlan(fb.planNaturalOrbitals(fb.cc));
     }
-
-    /// extract representative orbital of the sites with ni=nRef where nRef can be 0 or 1
-    void extract_representative(int nRef){ applyPlan(fb.planRepresentative(K,nRef,/*use_active=*/true)); }
 
     void applyPlan(OrbitalUpdate<double> const& update)
     {
@@ -53,11 +49,6 @@ struct Fbr_gs_spin {
         energy=itensor::dmrg(fb.psi,mpo,sweeps, {"Minb",a+1,"MaxSite",b,"Quiet", true, "Silent", true});
         energy += fb.SlaterEnergy(K);
         fb.update_cc();
-    }
-
-    void rotateToNaturalOrbitals()
-    {
-        applyPlan(fb.planNaturalOrbitals(fb.cc));
     }
 
     /// return the mpo of the Hamiltoninan given by himp and the kinetic energy kin

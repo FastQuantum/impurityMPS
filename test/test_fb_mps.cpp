@@ -20,19 +20,6 @@ TEST_CASE("ensure_reflection_mat", "[fb_mps_spin]") {
             REQUIRE(K(L/2-1-i, L/2-1-j) == Approx(br(i, j)));
 }
 
-TEST_CASE("ensure_reflection_col", "[fb_mps_spin]") {
-    const int L = 6;
-    mat R(L, L, fill::zeros);
-    mat right(L, L/2, fill::randu);
-    R.cols(L/2, L-1) = right;
-
-    Fb_mps_spin<double>::ensure_reflection_col(R);
-
-    // R.col(L/2-1-k) == right.col(k)
-    for (int k = 0; k < L/2; k++)
-        REQUIRE(norm(R.col(L/2-1-k) - right.col(k)) == Approx(0).margin(1e-14));
-}
-
 // ---- interval method tests ----
 // Layout for L=8, imp_size=2:
 //   [ bath_up:0,1,2 | imp_up:3 | imp_dw:4 | bath_dw:5,6,7 ]
@@ -79,18 +66,18 @@ TEST_CASE("interval_active, interval_slater and interval_rotating: extended wind
     REQUIRE(fb.interval_rotating(dw)  == std::make_pair(5, 7));
 }
 
-// ---- extract_representative ----
-// Compare extract_representative between Fb_mps_spin and Fb_mps.
+// ---- representative planning ----
+// Compare representative updates between Fb_mps_spin and Fb_mps.
 //
 // Setup: SIAM, L=8, imp_size=2, both describe the same physical system
 //   spinless layout:  [imp_up:0 | imp_dw:1 | bath_up:2,4,6 | bath_dw:3,5,7]  (even=up, odd=down)
 //   spin layout:      [bath_up:0,1,2 | imp_up:3 | imp_dw:4 | bath_dw:5,6,7]  (impurity at center)
 //
 // Both start with the same occupations (2 particles in each sector): imp + 1 bath orbital.
-// After extract_representative(nRef=0), both should rotate their K matrices consistently,
+// After planning for nRef=0, both should rotate their K matrices consistently,
 // reflecting the same underlying physics just with different site orderings.
 
-TEST_CASE("extract_representative: spin vs spinless", "[fb_mps_spin]") {
+TEST_CASE("planRepresentative: spin vs spinless", "[fb_mps_spin]") {
     const int L = 8, imp_size = 2;
 
     // Base kinetic matrix: 4-site (1 impurity + 3 bath) SIAM structure
@@ -131,9 +118,14 @@ TEST_CASE("extract_representative: spin vs spinless", "[fb_mps_spin]") {
                                                   vec{2.0, 1.0, -1.0, -2.0, -2.0, -1.0, 1.0, 2.0},
                                                   4, imp_size);
 
-    // extract_representative rotates to natural orbitals and selects unoccupied bath
-    fb_sl.extract_representative(Ksl, 0);
-    fb_sp.extract_representative(Ksp, 0, /*use_active=*/false);
+    auto update_sl=fb_sl.planRepresentative(Ksl,0);
+    update_sl.applyAsBasis(Ksl);
+    fb_sl.applyUpdate(update_sl);
+
+    auto update_sp=fb_sp.planRepresentative(Ksp,0);
+    update_sp.applyAsBasis(Ksp);
+    Fb_mps_spin<double>::ensure_reflection_mat(Ksp);
+    fb_sp.applyUpdate(update_sp);
 
     vec eigs_sl = eig_sym(Ksl);
     vec eigs_sp = eig_sym(Ksp);
@@ -141,14 +133,14 @@ TEST_CASE("extract_representative: spin vs spinless", "[fb_mps_spin]") {
     REQUIRE(norm(eigs_sl - eigs_sp) < 1e-10);
 }
 
-// ---- extract_representative_final ----
+// ---- active representative planning ----
 // Same setup and layout as above.  After promoting orbitals with nRef=0 and nRef=1
-// into the active window, extract_representative_final rotates the remaining
+// into the active window, planActiveRepresentative rotates the remaining
 // active bath so the coupling to the impurity is concentrated in the leading columns.
 // Both systems start with identical eigenvalues and every step is unitary, so
 // eig_sym(Ksl) == eig_sym(Ksp) must hold throughout.
 
-TEST_CASE("extract_representative_final: spin vs spinless", "[fb_mps_spin]") {
+TEST_CASE("planActiveRepresentative: spin vs spinless", "[fb_mps_spin]") {
     const int L = 12, imp_size = 2, nPart = 6;
 
     // 1 impurity + 5 bath sites per spin
@@ -181,24 +173,69 @@ TEST_CASE("extract_representative_final: spin vs spinless", "[fb_mps_spin]") {
                                                      -3.0,-2.0,-1.0,  1.0,  2.0,  3.0},
                                                   nPart, imp_size);
 
-    fb_sl.extract_representative(Ksl, 0);
-    fb_sl.extract_representative(Ksl, 1);
-    fb_sp.extract_representative(Ksp, 0, /*use_active=*/false);
-    fb_sp.extract_representative(Ksp, 1, /*use_active=*/false);
+    auto apply_sl=[&](auto const& update) {
+        update.applyAsBasis(Ksl);
+        fb_sl.applyUpdate(update);
+    };
+    auto apply_sp=[&](auto const& update) {
+        update.applyAsBasis(Ksp);
+        Fb_mps_spin<double>::ensure_reflection_mat(Ksp);
+        fb_sp.applyUpdate(update);
+    };
 
-    fb_sp.extract_representative_final(Ksp);
-    fb_sl.extract_representative_final(Ksl, imp_size, fb_sl.nActive);
+    apply_sl(fb_sl.planRepresentative(Ksl,0));
+    apply_sl(fb_sl.planRepresentative(Ksl,1));
+    apply_sp(fb_sp.planRepresentative(Ksp,0));
+    apply_sp(fb_sp.planRepresentative(Ksp,1));
+
+    apply_sp(fb_sp.planActiveRepresentative(Ksp));
+    apply_sl(fb_sl.planActiveRepresentative(Ksl,imp_size,fb_sl.nActive));
 
     REQUIRE(norm(eig_sym(Ksl) - eig_sym(Ksp)) < 1e-10);
+}
+
+TEST_CASE("Fb_mps Slater swap includes the fermionic string", "[fb_mps][orbital_update]")
+{
+    constexpr int L=6;
+    constexpr int i=2;
+    constexpr int j=5;
+    auto check=[&](vec const& ek) {
+        auto fb=Fb_mps<double>::from_slater(mat(L,L,fill::eye),ek,3,1,false);
+        double ni=std::real(fb.cc(i,i));
+        double nj=std::real(fb.cc(j,j));
+
+        itensor::AutoMPO ampo(fb.sites);
+        ampo+=1.0,"Cdag",i+1,"C",j+1;
+        ampo+=-1.0,"Cdag",j+1,"C",i+1;
+        auto expected=itensor::applyMPO(itensor::toMPO(ampo),fb.psi,
+                                        {"Cutoff",fb.tol,"Normalize",false});
+        expected.noPrime();
+
+        OrbitalUpdate<double> update(0,fb.nActive);
+        update.gates.emplace_back(i,j);
+        fb.applyUpdate(update);
+
+        auto expected_norm=itensor::innerC(expected,expected);
+        REQUIRE(std::abs(itensor::innerC(expected,fb.psi)-expected_norm)<1e-12);
+        REQUIRE(fb.occupations_ni2()(i)==Approx(nj).margin(1e-12));
+        REQUIRE(fb.occupations_ni2()(j)==Approx(ni).margin(1e-12));
+    };
+
+    SECTION("occupied i to empty j") {
+        check(vec{-3.0,-2.0,-1.0,2.0,3.0,1.0});
+    }
+    SECTION("occupied j to empty i") {
+        check(vec{-3.0,3.0,2.0,-2.0,1.0,-1.0});
+    }
 }
 
 // ---- Fb_mps_spin_block: cross-check vs Fb_mps_spin on symmetric K ----
 //
 // On an Sz-symmetric K (reflection-symmetric, as produced by toStar() with
 // spin-reflection), the block version must reproduce the spin version's K
-// spectrum after extract_representative + extract_representative_final.
+// spectrum after representative and active-representative planning.
 
-TEST_CASE("Fb_mps_spin_block: extract_representative matches spin on symmetric K", "[fb_mps_spin_block]") {
+TEST_CASE("Fb_mps_spin_block: representative plans match spin on symmetric K", "[fb_mps_spin_block]") {
     const int L = 12, imp_size = 2, nPart = 6;
 
     mat Kbase = {{0.0, 1.0, 2.0, 3.0, 4.0, 5.0},
@@ -220,18 +257,28 @@ TEST_CASE("Fb_mps_spin_block: extract_representative matches spin on symmetric K
     auto fb_sp = Fb_mps_spin<double>::from_slater(rot, ek, nPart, imp_size);
     auto fb_bl = Fb_mps_spin_block<double>::from_slater(rot, ek, nPart, imp_size);
 
-    fb_sp.extract_representative(Ksp, 0, /*use_active=*/false);
-    fb_bl.extract_representative(Kbl, 0, /*use_active=*/false);
-    INFO("After extract_representative(0): norm(Ksp-Kbl)=" << norm(Ksp-Kbl)
+    auto apply_sp=[&](auto const& update) {
+        update.applyAsBasis(Ksp);
+        Fb_mps_spin<double>::ensure_reflection_mat(Ksp);
+        fb_sp.applyUpdate(update);
+    };
+    auto apply_bl=[&](auto const& update) {
+        update.applyAsBasis(Kbl);
+        fb_bl.applyUpdate(update);
+    };
+
+    apply_sp(fb_sp.planRepresentative(Ksp,0));
+    apply_bl(fb_bl.planRepresentative(Kbl,0));
+    INFO("After planRepresentative(0): norm(Ksp-Kbl)=" << norm(Ksp-Kbl)
          << " norm(rot diff)=" << norm(fb_sp.rot-fb_bl.rot)
          << " norm(cc diff)=" << norm(fb_sp.cc-fb_bl.cc));
     REQUIRE(norm(Ksp - Kbl) < 1e-10);
     REQUIRE(norm(fb_sp.rot - fb_bl.rot) < 1e-10);
     REQUIRE(norm(fb_sp.cc  - fb_bl.cc)  < 1e-10);
 
-    fb_sp.extract_representative(Ksp, 1, /*use_active=*/false);
-    fb_bl.extract_representative(Kbl, 1, /*use_active=*/false);
-    INFO("After extract_representative(1): norm(Ksp-Kbl)=" << norm(Ksp-Kbl)
+    apply_sp(fb_sp.planRepresentative(Ksp,1));
+    apply_bl(fb_bl.planRepresentative(Kbl,1));
+    INFO("After planRepresentative(1): norm(Ksp-Kbl)=" << norm(Ksp-Kbl)
          << " norm(rot diff)=" << norm(fb_sp.rot-fb_bl.rot)
          << " norm(cc diff)=" << norm(fb_sp.cc-fb_bl.cc));
     REQUIRE(fb_bl.p1 == fb_sp.p1);
@@ -240,9 +287,9 @@ TEST_CASE("Fb_mps_spin_block: extract_representative matches spin on symmetric K
     REQUIRE(norm(fb_sp.rot - fb_bl.rot) < 1e-10);
     REQUIRE(norm(fb_sp.cc  - fb_bl.cc)  < 1e-10);
 
-    fb_sp.extract_representative_final(Ksp);
-    fb_bl.extract_representative_final(Kbl);
-    INFO("After extract_representative_final: norm(Ksp-Kbl)=" << norm(Ksp-Kbl)
+    apply_sp(fb_sp.planActiveRepresentative(Ksp));
+    apply_bl(fb_bl.planActiveRepresentative(Kbl));
+    INFO("After planActiveRepresentative: norm(Ksp-Kbl)=" << norm(Ksp-Kbl)
          << " norm(rot diff)=" << norm(fb_sp.rot-fb_bl.rot)
          << " norm(cc diff)=" << norm(fb_sp.cc-fb_bl.cc));
     REQUIRE(norm(Ksp - Kbl) < 1e-10);
@@ -250,7 +297,7 @@ TEST_CASE("Fb_mps_spin_block: extract_representative matches spin on symmetric K
     REQUIRE(norm(fb_sp.cc  - fb_bl.cc)  < 1e-10);
 }
 
-TEST_CASE("Fb_mps_spin_block: rotateToNaturalOrbitals matches spin on symmetric K", "[fb_mps_spin_block]") {
+TEST_CASE("Fb_mps_spin_block: natural-orbital plans match spin on symmetric K", "[fb_mps_spin_block]") {
     const int L = 12, imp_size = 2;
 
     // Build a symmetric cc with some active and inactive orbitals per spin
@@ -275,9 +322,9 @@ TEST_CASE("Fb_mps_spin_block: rotateToNaturalOrbitals matches spin on symmetric 
     fb_sp.p1 = 2;  fb_sp.p2 = L-2;
     fb_bl.p1 = 2;  fb_bl.p2 = L-2;
 
-    fb_sp.rotateToNaturalOrbitals();
-    fb_bl.rotateToNaturalOrbitals();
-    INFO("rotateToNaturalOrbitals: norm(rot diff)=" << norm(fb_sp.rot-fb_bl.rot)
+    fb_sp.applyUpdate(fb_sp.planNaturalOrbitals(fb_sp.cc));
+    fb_bl.applyUpdate(fb_bl.planNaturalOrbitals(fb_bl.cc));
+    INFO("planNaturalOrbitals: norm(rot diff)=" << norm(fb_sp.rot-fb_bl.rot)
          << " norm(cc diff)=" << norm(fb_sp.cc-fb_bl.cc));
 
     REQUIRE(fb_bl.p1 == fb_sp.p1);
@@ -411,11 +458,49 @@ TEST_CASE("Fb_mps_spin_block: real-space correlator on SIAM star matches rot*cc*
     }
 }
 
+namespace {
+template<class Fb>
+void check_complex_correlators(Fb const& fb, cx_mat const& expected)
+{
+    REQUIRE(norm(fb.correlator_all()-expected,"fro")<1e-12);
+    for (int i : {0,2,5}) {
+        for (int j : {1,3,5})
+            REQUIRE(std::abs(fb.correlator(i,j)-expected(i,j))<1e-12);
+        REQUIRE(norm(fb.correlator_all_j(i)-expected.row(i).st(),2)<1e-12);
+    }
+    for (int j : {1,3,5})
+        REQUIRE(norm(fb.correlator_all_i(j)-expected.col(j),2)<1e-12);
+}
+} // namespace
+
+TEST_CASE("complex frames use simple transpose in real-space correlators",
+          "[fb_mps][fb_mps_spin][fb_mps_spin_block][correlator][complex]")
+{
+    arma::arma_rng::set_seed(8142);
+    constexpr int L=6;
+    cx_mat raw=cx_mat(L,L,fill::randn)+imag_1*cx_mat(L,L,fill::randn);
+    cx_mat rot,R;
+    qr(rot,R,raw);
+    vec ek={-3.0,-2.0,-1.0,1.0,2.0,3.0};
+
+    auto fb=Fb_mps<cmpx>::from_slater(rot,ek,L/2,2,false);
+    auto fb_spin=Fb_mps_spin<cmpx>::from_slater(rot,ek,L/2,2);
+    auto fb_block=Fb_mps_spin_block<cmpx>::from_slater(rot,ek,L/2,2);
+
+    // c_i=sum_a rot(i,a)d_a. For complex rot the two transposes are not
+    // interchangeable: Qinv=rot.st(), then C=Qinv.t()*cc*Qinv.
+    cx_mat expected=arma::conj(rot)*fb.cc*rot.st();
+    cx_mat real_only_formula=rot*fb.cc*rot.t();
+    REQUIRE(norm(expected-real_only_formula,"fro")>1e-3);
+
+    check_complex_correlators(fb,expected);
+    check_complex_correlators(fb_spin,expected);
+    check_complex_correlators(fb_block,expected);
+}
+
 // ---- applyLocalOp ----
-// With an identity rotation frame_site(i)==i, so the real-space site maps directly
-// onto the MPS orbital. We check: (a) the frame mapping, (b) "N" on an occupied
-// impurity site leaves occupations unchanged, (c) "Cdag" on an empty impurity site
-// creates a particle, and (d) sites outside the active window are rejected.
+// With an identity rotation the real-space site maps directly onto the MPS orbital.
+// We check that local operators act on impurity sites and reject Slater sites.
 
 TEST_CASE("Fb_mps applyLocalOp: N on impurity and active-window guard", "[fb_mps][applyLocalOp]") {
     const int L = 8, imp_size = 2, nPart = 4;
@@ -423,7 +508,6 @@ TEST_CASE("Fb_mps applyLocalOp: N on impurity and active-window guard", "[fb_mps
     vec ek = {-2, -2, 1, 1, 2, 2, 3, 3};
     auto fb = Fb_mps<double>::from_slater(mat(L, L, fill::eye), ek, nPart, imp_size, /*spin=*/false);
 
-    REQUIRE(fb.frame_site(1) == 1);
     REQUIRE(std::real(fb.cc(0,0)) == Approx(1.0));
     fb.applyLocalOp("N", 0);                                   // occupied impurity, in active window
     REQUIRE(std::real(fb.cc(0,0)) == Approx(1.0));
@@ -437,7 +521,6 @@ TEST_CASE("Fb_mps_spin applyLocalOp: N/Cdag and active-window guard", "[fb_mps_s
     vec ek = {2, 1, -3, -2, 5, -1, 0.5, 3};
     auto fb = Fb_mps_spin<double>::from_slater(mat(L, L, fill::eye), ek, nPart, imp_size);
 
-    REQUIRE(fb.frame_site(3) == 3);
     REQUIRE(fb.interval_active_full() == std::make_pair(3, 5));
     REQUIRE(fb.occupations_ni()(3) == Approx(1.0));
     REQUIRE(fb.occupations_ni()(4) == Approx(0.0).margin(1e-12));
@@ -456,9 +539,24 @@ TEST_CASE("Fb_mps_spin_block applyLocalOp: N and active-window guard", "[fb_mps_
     vec ek = {2, 1, -3, -2, 5, -1, 0.5, 3};
     auto fb = Fb_mps_spin_block<double>::from_slater(mat(L, L, fill::eye), ek, nPart, imp_size);
 
-    REQUIRE(fb.frame_site(3) == 3);
     REQUIRE(fb.occupations_ni()(3) == Approx(1.0));
     fb.applyLocalOp("N", 3);                                   // occupied impurity, unchanged
     REQUIRE(fb.occupations_ni()(3) == Approx(1.0));
     REQUIRE_THROWS_AS(fb.applyLocalOp("N", 0), std::invalid_argument);  // Slater site rejected
+}
+
+TEST_CASE("Fb_mps complex applyLocalOp updates the active correlator",
+          "[fb_mps][applyLocalOp][complex]")
+{
+    constexpr int L=6;
+    cx_mat rot(L,L,fill::eye);
+    rot(2,2)=cmpx(0,1);
+    rot(3,3)=std::exp(cmpx(0,0.37));
+    vec ek={1.0,-2.0,-1.0,2.0,3.0,4.0};
+    auto fb=Fb_mps<cmpx>::from_slater(rot,ek,2,2,false);
+
+    REQUIRE(std::real(fb.cc(0,0))==Approx(0.0).margin(1e-12));
+    fb.applyLocalOp("Cdag",0);
+    REQUIRE(std::real(fb.cc(0,0))==Approx(1.0));
+    REQUIRE_THROWS_AS(fb.applyLocalOp("N",2),std::invalid_argument);
 }
