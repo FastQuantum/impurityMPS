@@ -6,7 +6,7 @@
 //
 //   OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 ./bench_buildK
 
-#include "fbr/fbr_dyn_spin.h"
+#include "fbr/fbr_dyn.h"
 
 #include <armadillo>
 #include <chrono>
@@ -16,7 +16,7 @@
 using namespace arma;
 using namespace fbr;
 
-static Fbr_dyn_spin makeSolver(int L, double dt)
+static auto makeSolver(int L, double dt)
 {
     ImpuritySpin model;
     double U = 0.2, V = 0.1;
@@ -34,7 +34,7 @@ static Fbr_dyn_spin makeSolver(int L, double dt)
     ek[L / 2 - 2] = ek[L / 2 + 1] = 10;
     auto fb = Fb_mps_spin<cmpx>::from_slater(model.param.rot * cmpx(1, 0), ek,
                                              model.param.nPart(), model.param.nImp());
-    auto solver = Fbr_dyn_spin(model, fb, dt);
+    auto solver = Fbr_dyn(model, fb, dt);
     solver.fb.tol = 1e-10;
     return solver;
 }

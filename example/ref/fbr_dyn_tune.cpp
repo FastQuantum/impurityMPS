@@ -5,7 +5,7 @@
 // reference and prints per-snapshot max|dni|, max|dcc|.
 //
 // Usage: fbr_dyn_tune <U> <err_goal> <nIter_diag> <maxSteps>
-#include "fbr/fbr_dyn_spin.h"
+#include "fbr/fbr_dyn.h"
 #include "../../test/test_ref_common.h"
 
 #include <iostream>
@@ -26,7 +26,7 @@ static uvec fbrIndexToChainIndex(int L)
     return p;
 }
 
-static Fbr_dyn_spin makeFbrRun(int L, double dt, double U)
+static auto makeFbrRun(int L, double dt, double U)
 {
     ImpuritySpin model;
     {
@@ -44,7 +44,7 @@ static Fbr_dyn_spin makeFbrRun(int L, double dt, double U)
     ek[L / 2 - 2] = ek[L / 2 + 1] = 10;
     auto fb = Fb_mps_spin<cmpx>::from_slater(model.param.rot * cmpx(1, 0), ek,
                                              model.param.nPart(), model.param.nImp());
-    auto solver = Fbr_dyn_spin(model, fb, dt);
+    auto solver = Fbr_dyn(model, fb, dt);
     solver.fb.tol = 1e-12;
     return solver;
 }

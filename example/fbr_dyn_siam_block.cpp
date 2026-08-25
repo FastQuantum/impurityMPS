@@ -1,4 +1,4 @@
-#include "fbr/fbr_dyn_spin_block.h"
+#include "fbr/fbr_dyn.h"
 #include <iostream>
 #include <iomanip>
 
@@ -33,7 +33,7 @@ int main()
     }
 
     double dt=0.1;
-    auto solver=Fbr_dyn_spin_block(model,fb,dt);
+    auto solver=Fbr_dyn(model,fb,dt);
     solver.fb.tol=1e-12;
 
     arma::real(solver.K*1).eval().clean(1e-11).print("K initial");

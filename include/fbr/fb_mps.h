@@ -22,6 +22,7 @@ struct Fb_mps
     int imp_size=0;             ///< the number of non-rotating impurity orbitals, located at [0,imp_size)
     bool spin=false;            ///< whether the sites can be splitted in even/odd for cc
     double tol=1e-10;           ///< the tolerance used for both applying the gates and defining active orbitals.
+    int nSv=-1;                 ///< fixed rank of impurity–bath coupling (set by dynamics solver). -1 = recompute dynamically.
 
 
     /**
@@ -70,9 +71,12 @@ struct Fb_mps
         arma::vec singular_values;
         arma::Mat<T> U,V;
         my_svd(U,singular_values,V,k12,spin);
-        if (singular_values.empty() || singular_values[0]==0) return update;
+        if (singular_values.empty()) return update;
 
-        int nSv=(int)arma::find(singular_values>tol*singular_values[0]).eval().size();
+        int nSv=(this->nSv>=0)
+                  ? std::min<int>(this->nSv,(int)V.n_cols)
+                  : (int)arma::find(singular_values>tol*singular_values[0]).eval().size();
+        if (nSv<=0) return update;
         auto givens=GivensRotForRot_left(V.head_cols(nSv).eval());
         GivensDaggerInPlace(givens);
         update.append(positions,givens);
@@ -97,9 +101,12 @@ struct Fb_mps
         arma::vec singular_values;
         arma::Mat<T> U,V;
         my_svd(U,singular_values,V,k12,spin);
-        if (singular_values.empty() || singular_values[0]==0) return update;
+        if (singular_values.empty()) return update;
 
-        int nSv=(int)arma::find(singular_values>tol*singular_values[0]).eval().size();
+        int nSv=(this->nSv>=0)
+                  ? std::min<int>(this->nSv,(int)V.n_cols)
+                  : (int)arma::find(singular_values>tol*singular_values[0]).eval().size();
+        if (nSv<=0) return update;
         auto givens=GivensRotForRot_left(V.head_cols(nSv).eval());
         GivensDaggerInPlace(givens);
         update.append(arma::regspace<arma::uvec>(start,end-1),givens);

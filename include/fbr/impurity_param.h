@@ -85,7 +85,7 @@ struct ImpurityParam {
 
         Kmat = Kstar;
         rot.cols(nImp,L-1) = rot.cols(nImp,L-1).eval() * evec_full;
-        // impPos=iota(nImp);
+        impPos=iota(nImp);   // the impurity now sits at the beginning
     }
 };
 

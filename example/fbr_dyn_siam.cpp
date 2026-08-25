@@ -1,4 +1,4 @@
-#include "fbr/fbr_dyn_spin.h"
+#include "fbr/fbr_dyn.h"
 #include <iostream>
 #include <iomanip>
 
@@ -41,7 +41,7 @@ int main()
     // fb.tol=1e-10;
 
     double dt=0.1;
-    auto solver=Fbr_dyn_spin(model,fb,dt);
+    auto solver=Fbr_dyn(model,fb,dt);
 
     // arma::real(fb.rot*1).eval().clean(1e-11).print("fb.rot");
     // arma::real(model.param.rot*1).eval().clean(1e-11).print("param.rot");

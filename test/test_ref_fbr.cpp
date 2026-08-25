@@ -1,7 +1,6 @@
 #include <catch2/catch.hpp>
 
-#include "fbr/fbr_dyn_spin.h"
-#include "fbr/fbr_ns_dyn_spin.h"
+#include "fbr/fbr_dyn.h"
 #include "test_ref_common.h"
 
 #include <map>
@@ -12,6 +11,8 @@ using namespace fbr;
 using namespace fbrtest;
 
 namespace {
+
+using Solver = Fbr_dyn<Fb_mps_spin<cmpx>>;
 
 // Star-geometry spin layout: bath orbitals are energy-sorted eigenmodes, so the
 // FBR site -> chain index map is the discontinuous permutation below.
@@ -29,7 +30,7 @@ uvec fbrIndexToChainIndex(int L)
 
 // Build the SIAM FBR dynamics solver at interaction strength U (star geometry,
 // active-window). Same model as example/ref/{chain,star}_dyn_siam_center.cpp.
-Fbr_dyn_spin makeFbrRun(int L, double dt, double U)
+Solver makeFbrRun(int L, double dt, double U)
 {
     ImpuritySpin model;
     {
@@ -49,7 +50,7 @@ Fbr_dyn_spin makeFbrRun(int L, double dt, double U)
     ek[L / 2 - 2] = ek[L / 2 + 1] = 10;
     auto fb = Fb_mps_spin<cmpx>::from_slater(model.param.rot * cmpx(1, 0), ek,
                                              model.param.nPart(), model.param.nImp());
-    auto solver = Fbr_dyn_spin(model, fb, dt);
+    auto solver = Fbr_dyn(model, fb, dt);
     solver.fb.tol = 1e-12;
     return solver;
 }
@@ -66,13 +67,13 @@ TrajResult const &resultFor(double U, std::string const &us)
     constexpr double dt = 0.1;
     auto fbr = makeFbrRun(L, dt, U);
     auto p = fbrIndexToChainIndex(L);
-    auto iter = [](Fbr_dyn_spin &f) {
+    auto iter = [](Solver &f) {
         // FBR: epsilonM=0 skips the subspace expansion, so nKrylov/epsilonK are
         // inert and err_goal (default 1e-7) is the only TDVP knob; FBR is insensitive
         // to it (identical to 1e-8, tolerant to 1e-6). See example/ref/fbr_dyn_tune.cpp.
         f.iterate({.nIter_diag = 8, .epsilonM = 0});
     };
-    auto corr = [](Fbr_dyn_spin &f) { return f.correlator_all(); };
+    auto corr = [](Solver &f) { return f.correlator_all(); };
 
     auto ref = loadReference("chain_dyn_siam_center_U" + us + "_ref.txt");
     auto res = compareTrajectory(fbr, iter, corr, ref, p);
@@ -121,7 +122,7 @@ TEST_CASE("fbr vs chain center reference U=0.1", "[fb_ref_fbr]") {
     checkChain(resultFor(0.1, "0.1"), chainTol());
 }
 
-TEST_CASE("FbrNsDynSpin with one state matches Fbr_dyn_spin", "[fbr_ns_dyn_spin]") {
+TEST_CASE("multi-state solver with one state matches single-state solver", "[multi_state]") {
     constexpr int L=12;
     constexpr double dt=0.1;
     constexpr double U=0.2;
@@ -144,10 +145,10 @@ TEST_CASE("FbrNsDynSpin with one state matches Fbr_dyn_spin", "[fbr_ns_dyn_spin]
 
     auto incompatible=fb;
     incompatible.cc(fb.p2,fb.p2)=1.0-incompatible.cc(fb.p2,fb.p2);
-    REQUIRE_THROWS_AS(FbrNsDynSpin(model,{fb,incompatible},dt),std::invalid_argument);
+    REQUIRE_THROWS_AS(Fbr_ns_dyn(model,std::vector{fb,incompatible},dt),std::invalid_argument);
 
-    auto old_solver=Fbr_dyn_spin(model,fb,dt);
-    auto new_solver=FbrNsDynSpin(model,{fb},dt);
+    auto old_solver=Fbr_dyn(model,fb,dt);
+    auto new_solver=Fbr_ns_dyn(model,std::vector{fb},dt);
     TdvpParam args {.max_bond_dim=512,.nIter_diag=8,.epsilonM=0};
 
     for (int step=0; step<10; ++step) {

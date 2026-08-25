@@ -52,7 +52,7 @@ All library types live in `namespace fbr`. Include as `#include "fbr/<header>.h"
 | `fb_mps.h` / `fb_mps_spin.h` | `Fb_mps<T>` — few-body MPS state with rotation matrix `rot` and correlation matrix `cc` |
 | `impurity_param.h` / `impurity_param_spin.h` | `ImpurityParam` / `ImpurityParamSpin` — kinetic matrix `Kmat`, interaction `Umat`, impurity positions; `toStar()` transforms to star geometry |
 | `fbr_gs_spin.h` | `Fbr_gs_spin` — ground state solver: DMRG loop + orbital rotation |
-| `fbr_dyn.h` / `fbr_dyn_spin.h` | `Fbr_dyn` / `Fbr_dyn_spin` — dynamics: TDVP loop + orbital rotation |
+| `fbr_dyn.h` | `Fbr_dyn<State>` — dynamics for every layout: TDVP loop + orbital rotation. The state type (`Fb_mps`, `Fb_mps_spin`, `Fb_mps_spin_block`) selects the layout and is deduced: `Fbr_dyn(model,fb,dt)`. `Fbr_ns_dyn<State>` evolves several states in one common orbital basis: `Fbr_ns_dyn(model,states,dt)` |
 | `graph.h` | Index/set utilities (`iota`, `regspace`, `set_diff`) and `fbr::graph::find_islands` for connected-component detection |
 | `itensor_utils.h` | `DmrgParam`, `TdvpParam`; `NOGates()` — converts Givens rotations to ITensor `BondGate`s |
 | `givens_rotation.h` | Givens rotations applied to MPS: `GivensRotForRot_left()`, `expIH()`, `my_svd()` |
@@ -63,7 +63,7 @@ Input is a generic kinetic matrix `Kmat`. `toStar()` transforms it to star geome
 
 ### Spin variants
 
-Files ending in `_spin` support spin up/down having equivalent properties (spin flip commute with the Hamiltonian). Relevant files: `Fb_mps_spin`, `Impurity_gs_spin`, and `Impurity_dyn_spin`. In these files the impurity is represented as -----spin-up-----xx XX------spin-down------- whre xx and XX are the non-rotating orbitals with spin up and down, respectively
+Files ending in `_spin` support spin up/down having equivalent properties (spin flip commute with the Hamiltonian). Relevant files: `Fb_mps_spin` and `Fbr_gs_spin`; dynamics uses the unified `Fbr_dyn` with a `Fb_mps_spin<cmpx>` state. In these files the impurity is represented as -----spin-up-----xx XX------spin-down------- whre xx and XX are the non-rotating orbitals with spin up and down, respectively. `Fb_mps_spin_block` is the generic-spin variant (no spin-flip symmetry assumed).
 
 ### Examples (`example/`)
 
