@@ -163,3 +163,81 @@ TEST_CASE("fbr green vs chain reference U=0.2", "[fb_ref_green]") {
 TEST_CASE("fbr green vs chain reference U=0.1", "[fb_ref_green]") {
     checkGreen(resultFor("0.1"));
 }
+
+// ---- L=1000 regression ----
+//
+// A different kind of check from the ones above. There is no trusted baseline
+// at L=1000 -- a real-space chain TDVP of three states on 1000 sites is out of
+// reach, which is the whole point of the active-window method -- so this
+// replays the FBR against its own recorded trajectory
+// (test/ref/fbr_green_irlm_L1000.cpp). It cannot say the answer is right; what
+// it catches is the solver behaving differently at a size the L=100 tests never
+// reach, where the window machinery does the work that matters (it holds ~14
+// active orbitals out of 1000 here).
+//
+// The reference state is a Slater determinant with both impurity orbitals
+// empty, not a ground state, so these are the Green functions of that quench.
+// An Fbr_gs ground state at L=1000 cannot serve here: it is not reproducible
+// run to run (two identical runs gave bond dimensions of 126 and 144, and Im
+// G(0,0) differing by 5e-4), because the DMRG is choosing between
+// near-degenerate orbital sets. from_slater is deterministic, and two runs of
+// the generator produce byte-identical files, which is what lets this ask for
+// the two integers back exactly.
+namespace {
+
+// Must match test/ref/fbr_green_irlm_L1000.cpp, which produced the files: the
+// replay only reproduces the reference if it takes the same route to it.
+constexpr int largeL = 1000;
+constexpr double largeTol = 1e-10;
+
+void checkLargeL(std::string const &us)
+{
+    constexpr int nSteps = 20;
+    constexpr double dt = 0.1;
+    constexpr double V = 0.1;
+    double U = std::stod(us);
+
+    auto ref = loadLargeLGreenReference("fbr_green_irlm_L" + std::to_string(largeL)
+                                        + "_U" + us + ".txt", nSteps);
+    auto model = makeModel(largeL, U, V);
+
+    auto ek = vec{model.param.Kmat.diag()};
+    ek[0] = ek[1] = 10;            // both impurity orbitals empty, so c^dag acts
+    auto psi0 = Fb_mps<cmpx>::from_slater(model.param.rot * cmpx(1, 0), ek,
+                                          model.param.nPart(), model.param.nImp(), leading);
+    psi0.tol = largeTol;
+    auto [B0, nrm0] = addParticle(psi0, 0);
+    auto [B1, nrm1] = addParticle(psi0, 1);
+    B0.tol = B1.tol = largeTol;
+    auto solver = Fbr_ns_dyn(model, std::vector{psi0, B0, B1}, dt);
+
+    for (int step = 0; step < nSteps; step++) {
+        cmpx G00 = -imag_1 * nrm0 * cElement(solver.states[0], solver.states[1], 0);
+        cmpx G01 = -imag_1 * nrm1 * cElement(solver.states[0], solver.states[2], 0);
+        int m = 0;
+        for (auto const &s : solver.states) m = std::max(m, itensor::maxLinkDim(s.psi));
+        int nActive = solver.states[0].nActive();
+        auto const &want = ref[step];
+
+        CAPTURE(U, step, m, nActive, want.maxBondDim, want.nActive);
+        INFO("|dG00|=" << std::abs(G00 - want.G00) << " |dG01|=" << std::abs(G01 - want.G01));
+        REQUIRE(want.t == Approx(step * dt).margin(1e-12));
+        // the integers are the sharp part: the window machinery has to make
+        // exactly the choices it made when the reference was written
+        REQUIRE(m == want.maxBondDim);
+        REQUIRE(nActive == want.nActive);
+        REQUIRE(std::abs(G00 - want.G00) < 1e-9);
+        REQUIRE(std::abs(G01 - want.G01) < 1e-9);
+
+        if (step + 1 < nSteps) solver.iterate({.epsilonM = 0});
+    }
+}
+
+} // namespace
+
+TEST_CASE("fbr green L=1000 regression U=0.2", "[fb_ref_green][large_l]") {
+    checkLargeL("0.2");
+}
+TEST_CASE("fbr green L=1000 regression U=0.1", "[fb_ref_green][large_l]") {
+    checkLargeL("0.1");
+}

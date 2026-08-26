@@ -154,6 +154,46 @@ inline Metrics compare(cx_mat const &fbrCcChain, SnapshotData const &ref)
     return {abs(dni).max(), abs(dcc).max()};
 }
 
+// One row of an FBR self-reference at large L (format tag
+// fbr_green_irlm_ref_v1): the solver's own Green functions plus the two
+// integers that describe the state of the active-window machinery.
+struct LargeLGreenSample {
+    double t = 0;
+    cmpx G00, G01;
+    int maxBondDim = 0;
+    int nActive = 0;
+};
+
+// Parse an fbr_green_irlm_ref_v1 file, at most nSteps rows.
+inline std::vector<LargeLGreenSample> loadLargeLGreenReference(std::string const &name,
+                                                               int nSteps)
+{
+    std::ifstream in(findRef(name));
+    std::string magic, token;
+    int L = 0, steps = 0;
+    double U = 0, V = 0, dt = 0;
+    in >> magic >> token >> L >> token >> U >> token >> V >> token >> dt >> token >> steps;
+    if (magic != "fbr_green_irlm_ref_v1" || L <= 0 || steps <= 0)
+        throw std::runtime_error("invalid large-L Green reference header in " + name);
+    if (steps < nSteps)
+        throw std::runtime_error("large-L Green reference " + name + " is too short");
+    std::getline(in, token);
+    std::getline(in, token);   // the "# t ReG00 ..." comment line
+
+    std::vector<LargeLGreenSample> rows;
+    rows.reserve(nSteps);
+    for (int s = 0; s < nSteps; ++s) {
+        LargeLGreenSample r;
+        double re0 = 0, im0 = 0, re1 = 0, im1 = 0;
+        in >> r.t >> re0 >> im0 >> re1 >> im1 >> r.maxBondDim >> r.nActive;
+        if (!in) throw std::runtime_error("truncated large-L Green reference " + name);
+        r.G00 = cmpx(re0, im0);
+        r.G01 = cmpx(re1, im1);
+        rows.push_back(r);
+    }
+    return rows;
+}
+
 // Per-snapshot tolerances (niMax, ccMax) shared by all three FBR variants.
 using Tol = std::pair<double, double>;
 
