@@ -60,8 +60,9 @@ Pure-ITensor programs (raw itensor::MPS, no few-body state classes)
 
     So these are the Green functions of that quench, not equilibrium ones. Rows
     carry the largest bond dimension over the three states and the width of the
-    active window; being integers, the replay in test_ref_green.cpp has to land
-    on them exactly. Writes
+    active window; the replay in test_ref_green.cpp checks the Green functions
+    and asks only that those two stay in the same ballpark, so that a different
+    truncation path is fine but a runaway window is not. Writes
         output/fbr_green_irlm_L1000_U<U>.txt
     Note the name: fbr_ marks a self-reference, chain_ a trusted baseline.
 
@@ -121,7 +122,8 @@ chain_dyn_siam_center_ref_v1) hold ni + correlation-matrix snapshots.
   baseline only (the trusted standard), at every snapshot present in the file.
 - output/fbr_green_irlm_L1000_U<U>.txt (format tag fbr_green_irlm_ref_v1) holds
   "t ReG00 ImG00 ReG01 ImG01 maxBondDim nActive" per step. test_ref_green.cpp
-  replays the first 20 steps and requires the two integers back exactly.
+  replays the first 20 steps: Green functions to 1e-6, bond dimension and window
+  width to within a quarter (or 3).
 - output/chain_green_irlm_U<U>_ref.txt (format tag chain_green_irlm_ref_v1) is a
   different, denser format: one row per time step, "t ReG00 ImG00 ReG01 ImG01 m".
   test/test_ref_green.cpp compares the FBR Green functions against it at every
