@@ -12,7 +12,7 @@ using namespace fbrtest;
 
 namespace {
 
-using Solver = Fbr_dyn<ImpuritySpin>;
+using Solver = Fbr_dyn;
 
 // Star-geometry spin layout: bath orbitals are energy-sorted eigenmodes, so the
 // FBR site -> chain index map is the discontinuous permutation below.
@@ -30,7 +30,7 @@ uvec fbrIndexToChainIndex(int L)
 
 Solver makeFbrRun(int L, double dt, double U)
 {
-    ImpuritySpin model;
+    Impurity model;
     {
         double V = 0.1;
         mat K(L, L, fill::zeros);
@@ -40,14 +40,13 @@ Solver makeFbrRun(int L, double dt, double U)
         K(0, 2) = K(2, 0) = K(1, 3) = K(3, 1) = V;
         mat Umat(L, L, fill::zeros);
         Umat(0, 1) = U;
-        model = ImpuritySpin{{.Kmat = K, .Umat = Umat, .impPos = {2, 0, 1, 3}}};
+        model = Impurity{{.Kmat = K, .Umat = Umat, .impPos = {2, 0, 1, 3}, .layout=spin_block}};
     }
 
     auto ek = vec{model.param.Kmat.diag()};
     ek[L / 2 - 1] = ek[L / 2] = -10;
     ek[L / 2 - 2] = ek[L / 2 + 1] = 10;
-    auto fb = Fb_mps<cmpx>::from_slater(model.param.rot * cmpx(1, 0), ek,
-                                                   model.param.nPart(), model.param.nImp(), spin_block);
+    auto fb = model.slater<cmpx>(ek);
     auto solver = Fbr_dyn(model, fb, dt);
     solver.fb.tol = 1e-12;
     return solver;
@@ -108,13 +107,12 @@ TEST_CASE("multi-state solver with one state matches single-state solver",
     K0(0,2)=K0(2,0)=K0(1,3)=K0(3,1)=0.1;
     mat Umat(L,L,fill::zeros);
     Umat(0,1)=U;
-    auto model=ImpuritySpin{{.Kmat=K0,.Umat=Umat,.impPos={2,0,1,3}}};
+    auto model=Impurity{{.Kmat=K0,.Umat=Umat,.impPos={2,0,1,3}, .layout=spin_block}};
 
     auto ek=vec{model.param.Kmat.diag()};
     ek[L/2-1]=ek[L/2]=-10;
     ek[L/2-2]=ek[L/2+1]=10;
-    auto fb=Fb_mps<cmpx>::from_slater(model.param.rot*cmpx(1,0),ek,
-                                                 model.param.nPart(),model.param.nImp(), spin_block);
+    auto fb=model.slater<cmpx>(ek);
     fb.tol=1e-12;
 
     auto incompatible=fb;

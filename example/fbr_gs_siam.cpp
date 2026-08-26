@@ -1,5 +1,4 @@
 #include "fbr/fbr_gs_spin.h"
-#include "fbr/impurity_param_spin.h"
 #include <iostream>
 #include <iomanip>
 
@@ -10,7 +9,6 @@ int main()
 {
     int L=1000;
     double U=2.0;
-    bool spin=false;
     arma::mat K(L,L, arma::fill::zeros);
     {
         for(auto i=0; i<L-2; i++)
@@ -24,13 +22,13 @@ int main()
     Umat(0, 1) = U;
     // impPos in convention 2 (outer up, inner up=imp_up, inner dw=imp_dw, outer dw).
     // Only physical impurities here (no buffer): impPos = {0, 1}.
-    auto model = ImpuritySpin {{.Kmat=K, .Umat=Umat, .impPos={0,1}}};
+    auto model = Impurity {{.Kmat=K, .Umat=Umat, .impPos={0,1}, .layout=spin_symmetric}};
 
     auto ek=arma::vec {model.param.Kmat.diag()};
     // optional: force impurity ocupation |10>
     ek[0]=-10;
     ek[1]=10;
-    auto fb=Fb_mps<double>::from_slater(model.param.rot, ek, model.param.nPart(), model.param.nImp(), spin_symmetric);
+    auto fb=model.slater<double>(ek);
     fb.tol=1e-10;
 
     auto solver=Fbr_gs_spin(model,fb);

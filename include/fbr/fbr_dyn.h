@@ -4,14 +4,12 @@
 #include "graph.h"
 #include "itensor_utils.h"
 #include "impurity_param.h"
-#include "impurity_param_spin.h"
 #include "fb_mps.h"
 
 #include "tdvp.h"
 #include "basisextension.h"
 
 #include <stdexcept>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -47,12 +45,10 @@ inline int couplingRank(Fb_mps<cmpx> const& fb, arma::mat const& Kmat)
 /// phases, fb.rot tracks only the natural-orbital basis change, and
 /// Schrödinger-picture correlators are recovered by dressing with
 /// exp(-i Kbath t) (effective_rot).
-template<class Model>
 struct DynCommon {
     using State = Fb_mps<cmpx>;
-    using Param = std::decay_t<decltype(std::declval<Model const&>().param)>;
 
-    Param param;
+    ImpurityParam param;
     double dt;
     arma::cx_mat Kbath;      ///< diagonal bath Hamiltonian (star geometry)
     arma::cx_mat Kip0;       ///< second-order interaction-picture Hamiltonian at t=0
@@ -65,7 +61,7 @@ struct DynCommon {
     arma::cx_mat K;          ///< the current Hamiltonian
     int nIter=0;
 
-    DynCommon(Model const& imp, State const& first, double dt_)
+    DynCommon(Impurity const& imp, State const& first, double dt_)
         : param(imp.param)
         , dt(dt_)
     {
@@ -270,22 +266,20 @@ struct DynCommon {
 
 } // namespace detail
 
-/// Real-time evolution of one few-body MPS. The state type selects the orbital
-/// layout (Fb_mps: spinless, Fb_mps_spin: spin-flip symmetric,
-/// Fb_mps_spin_block: generic spin); class template argument deduction makes
-/// the usual spelling simply
+/// Real-time evolution of one few-body MPS. The orbital layout (spinless,
+/// spin-flip symmetric or generic spin) comes from the state and the model,
+/// which share it through ImpurityParam::layout:
 ///   auto solver = Fbr_dyn(model, fb, dt);
 /// For several states evolving in one common orbital basis, see Fbr_ns_dyn.
-template<class Model>
-struct Fbr_dyn : detail::DynCommon<Model> {
-    using Common = detail::DynCommon<Model>;
+struct Fbr_dyn : detail::DynCommon {
+    using Common = detail::DynCommon;
     using State = typename Common::State;
 
     /// these quantities are updated during the iterations
     State fb;               ///< the current few body MPS
     double energy=-1000;
 
-    explicit Fbr_dyn(Model const& imp, State const& fb_, double dt_=0.1)
+    explicit Fbr_dyn(Impurity const& imp, State const& fb_, double dt_=0.1)
         : Common(imp,fb_,dt_)
         , fb { fb_ }
     {
@@ -334,16 +328,15 @@ struct Fbr_dyn : detail::DynCommon<Model> {
 /// (natural orbitals come from their averaged correlation matrix) and applied
 /// identically to every MPS. Each state is nevertheless evolved by its own
 /// TDVP call, since the TDVP projection and truncation are state-dependent.
-template<class Model>
-struct Fbr_ns_dyn : detail::DynCommon<Model> {
-    using Common = detail::DynCommon<Model>;
+struct Fbr_ns_dyn : detail::DynCommon {
+    using Common = detail::DynCommon;
     using State = typename Common::State;
 
     /// these quantities are updated during the iterations
     std::vector<State> states;    ///< the current few body MPS states
     std::vector<double> energies; ///< energy of every state
 
-    explicit Fbr_ns_dyn(Model const& imp, std::vector<State> states_, double dt_=0.1)
+    explicit Fbr_ns_dyn(Impurity const& imp, std::vector<State> states_, double dt_=0.1)
         : Common(imp,firstOf(states_),dt_)
         , states(std::move(states_))
     {

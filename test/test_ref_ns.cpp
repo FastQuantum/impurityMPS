@@ -13,7 +13,7 @@ using namespace fbrtest;
 
 namespace {
 
-using Solver = Fbr_dyn<Impurity>;
+using Solver = Fbr_dyn;
 
 // Spinless (interleaved up/down) layout: the FBR site -> chain index map.
 uvec fbrIndexToChainIndex(int L)
@@ -44,8 +44,7 @@ Solver makeFbrRun(int L, double dt, double U)
     auto ek = vec{model.param.Kmat.diag()};
     ek[0] = ek[1] = -10;
     ek[2] = ek[3] = 10;
-    auto fb = Fb_mps<cmpx>::from_slater(model.param.rot * cmpx(1, 0), ek,
-                                        model.param.nPart(), model.param.nImp(), leading, false);
+    auto fb = model.slater<cmpx>(ek);
     auto solver = Fbr_dyn(model, fb, dt);
     solver.fb.tol = 1e-12;
     return solver;
@@ -105,8 +104,7 @@ TEST_CASE("multi-state solver with one state matches single-state solver", "[mul
     auto ek=vec{model.param.Kmat.diag()};
     ek[0]=ek[1]=-10;
     ek[2]=ek[3]=10;
-    auto fb=Fb_mps<cmpx>::from_slater(model.param.rot*cmpx(1,0),ek,
-                                      model.param.nPart(),model.param.nImp(), leading, false);
+    auto fb=model.slater<cmpx>(ek);
     fb.tol=1e-12;
 
     auto incompatible=fb;
@@ -153,8 +151,7 @@ TEST_CASE("dynamics starting from a rotated frame", "[fbr_dyn][frame]") {
     mat Umat(L,L,fill::zeros);        // U=0: the ground state is an eigenstate
     auto model=Impurity{{.Kmat=K,.Umat=Umat,.impPos={0,1}}};
 
-    auto gs=Fb_mps<double>::from_slater(model.param.rot,vec{model.param.Kmat.diag()},
-                                        model.param.nPart(),model.param.nImp(),leading);
+    auto gs=model.slater<double>();
     gs.tol=1e-12;
     auto gs_solver=Fbr_gs(model,gs);
     for (int i=0; i<60; ++i) gs_solver.iterate({.max_bond_dim=256});

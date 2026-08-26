@@ -68,7 +68,7 @@ int main()
     // optional: force impurity occupation |10>
     ek[0]=-10;
     ek[1]=10;
-    auto fb=Fb_mps<double>::from_slater(model.param.rot, ek, model.param.nPart(), model.param.nImp(), leading);
+    auto fb=model.slater<double>(ek);
     fb.tol=1e-10;
 
     auto solver=Fbr_gs(model,fb);
@@ -104,7 +104,7 @@ reading off real-space observables along the way:
 #include "fbr/fbr_dyn.h"
 // ... build K, Umat, model as in the ground-state example ...
 
-auto fb=Fb_mps<cmpx>::from_slater(model.param.rot*cmpx(1,0), ek, model.param.nPart(), model.param.nImp(), leading);
+auto fb=model.slater<cmpx>(ek);
 fb.tol=1e-10;
 
 double dt=0.1;
@@ -128,15 +128,15 @@ For models with spin you describe the impurities by listing them from the outerm
 - **Spin-flip symmetric** (`spin_symmetric`) — up and down are equivalent, so only one spin block is computed. See [`fbr_gs_siam.cpp`](example/fbr_gs_siam.cpp) and [`fbr_dyn_siam.cpp`](example/fbr_dyn_siam.cpp).
 - **Generic spin (block)** (`spin_block`) — the two spin blocks are handled independently, for cases without spin-flip symmetry. See [`fbr_dyn_siam_block.cpp`](example/fbr_dyn_siam_block.cpp).
 
-The layout is chosen when the state is built, by the `Layout` argument of `from_slater`; the spinless case is `leading`.
+The layout is part of the model: `ImpurityParam::layout` selects the chain geometry `toStar()` produces, and `model.slater<T>()` builds a matching initial state. The spinless case is `leading`, the default.
 
 ```c++
 #include "fbr/fbr_gs_spin.h"
 // SIAM: U between the up impurity (site 0) and dw impurity (site 1)
 arma::mat Umat(L,L,arma::fill::zeros);  Umat(0,1)=U;
-auto model = ImpuritySpin {{.Kmat=K, .Umat=Umat, .impPos={0,1}}};
+auto model = Impurity {{.Kmat=K, .Umat=Umat, .impPos={0,1}, .layout=spin_symmetric}};
 
-auto fb=Fb_mps<double>::from_slater(model.param.rot, ek, model.param.nPart(), model.param.nImp(), spin_symmetric);
+auto fb=model.slater<double>(ek);   // ek defaults to param.Kmat.diag()
 auto solver=Fbr_gs_spin(model,fb);
 for(auto i=0;i<100;i++) solver.iterate();
 double n0 = solver.fb.correlator(0,0);     // impurity occupation

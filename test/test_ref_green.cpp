@@ -206,8 +206,7 @@ void checkLargeL(std::string const &us)
 
     auto ek = vec{model.param.Kmat.diag()};
     ek[0] = ek[1] = 10;            // both impurity orbitals empty, so c^dag acts
-    auto psi0 = Fb_mps<cmpx>::from_slater(model.param.rot * cmpx(1, 0), ek,
-                                          model.param.nPart(), model.param.nImp(), leading);
+    auto psi0 = model.slater<cmpx>(ek);
     psi0.tol = largeTol;
     auto [B0, nrm0] = addParticle(psi0, 0);
     auto [B1, nrm1] = addParticle(psi0, 1);

@@ -53,10 +53,10 @@ All library types live in `namespace fbr`. Include as `#include "fbr/<header>.h"
 
 | Header | Purpose |
 |---|---|
-| `fb_mps.h` | `Fb_mps<T>` — few-body MPS state with rotation matrix `rot`, correlation matrix `cc` and active window `[p1,p2)`. One class for the three orbital layouts, chosen by the `Layout` passed to `from_slater`: `leading` (spinless), `spin_symmetric`, `spin_block` |
-| `impurity_param.h` / `impurity_param_spin.h` | `ImpurityParam` / `ImpurityParamSpin` — kinetic matrix `Kmat`, interaction `Umat`, impurity positions; `toStar()` transforms to star geometry |
+| `fb_mps.h` | `Fb_mps<T>` — few-body MPS state with rotation matrix `rot`, correlation matrix `cc` and active window `[p1,p2)`. One class for the three orbital layouts, chosen by the `Layout` of the model (`ImpurityParam::layout`), or passed directly to `from_slater`: `leading` (spinless), `spin_symmetric`, `spin_block` |
+| `impurity_param.h` | `ImpurityParam` — kinetic matrix `Kmat`, interaction `Umat`, impurity positions and the chain `layout`; `toStar()` transforms to star geometry (leading or centered, per `layout`). `Impurity` wraps it (calling `toStar()`) and builds a matching initial state with `model.slater<T>(ek)` |
 | `fbr_gs_spin.h` | `Fbr_gs_spin` — ground state solver: DMRG loop + orbital rotation |
-| `fbr_dyn.h` | `Fbr_dyn<Model>` — dynamics: TDVP loop + orbital rotation, deduced from the model: `Fbr_dyn(model,fb,dt)`. `Fbr_ns_dyn<Model>` evolves several states in one common orbital basis: `Fbr_ns_dyn(model,states,dt)` |
+| `fbr_dyn.h` | `Fbr_dyn` — dynamics: TDVP loop + orbital rotation: `Fbr_dyn(model,fb,dt)`. `Fbr_ns_dyn` evolves several states in one common orbital basis: `Fbr_ns_dyn(model,states,dt)` |
 | `graph.h` | Index/set utilities (`iota`, `regspace`, `set_diff`) and `fbr::graph::find_islands` for connected-component detection |
 | `itensor_utils.h` | `DmrgParam`, `TdvpParam`; `NOGates()` — converts Givens rotations to ITensor `BondGate`s |
 | `givens_rotation.h` | Givens rotations applied to MPS: `GivensRotForRot_left()`, `expIH()`, `my_svd()` |
@@ -67,7 +67,7 @@ Input is a generic kinetic matrix `Kmat`. `toStar()` transforms it to star geome
 
 ### Spin variants
 
-The `spin_symmetric` layout supports spin up/down having equivalent properties (spin flip commute with the Hamiltonian): only the down sector is computed and the up one is its mirror image. Use it with `ImpurityParamSpin` and `Fbr_gs_spin`. The impurity is represented as -----spin-up-----xx XX------spin-down------- whre xx and XX are the non-rotating orbitals with spin up and down, respectively. `spin_block` is the generic-spin variant (no spin-flip symmetry assumed), and `leading` is the spinless one, |imp|active|slater|, which is the same chain with an empty up sector (`mid()==0`).
+The `spin_symmetric` layout supports spin up/down having equivalent properties (spin flip commute with the Hamiltonian): only the down sector is computed and the up one is its mirror image. Use it with `ImpurityParam{.layout=spin_symmetric}` and `Fbr_gs_spin`. The impurity is represented as -----spin-up-----xx XX------spin-down------- whre xx and XX are the non-rotating orbitals with spin up and down, respectively. `spin_block` is the generic-spin variant (no spin-flip symmetry assumed), and `leading` is the spinless one, |imp|active|slater|, which is the same chain with an empty up sector (`mid()==0`).
 
 ### Examples (`example/`)
 

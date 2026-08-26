@@ -2,20 +2,20 @@
 #define FBR_GS_SPIN_H
 
 #include "itensor_utils.h"
-#include "impurity_param_spin.h"
+#include "impurity_param.h"
 #include "fb_mps.h"
 
 namespace fbr {
 
 struct Fbr_gs_spin {
-    ImpurityParamSpin param;
+    ImpurityParam param;
 
     /// these quantities are updated during the iterations
     Fb_mps<double> fb;
     arma::mat K;
     double energy=-1000;
 
-    Fbr_gs_spin(ImpuritySpin const& imp, Fb_mps<double> const& fb_)
+    Fbr_gs_spin(Impurity const& imp, Fb_mps<double> const& fb_)
         : param(imp.param)
         , fb { fb_ }
         , K(param.Kmat)

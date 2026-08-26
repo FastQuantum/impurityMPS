@@ -2,7 +2,6 @@
 #include "fbr/itensor_utils.h"
 #include "tdvp.h"
 #include "basisextension.h"
-#include "fbr/impurity_param_spin.h"
 #include <iostream>
 #include <iomanip>
 
@@ -136,7 +135,7 @@ int main()
     }
 
     // Construct model from pre-computed star geometry (bypassing toStar)
-    ImpuritySpin model;
+    Impurity model;
     {
         int nBath=L/2-nImp/2;
         model.param.Kmat = Kstar;
@@ -144,6 +143,7 @@ int main()
         model.param.rot  = rot;
         // convention 2: spatial order outer-up..inner-up..inner-dw..outer-dw
         model.param.impPos = {nBath, nBath+nImp/2-1, L/2, L/2+nImp/2-1};
+        model.param.layout = spin_symmetric;
     }
 
     auto mpo=getHamiltonian(fb.sites,model.param.Kmat,model.param.Umat);

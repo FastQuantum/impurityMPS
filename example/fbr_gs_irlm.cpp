@@ -26,7 +26,7 @@ int main()
     // force impurity occupation |10>
     ek[0]=-10;
     ek[1]=10;
-    auto fb=Fb_mps<double>::from_slater(model.param.rot, ek, model.param.nPart(), model.param.nImp(), leading, false);
+    auto fb=model.slater<double>(ek);
     fb.tol=1e-10;
 
     auto solver=Fbr_gs(model,fb);

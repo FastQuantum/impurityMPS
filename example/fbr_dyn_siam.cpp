@@ -8,7 +8,7 @@ using namespace fbr;
 int main()
 {
     int L=1000;
-    ImpuritySpin model;
+    Impurity model;
     {
         double U=0.1;
         double V=0.1;
@@ -26,7 +26,7 @@ int main()
         // Convention 2 (outer..inner..outer): {buf_up, imp_up, imp_dw, buf_dw} = {2, 0, 1, 3}.
         std::vector<int> impPos = {2, 0, 1, 3};
 
-        model = ImpuritySpin {{.Kmat=K, .Umat=Umat, .impPos=impPos}};
+        model = Impurity {{.Kmat=K, .Umat=Umat, .impPos=impPos, .layout=spin_symmetric}};
     }
     Fb_mps<cmpx> fb;
     {
@@ -35,7 +35,7 @@ int main()
         ek[L/2-1]=ek[L/2]=-10;
         ek[L/2-2]=ek[L/2+1]=10;
         arma::cx_mat rot(L,L,arma::fill::eye);
-        fb=Fb_mps<cmpx>::from_slater(model.param.rot*cmpx(1,0), ek, model.param.nPart(), model.param.nImp(), spin_symmetric);
+        fb=model.slater<cmpx>(ek);
         // fb.occupations_ni().as_row().eval().print("ni");
     }
     // fb.tol=1e-10;

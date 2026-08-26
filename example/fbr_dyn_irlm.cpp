@@ -26,7 +26,7 @@ int main()
     // force impurity occupation |10>
     ek[0]=-10;
     ek[1]=10;
-    auto fb=Fb_mps<cmpx>::from_slater(model.param.rot*cmpx(1,0), ek, model.param.nPart(), model.param.nImp(), leading, false);
+    auto fb=model.slater<cmpx>(ek);
     fb.tol=1e-10;
 
     double dt=0.1;

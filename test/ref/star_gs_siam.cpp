@@ -1,4 +1,3 @@
-#include "fbr/fb_mps.h"
 #include "fbr/impurity_param.h"
 #include <iostream>
 #include <iomanip>
@@ -10,7 +9,6 @@ int main()
 {
     int L=1000;
     double U=2.0;
-    bool spin=false;
     arma::mat K(L,L, arma::fill::zeros);
     {
         for(auto i=0; i<L-2; i++)
@@ -19,14 +17,15 @@ int main()
         K(1,1)=-U/2;
         K(0,2)=K(2,0)=K(1,3)=K(3,1)=0.5;
     }
-    arma::mat Umat={{0,U},{0,0}};
-    auto model = Impurity {{.Kmat=K, .Umat=Umat}};
+    arma::mat Umat(L,L,arma::fill::zeros);
+    Umat(0,1)=U;
+    auto model = Impurity {{.Kmat=K, .Umat=Umat, .impPos={0,1}}};
 
     auto ek=arma::vec {model.param.Kmat.diag()};
     // optional: force impurity ocupation |10>
     ek[0]=-10;
     ek[1]=10;
-    auto fb=Fb_mps<double>::from_slater(model.param.rot, ek, model.param.nPart(), model.param.nImp(), leading, spin);
+    auto fb=model.slater<double>(ek);
     itensor::AutoMPO h(fb.sites);
     for(auto i=0; i<model.param.nImp(); i++)
         for(auto j=0; j<model.param.nImp(); j++)

@@ -32,10 +32,7 @@ int main()
         auto model = makeIrlmModel(L, U, V);
 
         itensor::cpu_time clk;
-        auto gs = Fb_mps<double>::from_slater(model.param.rot,
-                                              arma::vec{model.param.Kmat.diag()},
-                                              model.param.nPart(), model.param.nImp(),
-                                              leading);
+        auto gs = model.slater<double>();
         gs.tol = 1e-12;
         auto solver = Fbr_gs(model, gs);
         for (int i = 0; i < nIter; i++) solver.iterate({.max_bond_dim = 512});
