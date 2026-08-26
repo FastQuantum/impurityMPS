@@ -1,7 +1,6 @@
 #include <catch2/catch.hpp>
 
 #include "fbr/fbr_dyn.h"
-#include "fbr/fbr_gs.h"
 #include "test_ref_common.h"
 
 #include <map>
@@ -26,16 +25,6 @@ using namespace fbrtest;
 namespace {
 
 // Same model as test/ref/chain_green_irlm.cpp and example/fbr_dyn_irlm.cpp.
-Impurity makeModel(int L, double U, double V)
-{
-    mat K(L, L, fill::zeros);
-    for (int i = 1; i < L - 1; i++) K(i, i + 1) = K(i + 1, i) = 0.5;
-    K(0, 1) = K(1, 0) = V;
-    K(0, 0) = K(1, 1) = -U / 2;
-    mat Umat(L, L, fill::zeros);
-    Umat(0, 1) = U;
-    return Impurity{{.Kmat = K, .Umat = Umat, .impPos = {0, 1}}};
-}
 
 // c_j^dag|psi0>, normalized, with the norm it had before normalizing: the states
 // of one Fbr_ns_dyn share their Slater determinant, so they have to be
@@ -96,15 +85,15 @@ GreenError const &resultFor(std::string const &us)
     REQUIRE(ref.size() > 1);
     REQUIRE(std::abs((ref[1].t - ref[0].t) - dt) < 1e-12);
 
-    auto model = makeModel(L, U, V);
+    auto model = makeIrlmModel(L, U, V);
 
-    auto gs = Fb_mps<double>::from_slater(model.param.rot, vec{model.param.Kmat.diag()},
-                                          model.param.nPart(), model.param.nImp(), leading);
-    gs.tol = 1e-12;
-    auto gsSolver = Fbr_gs(model, gs);
-    for (int i = 0; i < 80; i++) gsSolver.iterate({.max_bond_dim = 512});
-
-    auto psi0 = gsSolver.fb.to_complex();
+    // The ground state comes off disk: 80 Fbr_gs sweeps at L=100 took longer
+    // than everything else in this file put together, and the answer is always
+    // the same. It is still checked -- at t=0 the Green functions involve only
+    // the ground state, and the comparison against the chain DMRG baseline
+    // below is tighter there than anywhere else.
+    auto psi0 = loadFbMps<double>(findRef("fbr_green_gs_L" + std::to_string(L)
+                                          + "_U" + us + ".dat")).to_complex();
     auto [B0, nrm0] = addParticle(psi0, 0);
     auto [B1, nrm1] = addParticle(psi0, 1);
     // the three states share one active window, which has to hold every orbital
@@ -114,8 +103,10 @@ GreenError const &resultFor(std::string const &us)
 
     std::size_t nStep = ref.size();
 #ifndef FBR_ENABLE_LONG_TEST
-    // Default: stop at t=5. Build with -DFBR_ENABLE_LONG_TEST=ON for the full file.
-    nStep = std::min<std::size_t>(nStep, 51);
+    // Default: enough of the evolution to see the two methods track each other,
+    // and no more. The whole file (out to t=20) is a long test:
+    // -DFBR_ENABLE_LONG_TEST=ON.
+    nStep = std::min<std::size_t>(nStep, 21);
 #endif
 
     GreenError err;
@@ -200,14 +191,18 @@ bool nearEnough(int got, int want)
 
 void checkLargeL(std::string const &us)
 {
-    constexpr int nSteps = 20;
+#ifdef FBR_ENABLE_LONG_TEST
+    constexpr int nSteps = 201;
+#else
+    constexpr int nSteps = 5;
+#endif
     constexpr double dt = 0.1;
     constexpr double V = 0.1;
     double U = std::stod(us);
 
     auto ref = loadLargeLGreenReference("fbr_green_irlm_L" + std::to_string(largeL)
                                         + "_U" + us + ".txt", nSteps);
-    auto model = makeModel(largeL, U, V);
+    auto model = makeIrlmModel(largeL, U, V);
 
     auto ek = vec{model.param.Kmat.diag()};
     ek[0] = ek[1] = 10;            // both impurity orbitals empty, so c^dag acts

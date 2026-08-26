@@ -5,6 +5,9 @@
 // own executable because the TDVP headers define non-inline functions; only the
 // variant-specific FBR run lives in the .cpp, everything reusable lives here.
 
+#include "fbr/fb_mps.h"
+#include "fbr/impurity_param.h"
+
 #include <armadillo>
 
 #include <algorithm>
@@ -18,6 +21,68 @@ namespace fbrtest {
 
 using namespace arma;
 using cmpx = std::complex<double>;
+
+// The spinless IRLM the Green function references use: a chain of hopping 0.5,
+// the impurity cluster on sites 0 and 1, hybridization V between them, e_imp
+// = -U/2 and U across the pair. Shared so the generator in ref/ and the test
+// cannot drift apart -- a saved ground state only means anything for the model
+// it was computed from.
+inline fbr::Impurity makeIrlmModel(int L, double U, double V)
+{
+    mat K(L, L, fill::zeros);
+    for (int i = 1; i < L - 1; i++) K(i, i + 1) = K(i + 1, i) = 0.5;
+    K(0, 1) = K(1, 0) = V;
+    K(0, 0) = K(1, 1) = -U / 2;
+    mat Umat(L, L, fill::zeros);
+    Umat(0, 1) = U;
+    return fbr::Impurity{{.Kmat = K, .Umat = Umat, .impPos = {0, 1}}};
+}
+
+// Saving a few-body state: the MPS and its site set through ITensor, the two
+// dense matrices through armadillo, the rest as plain values. Computing a
+// ground state is the slow part of a Green function test and it does not change
+// between runs, so it is worth keeping one on disk.
+template<class T>
+void saveFbMps(std::string const &fname, fbr::Fb_mps<T> const &fb)
+{
+    std::ofstream s(fname, std::ios::binary);
+    if (!s) throw std::runtime_error("cannot write " + fname);
+    itensor::write(s, fb.sites);
+    itensor::write(s, fb.psi);
+    itensor::write(s, fb.imp_size);
+    itensor::write(s, fb.p1);
+    itensor::write(s, fb.p2);
+    itensor::write(s, static_cast<int>(fb.layout));
+    itensor::write(s, static_cast<int>(fb.spin));
+    itensor::write(s, fb.tol);
+    itensor::write(s, fb.nSv);
+    if (!fb.rot.save(s, arma_binary) || !fb.cc.save(s, arma_binary))
+        throw std::runtime_error("cannot write the frame of " + fname);
+}
+
+template<class T>
+fbr::Fb_mps<T> loadFbMps(std::string const &fname)
+{
+    std::ifstream s(fname, std::ios::binary);
+    if (!s) throw std::runtime_error("missing saved state " + fname
+                                     + " (regenerate with test/ref/fbr_green_gs.cpp)");
+    fbr::Fb_mps<T> fb;
+    int layout = 0, spin = 0;
+    itensor::read(s, fb.sites);
+    itensor::read(s, fb.psi);
+    itensor::read(s, fb.imp_size);
+    itensor::read(s, fb.p1);
+    itensor::read(s, fb.p2);
+    itensor::read(s, layout);
+    itensor::read(s, spin);
+    itensor::read(s, fb.tol);
+    itensor::read(s, fb.nSv);
+    fb.layout = static_cast<fbr::Layout>(layout);
+    fb.spin = spin != 0;
+    if (!fb.rot.load(s, arma_binary) || !fb.cc.load(s, arma_binary))
+        throw std::runtime_error("cannot read the frame of " + fname);
+    return fb;
+}
 
 // One snapshot of a reference run: occupations and the full one-particle
 // correlation matrix <c_i^dag c_j>, in original (chain-site) order.
