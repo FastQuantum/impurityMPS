@@ -10,6 +10,10 @@ target_include_directories(${PROJECT_NAME}_test INTERFACE Catch2::Catch2)
 target_link_libraries(${PROJECT_NAME}_test PRIVATE ${PROJECT_NAME})
 target_link_libraries(${PROJECT_NAME}_test PRIVATE Catch2::Catch2)
 
+if(FBR_EXAMPLE_REF)
+    add_subdirectory(ref)
+endif()
+
 # Each FBR dynamics variant needs its own executable: the TDVP headers define
 # non-inline functions, so two TUs including a dyn header in one link target
 # would produce multiple-definition errors.

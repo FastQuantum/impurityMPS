@@ -20,7 +20,7 @@ struct TdvpParam {
     int nIter_diag=16;      ///< Krylov iterations used to apply exp(-i * Heff * dt) locally.
     double err_goal=1e-7;   ///< TDVP local evolution error goal.
     // --- addBasis (global subspace expansion) parameters ---
-    // Defaults tuned on the star-geometry SIAM benchmark (example/ref/star_dyn_tune.cpp):
+    // Defaults tuned on the star-geometry SIAM benchmark (test/ref/star_dyn_tune.cpp):
     // this set tracks the chain baseline as tightly as the old overkill
     // (nKrylov=15, err_goal=1e-8, epsilonM=1e-7, epsilonK=1e-8) at ~4x less cost.
     // nKrylov is the cheap knob (15->2 is free); err_goal and the two epsilon cutoffs

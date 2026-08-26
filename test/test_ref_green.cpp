@@ -14,8 +14,8 @@ using namespace fbrtest;
 
 // The impurity Green functions of the spinless IRLM, computed with the FBR
 // (active-window, star geometry, interaction picture) and compared against the
-// trusted chain baseline in example/ref/output/chain_green_irlm_U<U>_ref.txt,
-// produced by example/ref/chain_green_irlm.cpp.
+// trusted chain baseline in test/ref/output/chain_green_irlm_U<U>_ref.txt,
+// produced by test/ref/chain_green_irlm.cpp.
 //
 //     G(i,j,t) = -i <psi0| c_i(t) c_j^dag(0) |psi0> = -i <c_i^dag A(t) | B_j(t)>
 //
@@ -25,7 +25,7 @@ using namespace fbrtest;
 
 namespace {
 
-// Same model as example/ref/chain_green_irlm.cpp and example/fbr_dyn_irlm.cpp.
+// Same model as test/ref/chain_green_irlm.cpp and example/fbr_dyn_irlm.cpp.
 Impurity makeModel(int L, double U, double V)
 {
     mat K(L, L, fill::zeros);

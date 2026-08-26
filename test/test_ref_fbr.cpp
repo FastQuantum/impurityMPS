@@ -29,7 +29,7 @@ uvec fbrIndexToChainIndex(int L)
 }
 
 // Build the SIAM FBR dynamics solver at interaction strength U (star geometry,
-// active-window). Same model as example/ref/{chain,star}_dyn_siam_center.cpp.
+// active-window). Same model as test/ref/{chain,star}_dyn_siam_center.cpp.
 Solver makeFbrRun(int L, double dt, double U)
 {
     ImpuritySpin model;
@@ -70,7 +70,7 @@ TrajResult const &resultFor(double U, std::string const &us)
     auto iter = [](Solver &f) {
         // FBR: epsilonM=0 skips the subspace expansion, so nKrylov/epsilonK are
         // inert and err_goal (default 1e-7) is the only TDVP knob; FBR is insensitive
-        // to it (identical to 1e-8, tolerant to 1e-6). See example/ref/fbr_dyn_tune.cpp.
+        // to it (identical to 1e-8, tolerant to 1e-6). See test/ref/fbr_dyn_tune.cpp.
         f.iterate({.nIter_diag = 8, .epsilonM = 0});
     };
     auto corr = [](Solver &f) { return f.correlator_all(); };

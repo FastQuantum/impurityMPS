@@ -13,11 +13,6 @@ list(APPEND test_SRC
     bench_buildK.cpp
 )
 
-option(FBR_EXAMPLE_REF "Build reference star/chain examples" OFF)
-if(FBR_EXAMPLE_REF)
-    add_subdirectory(ref)
-endif()
-
 foreach (test ${test_SRC})
     get_filename_component (TName ${test} NAME_WE)
 

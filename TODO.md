@@ -4,7 +4,7 @@
 
 - [x] **Improve star_vs_chain precision.** Done: it was the TDVP subspace
   expansion, not the ordering. With epsilonM=1e-7, epsilonK=1e-8 the star baseline
-  now tracks chain to ~3e-5 (see `example/ref/output/star_vs_chain.txt`), on par
+  now tracks chain to ~3e-5 (see `test/ref/output/star_vs_chain.txt`), on par
   with FBR-vs-chain.
 
 - [ ] **Use the default `TdvpParam` in the ref tests.** `test/test_ref_*.cpp`

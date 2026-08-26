@@ -46,17 +46,17 @@ inline int stepOfLabel(std::string const &label)
     throw std::runtime_error("unknown snapshot label: " + label);
 }
 
-// Locate a reference file under example/ref/output/, trying the paths that work
+// Locate a reference file under test/ref/output/, trying the paths that work
 // whether the test runs from the build dir, the repo root, or test/.
 inline std::string findRef(std::string const &name)
 {
     for (auto const &base : std::vector<std::string>{
-             "example/ref/output/", "../example/ref/output/",
-             "../../example/ref/output/"}) {
+             "test/ref/output/", "../test/ref/output/",
+             "../../test/ref/output/"}) {
         std::ifstream in(base + name);
         if (in) return base + name;
     }
-    throw std::runtime_error("missing reference file example/ref/output/" + name);
+    throw std::runtime_error("missing reference file test/ref/output/" + name);
 }
 
 // Parse a chain_dyn_siam_center_ref_v1 file into a label -> SnapshotData map.

@@ -6,7 +6,7 @@ MPS-friendly gold standard). This script keeps a record of how the naive star
 baseline (star_dyn_siam_center) tracks the chain one, per snapshot, so the
 agreement is documented without wiring the star files into the test suite.
 
-Run from example/ref/ :  python3 compare_star_vs_chain.py
+Run from test/ref/ :  python3 compare_star_vs_chain.py
 Writes: output/star_vs_chain.txt
 """
 import os
