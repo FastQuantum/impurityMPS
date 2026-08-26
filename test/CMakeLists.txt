@@ -13,7 +13,7 @@ target_link_libraries(${PROJECT_NAME}_test PRIVATE Catch2::Catch2)
 # Each FBR dynamics variant needs its own executable: the TDVP headers define
 # non-inline functions, so two TUs including a dyn header in one link target
 # would produce multiple-definition errors.
-foreach(variant fbr block ns)
+foreach(variant fbr block ns green)
     add_executable(${PROJECT_NAME}_test_${variant}
         test_main.cpp
         test_ref_${variant}.cpp
@@ -33,3 +33,4 @@ catch_discover_tests(${PROJECT_NAME}_test)
 catch_discover_tests(${PROJECT_NAME}_test_fbr)
 catch_discover_tests(${PROJECT_NAME}_test_block)
 catch_discover_tests(${PROJECT_NAME}_test_ns)
+catch_discover_tests(${PROJECT_NAME}_test_green)

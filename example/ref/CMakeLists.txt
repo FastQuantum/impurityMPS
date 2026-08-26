@@ -1,5 +1,6 @@
 list(APPEND ref_SRC
     chain_dyn_siam_center.cpp
+    chain_green_irlm.cpp
     star_gs_siam.cpp
     star_dyn_siam.cpp
     star_dyn_siam_center.cpp

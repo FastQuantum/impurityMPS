@@ -96,6 +96,45 @@ inline RefSet loadReference(std::string const &name)
     return refs;
 }
 
+// ---- Green function references (chain_green_irlm_ref_v1) ----
+
+// One time slice of a Green function reference: the two impurity Green
+// functions and the bond dimension the chain run needed there.
+struct GreenSample {
+    double t;
+    cmpx G00, G01;
+    int m;
+};
+
+// Parse a chain_green_irlm_ref_v1 file: a header line, a comment line, then one
+// row per time step. The run may have stopped early (bond dimension), so the
+// number of rows is whatever the file says.
+inline std::vector<GreenSample> loadGreenReference(std::string const &name)
+{
+    std::ifstream in(findRef(name));
+    std::string magic, token;
+    int L = 0, steps = 0;
+    double U = 0, V = 0, dt = 0;
+    in >> magic >> token >> L >> token >> U >> token >> V >> token >> dt >> token >> steps;
+    if (magic != "chain_green_irlm_ref_v1" || L <= 0 || steps <= 0)
+        throw std::runtime_error("invalid Green reference header in " + name);
+    std::getline(in, token);
+    std::getline(in, token);   // the "# t ReG00 ..." comment line
+
+    std::vector<GreenSample> rows;
+    rows.reserve(steps);
+    for (int s = 0; s < steps; s++) {
+        GreenSample r;
+        double re0 = 0, im0 = 0, re1 = 0, im1 = 0;
+        in >> r.t >> re0 >> im0 >> re1 >> im1 >> r.m;
+        if (!in) throw std::runtime_error("truncated Green reference " + name);
+        r.G00 = cmpx(re0, im0);
+        r.G01 = cmpx(re1, im1);
+        rows.push_back(r);
+    }
+    return rows;
+}
+
 // Reorder a correlator from FBR site order to chain-reference site order. The
 // permutation `p` is variant-specific (the spinful and spinless layouts differ),
 // so each test .cpp supplies its own fbrIndexToChainIndex.
