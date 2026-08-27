@@ -49,10 +49,11 @@ The library tracks a small window of `n_active` orbitals in a full MPS (with ent
 
 ### Key headers (`include/fbr/`)
 
-All library types live in `namespace fbr`. Include as `#include "fbr/<header>.h"` and add `using namespace fbr;` in consumer code.
+All library types live in `namespace fbr`. Single-file programs include `#include "fbr/fbr.h"`, which pulls in everything and documents the short vocabulary; add `using namespace fbr;` in consumer code. A multi-TU target must include the specific headers instead and keep `fbr_dyn.h` to one file — upstream TDVP defines `addBasis` non-inline.
 
 | Header | Purpose |
 |---|---|
+| `fbr.h` | The umbrella: the four-step recipe and the dozen names it uses |
 | `fb_mps.h` | `Fb_mps<T>` — few-body MPS state with rotation matrix `rot`, correlation matrix `cc` and active window `active`. One class for the three orbital layouts, chosen by the `Layout` of the model (`ImpurityParam::layout`), or passed directly to `from_slater`: `leading` (spinless), `spin_symmetric`, `spin_block` |
 | `layout.h` | `Spin`, `Layout`, `Part` and `Range` — the chain geometry vocabulary shared by the model and the state. `fb.range(Part::active)` or `fb.range(Part::slater,dw)` names any part of the chain |
 | `impurity_param.h` | `ImpurityParam` — kinetic matrix `Kmat`, interaction `Umat`, impurity positions and the chain `layout`; `to_star()` transforms to star geometry (leading or centered, per `layout`), and the solvers `validate()` whatever they are handed |

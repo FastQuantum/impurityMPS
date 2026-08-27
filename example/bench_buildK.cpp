@@ -6,7 +6,7 @@
 //
 //   OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 ./bench_buildK
 
-#include "fbr/fbr_dyn.h"
+#include "fbr/fbr.h"
 
 #include <armadillo>
 #include <chrono>

@@ -28,8 +28,7 @@
 //
 // Usage: fbr_green_irlm [U]     (the reference is only exact at U=0)
 
-#include "fbr/fbr_gs.h"
-#include "fbr/fbr_dyn.h"
+#include "fbr/fbr.h"
 
 #include <iostream>
 #include <iomanip>

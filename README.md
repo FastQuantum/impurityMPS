@@ -39,7 +39,7 @@ H=U\left(n_{0}-\frac{1}{2}\right)\left(n_{1}-\frac{1}{2}\right)+V\left(c_{0}^{\d
 $$
 
 ```c++
-#include "fbr/fbr_gs.h"
+#include "fbr/fbr.h"
 #include <iostream>
 #include <iomanip>
 
@@ -101,7 +101,7 @@ Let's do a quench. We start from a Slater determinant, advance one step at a tim
 reading off real-space observables along the way:
 
 ```c++
-#include "fbr/fbr_dyn.h"
+#include "fbr/fbr.h"
 // ... build K, Umat, model as in the ground-state example ...
 
 auto fb=slater<cmpx>(model, ek);
@@ -131,7 +131,7 @@ For models with spin you describe the impurities by listing them from the outerm
 The layout is part of the model: `ImpurityParam::layout` selects the chain geometry `to_star()` produces, and `slater<T>(model)` builds a matching initial state. The spinless case is `leading`, the default.
 
 ```c++
-#include "fbr/fbr_gs.h"
+#include "fbr/fbr.h"
 // SIAM: U between the up impurity (site 0) and dw impurity (site 1)
 arma::mat Umat(L,L,arma::fill::zeros);  Umat(0,1)=U;
 auto model = ImpurityParam {.Kmat=K, .Umat=Umat, .imp_pos={0,1}, .layout=spin_symmetric};

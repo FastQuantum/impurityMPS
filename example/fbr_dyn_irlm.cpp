@@ -1,4 +1,4 @@
-#include "fbr/fbr_dyn.h"
+#include "fbr/fbr.h"
 #include <iostream>
 #include <iomanip>
 
