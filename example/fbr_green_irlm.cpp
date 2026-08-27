@@ -7,8 +7,16 @@
 //     <A(t)| c_i |B_j(t)> = <psi0| e^{iHt} c_i e^{-iHt} c_j^dag |psi0>,
 // so G is a matrix element between two states, which have to share the SAME
 // orbital basis at every time. That is what Fbr_dyn_shared gives: the orbital
-// rotations are found once and applied to every state. The three states here
-// are |psi0>, c_0^dag|psi0> and c_1^dag|psi0>.
+// rotations are found once and applied to every state.
+//
+// Each element of G needs exactly two states, so run one Fbr_dyn_shared per
+// element -- {psi0, c_0^dag psi0} here, and {psi0, c_1^dag psi0} there -- rather
+// than putting all three in one basis. A shared window must be wide enough for
+// every state in it, so a third state can only widen it, and a wider window is
+// more entanglement for every state to carry. Measured at L=40, U=0.5: the
+// three-state window reaches 28 active orbitals by t=1 and 26 at t=1.5, where
+// the two pairs need 13 and 12. The price is evolving psi0 twice, which is two
+// independent runs that could as well be two processes.
 //
 // The impurity orbitals are never rotated, so the real-space site i is exactly
 // the MPS orbital i (checked below) and c_i is a local operator there:
@@ -107,19 +115,23 @@ int main(int argc, char** argv)
         <<"# ground state energy: fbr="<<gs_solver.energy
         <<"  exact="<<arma::sum(ek_exact.head(n_part))<<endl;
 
-    // ---- |psi0>, c_0^dag|psi0> and c_1^dag|psi0> in one common basis ----
+    // ---- one run per matrix element: {psi0, c_j^dag psi0} ----
+    // The two states of a run share one active window, which has to hold every
+    // orbital where they differ; Fbr_dyn_shared widens it for that. A tight
+    // tolerance keeps the orbitals the extra particle leaks into inside it.
     auto psi0=gs_solver.fb.to_complex();
-    auto [B0,nrm0]=add_particle(psi0,0);
-    auto [B1,nrm1]=add_particle(psi0,1);
-    // The three states share one active window, which has to hold every orbital
-    // where they differ; Fbr_dyn_shared widens it for that. A tight tolerance keeps
-    // the orbitals that the extra particle leaks into inside the window.
-    psi0.tol=B0.tol=B1.tol=1e-12;
-    auto solver=Fbr_dyn_shared(model,std::vector{psi0,B0,B1},dt);
+    psi0.tol=1e-12;
+    auto pair_for=[&](int j) {
+        auto [B,nrm]=add_particle(psi0,j);
+        B.tol=psi0.tol;
+        return std::make_pair(Fbr_dyn_shared(model,std::vector{psi0,B},dt),nrm);
+    };
+    auto [solver0,nrm0]=pair_for(0);
+    auto [solver1,nrm1]=pair_for(1);
 
     // the impurity sites must be single MPS orbitals for c_element to be local
     for(auto i : {0,1}) {
-        auto Q=solver.effective_rot();
+        auto Q=solver0.effective_rot();
         if (std::abs(std::abs(Q(i,i))-1)>1e-10)
             throw std::runtime_error("impurity site is not a single MPS orbital");
     }
@@ -129,8 +141,8 @@ int main(int argc, char** argv)
     double err=0;
     for(auto step=0; step<=nStep; step++) {
         double t=step*dt;
-        cmpx G00=-imag_1*nrm0*c_element(solver.states[0],solver.states[1],0);
-        cmpx G01=-imag_1*nrm1*c_element(solver.states[0],solver.states[2],0);
+        cmpx G00=-imag_1*nrm0*c_element(solver0.states[0],solver0.states[1],0);
+        cmpx G01=-imag_1*nrm1*c_element(solver1.states[0],solver1.states[1],0);
         cmpx G00e=G_exact(0,0,t), G01e=G_exact(0,1,t);
         err=std::max({err,std::abs(G00-G00e),std::abs(G01-G01e)});
 
@@ -141,7 +153,10 @@ int main(int argc, char** argv)
                 <<"  "<<G01.real()<<" "<<G01.imag()
                 <<"  "<<G01e.real()<<" "<<G01e.imag()<<endl;
 
-        if (step<nStep) solver.iterate({.epsilon_M=0});
+        if (step<nStep) {
+            solver0.iterate({.epsilon_M=0});
+            solver1.iterate({.epsilon_M=0});
+        }
     }
     cout<<"# max |G - G_exact| = "<<scientific<<err
         <<(U==0 ? "  (U=0: the reference is exact)"
