@@ -96,17 +96,18 @@ int main(int argc, char **argv)
     K(0, 0) = K(1, 1) = -U / 2;
     mat Umat(L, L, fill::zeros);
     Umat(0, 1) = U;
-    auto model = Impurity{{.Kmat = K, .Umat = Umat, .imp_pos = {0, 1}}};
+    auto model = ImpurityParam{.Kmat = K, .Umat = Umat, .imp_pos = {0, 1}};
+    model.to_star();
 
     itensor::cpu_time clk;
     // The reference state: a Slater determinant with BOTH impurity orbitals
     // empty. The greater Green function needs c_j^dag|psi> to be non-zero, and
     // on a determinant that means orbital j has to be empty -- filling it, as
     // example/fbr_dyn_irlm.cpp does, makes c_0^dag|psi> vanish outright.
-    auto ek = vec{model.param.Kmat.diag()};
+    auto ek = vec{model.Kmat.diag()};
     ek[0] = ek[1] = 10;
-    auto psi0 = Fb_mps<cmpx>::from_slater(model.param.rot * cmpx(1, 0), ek,
-                                          n_part, model.param.n_imp(), leading);
+    auto psi0 = Fb_mps<cmpx>::from_slater(model.rot * cmpx(1, 0), ek,
+                                          n_part, model.n_imp(), leading);
     psi0.tol = tol;
     auto [B0, nrm0] = addParticle(psi0, 0);
     auto [B1, nrm1] = addParticle(psi0, 1);

@@ -9,7 +9,7 @@ using namespace fbr;
 int main()
 {
     int L=100;
-    Impurity model;
+    ImpurityParam model;
     {
         double U=0.2;
         double V=0.1;
@@ -24,13 +24,14 @@ int main()
         arma::mat Umat(L,L,arma::fill::zeros);
         Umat(0,1)=U;
 
-        model = Impurity {{.Kmat=K, .Umat=Umat, .imp_pos={0,1,2,3}}};
+        model = ImpurityParam{.Kmat=K, .Umat=Umat, .imp_pos={0,1,2,3}};
+        model.to_star();
 
         K.print("Kmat before star ns");
     }
     Fb_mps<cmpx> fb;
     {
-        auto ek=arma::vec {model.param.Kmat.diag()};
+        auto ek=arma::vec {model.Kmat.diag()};
         // force impurity ocupation |1100>
         ek[0]=ek[1]=-10; //TODO: the ek change the Hamiltonian
         ek[2]=ek[3]=10;
@@ -44,7 +45,7 @@ int main()
     solver.fb.tol=1e-12;
 
     // arma::real(fb.rot*1).eval().clean(1e-11).print("fb.rot");
-    // arma::real(model.param.rot*1).eval().clean(1e-11).print("param.rot");
+    // arma::real(model.rot*1).eval().clean(1e-11).print("param.rot");
     // auto Q=solver.param.rot;
     arma::real(solver.K*1).eval().clean(1e-11).print("K inicial ns");
     // arma::real(solver.param.Kmat*1).eval().clean(1e-11).print("Kmat original");

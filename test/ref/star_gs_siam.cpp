@@ -20,22 +20,23 @@ int main()
     }
     arma::mat Umat(L,L,arma::fill::zeros);
     Umat(0,1)=U;
-    auto model = Impurity {{.Kmat=K, .Umat=Umat, .imp_pos={0,1}}};
+    auto model = ImpurityParam{.Kmat=K, .Umat=Umat, .imp_pos={0,1}};
+    model.to_star();
 
-    auto ek=arma::vec {model.param.Kmat.diag()};
+    auto ek=arma::vec {model.Kmat.diag()};
     // optional: force impurity ocupation |10>
     ek[0]=-10;
     ek[1]=10;
     auto fb=slater<double>(model, ek);
     itensor::AutoMPO h(fb.sites);
-    for(auto i=0; i<model.param.n_imp(); i++)
-        for(auto j=0; j<model.param.n_imp(); j++)
-            if (std::abs(model.param.Umat(i,j))>1e-15)
-                h += model.param.Umat(i,j), "N", i+1, "N", j+1;
-    for(auto i=0; i<model.param.Kmat.n_rows; i++)
-        for(auto j=0; j<model.param.Kmat.n_cols; j++)
-            if (std::abs(model.param.Kmat(i,j))>fb.tol)
-                h += model.param.Kmat(i,j),"Cdag",i+1,"C",j+1;
+    for(auto i=0; i<model.n_imp(); i++)
+        for(auto j=0; j<model.n_imp(); j++)
+            if (std::abs(model.Umat(i,j))>1e-15)
+                h += model.Umat(i,j), "N", i+1, "N", j+1;
+    for(auto i=0; i<model.Kmat.n_rows; i++)
+        for(auto j=0; j<model.Kmat.n_cols; j++)
+            if (std::abs(model.Kmat(i,j))>fb.tol)
+                h += model.Kmat(i,j),"Cdag",i+1,"C",j+1;
     auto mpo = itensor::toMPO(h);
 
     auto sweeps = itensor::Sweeps(1);

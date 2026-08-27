@@ -28,7 +28,7 @@ uvec fbrIndexToChainIndex(int L)
 
 Solver makeFbrRun(int L, double dt, double U)
 {
-    Impurity model;
+    ImpurityParam model;
     {
         double V = 0.1;
         mat K(L, L, fill::zeros);
@@ -38,10 +38,11 @@ Solver makeFbrRun(int L, double dt, double U)
         K(0, 2) = K(2, 0) = K(1, 3) = K(3, 1) = V;
         mat Umat(L, L, fill::zeros);
         Umat(0, 1) = U;
-        model = Impurity{{.Kmat = K, .Umat = Umat, .imp_pos = {0, 1, 2, 3}}};
+        model = ImpurityParam{.Kmat = K, .Umat = Umat, .imp_pos = {0, 1, 2, 3}};
+        model.to_star();
     }
 
-    auto ek = vec{model.param.Kmat.diag()};
+    auto ek = vec{model.Kmat.diag()};
     ek[0] = ek[1] = -10;
     ek[2] = ek[3] = 10;
     auto fb = slater<cmpx>(model, ek);
@@ -99,9 +100,10 @@ TEST_CASE("multi-state solver with one state matches single-state solver", "[mul
     K0(0,2)=K0(2,0)=K0(1,3)=K0(3,1)=0.1;
     mat Umat(L,L,fill::zeros);
     Umat(0,1)=U;
-    auto model=Impurity{{.Kmat=K0,.Umat=Umat,.imp_pos={0,1,2,3}}};
+    auto model = ImpurityParam{.Kmat=K0,.Umat=Umat,.imp_pos={0,1,2,3}};
+    model.to_star();
 
-    auto ek=vec{model.param.Kmat.diag()};
+    auto ek=vec{model.Kmat.diag()};
     ek[0]=ek[1]=-10;
     ek[2]=ek[3]=10;
     auto fb=slater<cmpx>(model, ek);
@@ -149,7 +151,8 @@ TEST_CASE("dynamics starting from a rotated frame", "[fbr_dyn][frame]") {
     for (int i=1; i<L-1; ++i) K(i,i+1)=K(i+1,i)=0.5;
     K(0,1)=K(1,0)=0.5;
     mat Umat(L,L,fill::zeros);        // U=0: the ground state is an eigenstate
-    auto model=Impurity{{.Kmat=K,.Umat=Umat,.imp_pos={0,1}}};
+    auto model = ImpurityParam{.Kmat=K,.Umat=Umat,.imp_pos={0,1}};
+    model.to_star();
 
     auto gs=slater<double>(model);
     gs.tol=1e-12;
@@ -159,7 +162,7 @@ TEST_CASE("dynamics starting from a rotated frame", "[fbr_dyn][frame]") {
     auto fb=gs_solver.fb.to_complex();
     fb.tol=1e-12;
     // the ground state really did leave the star frame
-    REQUIRE(arma::abs(fb.rot-model.param.rot*cmpx(1,0)).max()>0.1);
+    REQUIRE(arma::abs(fb.rot-model.rot*cmpx(1,0)).max()>0.1);
 
     auto solver=Fbr_dyn(model,fb,dt);
     cx_mat cc0=solver.correlator();

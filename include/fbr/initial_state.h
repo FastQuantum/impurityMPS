@@ -20,12 +20,6 @@ Fb_mps<T> slater(ImpurityParam const& param, arma::vec ek={})
                                   param.n_part(), param.n_imp(), param.layout);
 }
 
-template<class T=double>
-Fb_mps<T> slater(Impurity const& model, arma::vec ek={})
-{
-    return slater<T>(model.param, std::move(ek));
-}
-
 } // namespace fbr
 
 #endif // FBR_INITIAL_STATE_H

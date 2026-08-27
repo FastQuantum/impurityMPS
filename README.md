@@ -61,8 +61,8 @@ int main()
     arma::mat Umat(L,L,arma::fill::zeros);
     Umat(0,1)=U;
 
-    // Impurity transforms Kmat to star geometry (impurities at imp_pos)
-    auto model = Impurity {{.Kmat=K, .Umat=Umat, .imp_pos={0,1}}};
+    auto model = ImpurityParam {.Kmat=K, .Umat=Umat, .imp_pos={0,1}};
+    model.to_star();   // bath modes orthogonalized, impurities moved to imp_pos
 
     auto ek=arma::vec {model.param.Kmat.diag()};
     // optional: force impurity occupation |10>
@@ -134,7 +134,8 @@ The layout is part of the model: `ImpurityParam::layout` selects the chain geome
 #include "fbr/fbr_gs.h"
 // SIAM: U between the up impurity (site 0) and dw impurity (site 1)
 arma::mat Umat(L,L,arma::fill::zeros);  Umat(0,1)=U;
-auto model = Impurity {{.Kmat=K, .Umat=Umat, .imp_pos={0,1}, .layout=spin_symmetric}};
+auto model = ImpurityParam {.Kmat=K, .Umat=Umat, .imp_pos={0,1}, .layout=spin_symmetric};
+model.to_star();
 
 auto fb=slater<double>(model, ek);   // ek defaults to param.Kmat.diag()
 auto solver=Fbr_gs(model,fb);
@@ -155,7 +156,7 @@ All example sources live in [`example/`](example/) and build to one binary each 
 | `fbr_dyn_siam` | Dynamics, SIAM (spin-flip symmetric) |
 | `fbr_dyn_siam_block` | Dynamics, SIAM (generic spin / block) |
 | `fbr_dyn_siam_center` | Dynamics, SIAM with impurity kept at the chain center |
-| `fbr_dyn_ns_siam`, `fbr_dyn_ns__man_siam` | Dynamics, SIAM variants |
+| `fbr_dyn_ns_siam`, `fbr_dyn_shared_siam_manual` | Dynamics, SIAM variants |
 
 ## Dependencies
 - [ITensor](https://github.com/ITensor/ITensor) for MPS manipulation

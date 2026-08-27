@@ -55,7 +55,8 @@ struct ImpurityParam {
     }
 
     /// transform Kmat to star geometry (Hbath is diagonal), in the geometry
-    /// selected by `layout`
+    /// selected by `layout`. Every solver expects a model this has been run on;
+    /// a model built directly in star geometry can skip it.
     void to_star() { layout==leading ? to_star_leading() : to_star_centered(); }
 
     /// Split sites into two ordered halves consistent with a centered layout:
@@ -215,13 +216,6 @@ private:
         Kmat.submat(irev, irev) = up_half.Kmat;
         rot.cols(irev)         = rot.cols(irev).eval() * up_half.rot;
     }
-};
-
-struct Impurity {
-    ImpurityParam param;
-
-    Impurity() = default;
-    Impurity(ImpurityParam const& param_) : param(param_) { param.to_star(); }
 };
 
 } // namespace fbr

@@ -8,7 +8,7 @@ using namespace fbr;
 int main()
 {
     int L=100;
-    Impurity model;
+    ImpurityParam model;
     {
         double U=0.2;
         double V=0.1;
@@ -21,11 +21,12 @@ int main()
         arma::mat Umat(L, L, arma::fill::zeros);
         Umat(0,1) = U;  // SIAM: U on (imp_up site 0, imp_dw site 1)
         std::vector<int> imp_pos = {2, 0, 1, 3};  // {buf_up, imp_up, imp_dw, buf_dw}
-        model = Impurity {{.Kmat=K, .Umat=Umat, .imp_pos=imp_pos, .layout=spin_block}};
+        model = ImpurityParam{.Kmat=K, .Umat=Umat, .imp_pos=imp_pos, .layout=spin_block};
+        model.to_star();
     }
     Fb_mps<cmpx> fb;
     {
-        auto ek=arma::vec {model.param.Kmat.diag()};
+        auto ek=arma::vec {model.Kmat.diag()};
         ek[L/2-1]=ek[L/2]=-10;
         ek[L/2-2]=ek[L/2+1]=10;
         fb=slater<cmpx>(model, ek);

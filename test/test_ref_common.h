@@ -27,7 +27,7 @@ using cmpx = std::complex<double>;
 // = -U/2 and U across the pair. Shared so the generator in ref/ and the test
 // cannot drift apart -- a saved ground state only means anything for the model
 // it was computed from.
-inline fbr::Impurity makeIrlmModel(int L, double U, double V)
+inline fbr::ImpurityParam makeIrlmModel(int L, double U, double V)
 {
     mat K(L, L, fill::zeros);
     for (int i = 1; i < L - 1; i++) K(i, i + 1) = K(i + 1, i) = 0.5;
@@ -35,7 +35,9 @@ inline fbr::Impurity makeIrlmModel(int L, double U, double V)
     K(0, 0) = K(1, 1) = -U / 2;
     mat Umat(L, L, fill::zeros);
     Umat(0, 1) = U;
-    return fbr::Impurity{{.Kmat = K, .Umat = Umat, .imp_pos = {0, 1}}};
+    fbr::ImpurityParam model{.Kmat = K, .Umat = Umat, .imp_pos = {0, 1}};
+    model.to_star();
+    return model;
 }
 
 // Saving a few-body state: the MPS and its site set through ITensor, the two

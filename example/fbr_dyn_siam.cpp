@@ -8,7 +8,7 @@ using namespace fbr;
 int main()
 {
     int L=1000;
-    Impurity model;
+    ImpurityParam model;
     {
         double U=0.1;
         double V=0.1;
@@ -26,11 +26,12 @@ int main()
         // Convention 2 (outer..inner..outer): {buf_up, imp_up, imp_dw, buf_dw} = {2, 0, 1, 3}.
         std::vector<int> imp_pos = {2, 0, 1, 3};
 
-        model = Impurity {{.Kmat=K, .Umat=Umat, .imp_pos=imp_pos, .layout=spin_symmetric}};
+        model = ImpurityParam{.Kmat=K, .Umat=Umat, .imp_pos=imp_pos, .layout=spin_symmetric};
+        model.to_star();
     }
     Fb_mps<cmpx> fb;
     {
-        auto ek=arma::vec {model.param.Kmat.diag()};
+        auto ek=arma::vec {model.Kmat.diag()};
         // force impurity ocupation |1100>
         ek[L/2-1]=ek[L/2]=-10;
         ek[L/2-2]=ek[L/2+1]=10;
@@ -44,7 +45,7 @@ int main()
     auto solver=Fbr_dyn(model,fb,dt);
 
     // arma::real(fb.rot*1).eval().clean(1e-11).print("fb.rot");
-    // arma::real(model.param.rot*1).eval().clean(1e-11).print("param.rot");
+    // arma::real(model.rot*1).eval().clean(1e-11).print("param.rot");
     // auto Q=solver.param.rot;
     // arma::real(solver.K*1).eval().clean(1e-11).print("K inicial");
     // arma::real(solver.param.Kmat*1).eval().clean(1e-11).print("Kmat original");

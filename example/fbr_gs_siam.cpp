@@ -22,9 +22,10 @@ int main()
     Umat(0, 1) = U;
     // imp_pos in convention 2 (outer up, inner up=imp_up, inner dw=imp_dw, outer dw).
     // Only physical impurities here (no buffer): imp_pos = {0, 1}.
-    auto model = Impurity {{.Kmat=K, .Umat=Umat, .imp_pos={0,1}, .layout=spin_symmetric}};
+    auto model = ImpurityParam{.Kmat=K, .Umat=Umat, .imp_pos={0,1}, .layout=spin_symmetric};
+    model.to_star();
 
-    auto ek=arma::vec {model.param.Kmat.diag()};
+    auto ek=arma::vec {model.Kmat.diag()};
     // optional: force impurity ocupation |10>
     ek[0]=-10;
     ek[1]=10;

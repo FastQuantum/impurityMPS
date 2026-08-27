@@ -136,18 +136,18 @@ int main()
     }
 
     // Construct model from pre-computed star geometry (bypassing to_star)
-    Impurity model;
+    ImpurityParam model;
     {
         int nBath=L/2-n_imp/2;
-        model.param.Kmat = Kstar;
-        model.param.Umat = Umat;
-        model.param.rot  = rot;
+        model.Kmat = Kstar;
+        model.Umat = Umat;
+        model.rot  = rot;
         // convention 2: spatial order outer-up..inner-up..inner-dw..outer-dw
-        model.param.imp_pos = {nBath, nBath+n_imp/2-1, L/2, L/2+n_imp/2-1};
-        model.param.layout = spin_symmetric;
+        model.imp_pos = {nBath, nBath+n_imp/2-1, L/2, L/2+n_imp/2-1};
+        model.layout = spin_symmetric;
     }
 
-    auto mpo=getHamiltonian(fb.sites,model.param.Kmat,model.param.Umat);
+    auto mpo=getHamiltonian(fb.sites,model.Kmat,model.Umat);
 
     int nBath=L/2-n_imp/2;
     cout<<"time m n_up n_dw\n"<<setprecision(12);

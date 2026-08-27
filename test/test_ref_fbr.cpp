@@ -30,11 +30,24 @@ uvec fbrIndexToChainIndex(int L)
     return p;
 }
 
+// The O(L^3) conjugation that build_K() replaces with a rank-2*n_imp update:
+// rot^dag * Kip0 * rot, with the interaction-picture phase built as a dense
+// matrix. Only this test needs it, so it lives here rather than in the solver.
+cx_mat referenceK(Solver const& s)
+{
+    int L = s.param.length();
+    cx_mat exp_ih(L, L, fill::eye);
+    if (s.n_iter > 0)
+        exp_ih.submat(s.bath_pos, s.bath_pos) = exp_iH<cmpx>(s.Kbath * (double(s.n_iter) * s.dt));
+    cx_mat rot = exp_ih * s.rot_star.t() * s.fb.rot;
+    return rot.t() * s.Kip0 * rot;
+}
+
 // Build the SIAM FBR dynamics solver at interaction strength U (star geometry,
 // active-window). Same model as test/ref/{chain,star}_dyn_siam_center.cpp.
 Solver makeFbrRun(int L, double dt, double U)
 {
-    Impurity model;
+    ImpurityParam model;
     {
         double V = 0.1;
         mat K(L, L, fill::zeros);
@@ -44,10 +57,11 @@ Solver makeFbrRun(int L, double dt, double U)
         K(0, 2) = K(2, 0) = K(1, 3) = K(3, 1) = V;
         mat Umat(L, L, fill::zeros);
         Umat(0, 1) = U;
-        model = Impurity{{.Kmat = K, .Umat = Umat, .imp_pos = {2, 0, 1, 3}, .layout=spin_symmetric}};
+        model = ImpurityParam{.Kmat = K, .Umat = Umat, .imp_pos = {2, 0, 1, 3}, .layout=spin_symmetric};
+        model.to_star();
     }
 
-    auto ek = vec{model.param.Kmat.diag()};
+    auto ek = vec{model.Kmat.diag()};
     ek[L / 2 - 1] = ek[L / 2] = -10;
     ek[L / 2 - 2] = ek[L / 2 + 1] = 10;
     auto fb = slater<cmpx>(model, ek);
@@ -109,7 +123,7 @@ TEST_CASE("build_K O(L^2) matches O(L^3) reference", "[fb_ref_fbr][build_K]") {
     for (int n : {0, 1, 5, 37, 200}) {
         fbr.n_iter = n;
         cx_mat Knew = fbr.build_K();
-        cx_mat Kref = fbr.build_K_reference();
+        cx_mat Kref = referenceK(fbr);
         double err = abs(Knew - Kref).max();
         INFO("n_iter = " << n << ", max abs error = " << err);
         REQUIRE(err < 1e-9);
@@ -135,9 +149,10 @@ TEST_CASE("multi-state solver with one state matches single-state solver", "[mul
     K0(0,2)=K0(2,0)=K0(1,3)=K0(3,1)=0.1;
     mat Umat(L,L,fill::zeros);
     Umat(0,1)=U;
-    auto model=Impurity{{.Kmat=K0,.Umat=Umat,.imp_pos={2,0,1,3}, .layout=spin_symmetric}};
+    auto model = ImpurityParam{.Kmat=K0,.Umat=Umat,.imp_pos={2,0,1,3}, .layout=spin_symmetric};
+    model.to_star();
 
-    auto ek=vec{model.param.Kmat.diag()};
+    auto ek=vec{model.Kmat.diag()};
     ek[L/2-1]=ek[L/2]=-10;
     ek[L/2-2]=ek[L/2+1]=10;
     auto fb=slater<cmpx>(model, ek);

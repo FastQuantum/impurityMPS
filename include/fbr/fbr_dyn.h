@@ -65,10 +65,11 @@ struct DynCommon {
     arma::cx_mat K;          ///< the current Hamiltonian
     int n_iter=0;
 
-    DynCommon(Impurity const& imp, State const& first, double dt_)
-        : param(imp.param)
+    DynCommon(ImpurityParam const& param_, State const& first, double dt_)
+        : param(param_)
         , dt(dt_)
     {
+        param.validate();   // a model built directly in star geometry never saw to_star()
         int L=param.length();
         if (first.sites.length()!=L)
             throw std::invalid_argument("Fbr_dyn: state length does not match the model");
@@ -148,18 +149,6 @@ struct DynCommon {
         B = B * fb.rot;                                     // n_imp x L
         arma::cx_mat D = Kip0.submat(imp_pos, imp_pos);     // n_imp x n_imp
         return A.t()*B + B.t()*A - A.t()*(D*A);
-    }
-
-    /// Reference O(L^3) full conjugation. Numerically identical to build_K();
-    /// kept only for validation tests.
-    arma::cx_mat build_K_reference(State const& fb) const
-    {
-        int L = param.length();
-        arma::cx_mat exp_ih(L, L, arma::fill::eye);
-        if (n_iter > 0)
-            exp_ih.submat(bath_pos,bath_pos) = exp_iH<cmpx>(Kbath * (static_cast<double>(n_iter)*dt));
-        arma::cx_mat rot = exp_ih * rot_star.t() * fb.rot;
-        return rot.t() * Kip0 * rot;
     }
 
     /// Rotate the current K into the basis proposed by an orbital update.
@@ -283,8 +272,8 @@ struct Fbr_dyn : detail::DynCommon {
     State fb;               ///< the current few body MPS
     double energy=-1000;
 
-    explicit Fbr_dyn(Impurity const& imp, State const& fb_, double dt_=0.1)
-        : Common(imp,fb_,dt_)
+    explicit Fbr_dyn(ImpurityParam const& param_, State const& fb_, double dt_=0.1)
+        : Common(param_,fb_,dt_)
         , fb { fb_ }
     {
         fb.n_sv=this->n_sv;
@@ -317,7 +306,6 @@ struct Fbr_dyn : detail::DynCommon {
     }
 
     arma::cx_mat build_K() const { return Common::build_K(fb); }
-    arma::cx_mat build_K_reference() const { return Common::build_K_reference(fb); }
     arma::cx_mat effective_rot() const { return Common::effective_rot(fb); }
 
     arma::cx_mat correlator() const { return Common::correlator(fb); }
@@ -340,8 +328,8 @@ struct Fbr_dyn_shared : detail::DynCommon {
     std::vector<State> states;    ///< the current few body MPS states
     std::vector<double> energies; ///< energy of every state
 
-    explicit Fbr_dyn_shared(Impurity const& imp, std::vector<State> states_, double dt_=0.1)
-        : Common(imp,first_of(states_),dt_)
+    explicit Fbr_dyn_shared(ImpurityParam const& param_, std::vector<State> states_, double dt_=0.1)
+        : Common(param_,first_of(states_),dt_)
         , states(std::move(states_))
     {
         check_common_orbitals();

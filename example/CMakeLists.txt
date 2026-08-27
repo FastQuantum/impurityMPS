@@ -8,7 +8,7 @@ list(APPEND test_SRC
     fbr_dyn_siam.cpp
     fbr_dyn_ns_siam.cpp
     fbr_dyn_siam_center.cpp
-    fbr_dyn_ns__man_siam.cpp
+    fbr_dyn_shared_siam_manual.cpp
     fbr_dyn_siam_block.cpp
     bench_buildK.cpp
 )

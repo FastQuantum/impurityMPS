@@ -94,12 +94,13 @@ int main(int argc, char** argv)
         return -imag_1*g;
     };
 
-    auto model = Impurity {{.Kmat=K, .Umat=Umat, .imp_pos={0,1}}};
+    auto model = ImpurityParam{.Kmat=K, .Umat=Umat, .imp_pos={0,1}};
+    model.to_star();
 
     // ---- ground state ----
-    auto gs=Fb_mps<double>::from_slater(model.param.rot,
-                                        vec{model.param.Kmat.diag()},
-                                        n_part, model.param.n_imp(), leading);
+    auto gs=Fb_mps<double>::from_slater(model.rot,
+                                        vec{model.Kmat.diag()},
+                                        n_part, model.n_imp(), leading);
     gs.tol=1e-12;
     auto gs_solver=Fbr_gs(model,gs);
     for(auto i=0; i<60; i++) gs_solver.iterate({.max_bond_dim=256});

@@ -20,11 +20,13 @@ struct Fbr_gs {
     arma::mat K;
     double energy=-1000;
 
-    Fbr_gs(Impurity const& imp, Fb_mps<double> const& fb_)
-        : param(imp.param)
+    Fbr_gs(ImpurityParam const& param_, Fb_mps<double> const& fb_)
+        : param(param_)
         , fb { fb_ }
         , K(param.Kmat)
-    {}
+    {
+        param.validate();   // a model built directly in star geometry never saw to_star()
+    }
 
     void iterate(DmrgParam args={})
     {

@@ -91,21 +91,21 @@ int main()
     }
 
     // Construct model from pre-computed star geometry (bypassing to_star)
-    Impurity model;
+    ImpurityParam model;
     {
-        model.param.Kmat = Kstar;
-        model.param.Umat = Umat;
-        model.param.rot  = arma::mat(L,L, arma::fill::eye);
+        model.Kmat = Kstar;
+        model.Umat = Umat;
+        model.rot  = arma::mat(L,L, arma::fill::eye);
         // convention 2: {outer_up, inner_up, inner_dw, outer_dw} in Kstar layout.
-        model.param.imp_pos = {L/2-2, L/2-1, L/2, L/2+1};
-        model.param.layout = spin_symmetric;
+        model.imp_pos = {L/2-2, L/2-1, L/2, L/2+1};
+        model.layout = spin_symmetric;
     }
 
     auto solver=Fbr_dyn(model,fb,dt);
     solver.fb.tol=1e-12;
 
     // arma::real(fb.rot*1).eval().clean(1e-11).print("fb.rot");
-    // arma::real(model.param.rot*1).eval().clean(1e-11).print("param.rot");
+    // arma::real(model.rot*1).eval().clean(1e-11).print("param.rot");
     // auto Q=solver.param.rot;
     // arma::real(solver.K*1).eval().clean(1e-11).print("K inicial");
     // arma::real(solver.param.Kmat*1).eval().clean(1e-11).print("Kmat original");

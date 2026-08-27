@@ -204,7 +204,7 @@ void checkLargeL(std::string const &us)
                                         + "_U" + us + ".txt", nSteps);
     auto model = makeIrlmModel(largeL, U, V);
 
-    auto ek = vec{model.param.Kmat.diag()};
+    auto ek = vec{model.Kmat.diag()};
     ek[0] = ek[1] = 10;            // both impurity orbitals empty, so c^dag acts
     auto psi0 = slater<cmpx>(model, ek);
     psi0.tol = largeTol;

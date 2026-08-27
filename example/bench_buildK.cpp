@@ -18,7 +18,7 @@ using namespace fbr;
 
 static auto makeSolver(int L, double dt)
 {
-    Impurity model;
+    ImpurityParam model;
     double U = 0.2, V = 0.1;
     mat K(L, L, fill::zeros);
     for (int i = 0; i < L - 2; i++) K(i, i + 2) = K(i + 2, i) = 0.5;
@@ -27,9 +27,10 @@ static auto makeSolver(int L, double dt)
     K(0, 2) = K(2, 0) = K(1, 3) = K(3, 1) = V;
     mat Umat(L, L, fill::zeros);
     Umat(0, 1) = U;
-    model = Impurity{{.Kmat = K, .Umat = Umat, .imp_pos = {2, 0, 1, 3}, .layout=spin_symmetric}};
+    model = ImpurityParam{.Kmat = K, .Umat = Umat, .imp_pos = {2, 0, 1, 3}, .layout=spin_symmetric};
+    model.to_star();
 
-    auto ek = vec{model.param.Kmat.diag()};
+    auto ek = vec{model.Kmat.diag()};
     ek[L / 2 - 1] = ek[L / 2] = -10;
     ek[L / 2 - 2] = ek[L / 2 + 1] = 10;
     auto fb = slater<cmpx>(model, ek);

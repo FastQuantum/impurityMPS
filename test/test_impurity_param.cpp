@@ -46,11 +46,12 @@ TEST_CASE("star transform, leading layout", "[param]")
     for (int i = 1; i < L-1; i++) K(i,i+1) = K(i+1,i) = 0.5;
     K(0,1) = K(1,0) = 0.1;
 
-    auto model = Impurity {{.Kmat=K, .Umat=mat(L,L,fill::zeros), .imp_pos={0,1}}};
+    auto model = ImpurityParam{.Kmat=K, .Umat=mat(L,L,fill::zeros), .imp_pos={0,1}};
+    model.to_star();
 
-    REQUIRE(model.param.imp_pos == vector{0,1});
-    requireDiagonalBath(model.param.Kmat, 2, L);
-    requireFrameRecoversInput(model.param, K);
+    REQUIRE(model.imp_pos == vector{0,1});
+    requireDiagonalBath(model.Kmat, 2, L);
+    requireFrameRecoversInput(model, K);
 }
 
 TEST_CASE("star transform, centered layouts", "[param]")
@@ -61,18 +62,19 @@ TEST_CASE("star transform, centered layouts", "[param]")
     SECTION("spin_symmetric puts the impurity at the center, one diagonal bath per spin")
     {
         mat K = interleavedChain(L, V, 0.5, 0.5);
-        auto model = Impurity {{.Kmat=K, .Umat=mat(L,L,fill::zeros),
-                                .imp_pos={0,1}, .layout=spin_symmetric}};
+        auto model = ImpurityParam{.Kmat=K, .Umat=mat(L,L,fill::zeros),
+                                .imp_pos={0,1}, .layout=spin_symmetric};
+        model.to_star();
 
-        REQUIRE(model.param.imp_pos == vector{L/2-1, L/2});
-        requireDiagonalBath(model.param.Kmat, 0, L/2-1);      // up bath
-        requireDiagonalBath(model.param.Kmat, L/2+1, L);      // dw bath
-        requireFrameRecoversInput(model.param, K);
+        REQUIRE(model.imp_pos == vector{L/2-1, L/2});
+        requireDiagonalBath(model.Kmat, 0, L/2-1);      // up bath
+        requireDiagonalBath(model.Kmat, L/2+1, L);      // dw bath
+        requireFrameRecoversInput(model, K);
 
         // the two sectors are mirror images of each other
         uvec irev = reverse(regspace<uvec>(0,L/2-1));
-        REQUIRE(norm(model.param.Kmat.submat(irev,irev)
-                     - model.param.Kmat.submat(L/2,L/2,L-1,L-1),"fro")
+        REQUIRE(norm(model.Kmat.submat(irev,irev)
+                     - model.Kmat.submat(L/2,L/2,L-1,L-1),"fro")
                 == Approx(0.0).margin(1e-12));
     }
 
@@ -90,18 +92,19 @@ TEST_CASE("star transform, centered layouts", "[param]")
         // transform that mirrored one sector onto the other would replace the up
         // bath by a copy of the dw one.
         mat K = interleavedChain(L, V, 0.5, 0.8);
-        auto model = Impurity {{.Kmat=K, .Umat=mat(L,L,fill::zeros),
-                                .imp_pos={0,1}, .layout=spin_block}};
+        auto model = ImpurityParam{.Kmat=K, .Umat=mat(L,L,fill::zeros),
+                                .imp_pos={0,1}, .layout=spin_block};
+        model.to_star();
 
-        REQUIRE(model.param.imp_pos == vector{L/2-1, L/2});
-        requireDiagonalBath(model.param.Kmat, 0, L/2-1);
-        requireDiagonalBath(model.param.Kmat, L/2+1, L);
-        requireFrameRecoversInput(model.param, K);
+        REQUIRE(model.imp_pos == vector{L/2-1, L/2});
+        requireDiagonalBath(model.Kmat, 0, L/2-1);
+        requireDiagonalBath(model.Kmat, L/2+1, L);
+        requireFrameRecoversInput(model, K);
 
         // each sector keeps its own bath spectrum: eigenvalues of a
         // tight-binding chain of hopping t are 2t cos(k), so they scale with t.
-        vec ek_up = sort(model.param.Kmat.diag().eval().rows(0,L/2-2));
-        vec ek_dw = sort(model.param.Kmat.diag().eval().rows(L/2+1,L-1));
+        vec ek_up = sort(model.Kmat.diag().eval().rows(0,L/2-2));
+        vec ek_dw = sort(model.Kmat.diag().eval().rows(L/2+1,L-1));
         REQUIRE(norm(ek_up-ek_dw) > 0.1);
         REQUIRE(norm(ek_up-ek_dw*(0.5/0.8)) == Approx(0.0).margin(1e-10));
     }

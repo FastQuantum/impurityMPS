@@ -20,9 +20,10 @@ int main()
     arma::mat Umat(L,L,arma::fill::zeros);
     Umat(0,1)=U;
 
-    auto model = Impurity {{.Kmat=K, .Umat=Umat, .imp_pos={0,1}}};
+    auto model = ImpurityParam{.Kmat=K, .Umat=Umat, .imp_pos={0,1}};
+    model.to_star();
 
-    auto ek=arma::vec {model.param.Kmat.diag()};
+    auto ek=arma::vec {model.Kmat.diag()};
     // force impurity occupation |10>
     ek[0]=-10;
     ek[1]=10;
