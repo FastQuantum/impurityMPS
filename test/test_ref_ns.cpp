@@ -44,7 +44,7 @@ Solver makeFbrRun(int L, double dt, double U)
     auto ek = vec{model.param.Kmat.diag()};
     ek[0] = ek[1] = -10;
     ek[2] = ek[3] = 10;
-    auto fb = model.slater<cmpx>(ek);
+    auto fb = slater<cmpx>(model, ek);
     auto solver = Fbr_dyn(model, fb, dt);
     solver.fb.tol = 1e-12;
     return solver;
@@ -104,7 +104,7 @@ TEST_CASE("multi-state solver with one state matches single-state solver", "[mul
     auto ek=vec{model.param.Kmat.diag()};
     ek[0]=ek[1]=-10;
     ek[2]=ek[3]=10;
-    auto fb=model.slater<cmpx>(ek);
+    auto fb=slater<cmpx>(model, ek);
     fb.tol=1e-12;
 
     auto incompatible=fb;
@@ -151,7 +151,7 @@ TEST_CASE("dynamics starting from a rotated frame", "[fbr_dyn][frame]") {
     mat Umat(L,L,fill::zeros);        // U=0: the ground state is an eigenstate
     auto model=Impurity{{.Kmat=K,.Umat=Umat,.impPos={0,1}}};
 
-    auto gs=model.slater<double>();
+    auto gs=slater<double>(model);
     gs.tol=1e-12;
     auto gs_solver=Fbr_gs(model,gs);
     for (int i=0; i<60; ++i) gs_solver.iterate({.max_bond_dim=256});

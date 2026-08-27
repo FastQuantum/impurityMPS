@@ -54,7 +54,9 @@ All library types live in `namespace fbr`. Include as `#include "fbr/<header>.h"
 | Header | Purpose |
 |---|---|
 | `fb_mps.h` | `Fb_mps<T>` — few-body MPS state with rotation matrix `rot`, correlation matrix `cc` and active window `[p1,p2)`. One class for the three orbital layouts, chosen by the `Layout` of the model (`ImpurityParam::layout`), or passed directly to `from_slater`: `leading` (spinless), `spin_symmetric`, `spin_block` |
-| `impurity_param.h` | `ImpurityParam` — kinetic matrix `Kmat`, interaction `Umat`, impurity positions and the chain `layout`; `toStar()` transforms to star geometry (leading or centered, per `layout`). `Impurity` wraps it (calling `toStar()`) and builds a matching initial state with `model.slater<T>(ek)` |
+| `layout.h` | `Spin` and `Layout` — the chain geometry vocabulary shared by the model and the state |
+| `impurity_param.h` | `ImpurityParam` — kinetic matrix `Kmat`, interaction `Umat`, impurity positions and the chain `layout`; `toStar()` transforms to star geometry (leading or centered, per `layout`). `Impurity` wraps it, calling `toStar()` |
+| `initial_state.h` | `slater<T>(model,ek)` — the Slater state a model starts from, in its own frame, filling and layout (`ek` defaults to `Kmat.diag()`) |
 | `fbr_gs_spin.h` | `Fbr_gs_spin` — ground state solver: DMRG loop + orbital rotation |
 | `fbr_dyn.h` | `Fbr_dyn` — dynamics: TDVP loop + orbital rotation: `Fbr_dyn(model,fb,dt)`. `Fbr_ns_dyn` evolves several states in one common orbital basis: `Fbr_ns_dyn(model,states,dt)` |
 | `graph.h` | Index/set utilities (`iota`, `regspace`, `set_diff`) and `fbr::graph::find_islands` for connected-component detection |

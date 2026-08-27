@@ -1,4 +1,5 @@
 #include "fbr/impurity_param.h"
+#include "fbr/initial_state.h"
 #include <iostream>
 #include <iomanip>
 
@@ -25,7 +26,7 @@ int main()
     // optional: force impurity ocupation |10>
     ek[0]=-10;
     ek[1]=10;
-    auto fb=model.slater<double>(ek);
+    auto fb=slater<double>(model, ek);
     itensor::AutoMPO h(fb.sites);
     for(auto i=0; i<model.param.nImp(); i++)
         for(auto j=0; j<model.param.nImp(); j++)

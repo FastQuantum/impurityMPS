@@ -35,7 +35,7 @@ int main()
         ek[L/2-1]=ek[L/2]=-10;
         ek[L/2-2]=ek[L/2+1]=10;
         arma::cx_mat rot(L,L,arma::fill::eye);
-        fb=model.slater<cmpx>(ek);
+        fb=slater<cmpx>(model, ek);
         // fb.occupations_ni().as_row().eval().print("ni");
     }
     // fb.tol=1e-10;

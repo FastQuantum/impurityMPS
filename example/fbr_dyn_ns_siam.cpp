@@ -34,7 +34,7 @@ int main()
         // force impurity ocupation |1100>
         ek[0]=ek[1]=-10; //TODO: the ek change the Hamiltonian
         ek[2]=ek[3]=10;
-        fb=model.slater<cmpx>(ek);
+        fb=slater<cmpx>(model, ek);
         // fb.occupations_ni().as_row().eval().print("ni");
         // fb.occupations_ni2().as_row().eval().print("ni2");
     }

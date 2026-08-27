@@ -32,7 +32,7 @@ int main()
         auto model = makeIrlmModel(L, U, V);
 
         itensor::cpu_time clk;
-        auto gs = model.slater<double>();
+        auto gs = slater<double>(model);
         gs.tol = 1e-12;
         auto solver = Fbr_gs(model, gs);
         for (int i = 0; i < nIter; i++) solver.iterate({.max_bond_dim = 512});

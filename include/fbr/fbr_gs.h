@@ -4,6 +4,7 @@
 #include "itensor_utils.h"
 #include "impurity_param.h"
 #include "fb_mps.h"
+#include "initial_state.h"
 
 namespace fbr {
 

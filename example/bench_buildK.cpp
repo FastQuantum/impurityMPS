@@ -32,7 +32,7 @@ static auto makeSolver(int L, double dt)
     auto ek = vec{model.param.Kmat.diag()};
     ek[L / 2 - 1] = ek[L / 2] = -10;
     ek[L / 2 - 2] = ek[L / 2 + 1] = 10;
-    auto fb = model.slater<cmpx>(ek);
+    auto fb = slater<cmpx>(model, ek);
     auto solver = Fbr_dyn(model, fb, dt);
     solver.fb.tol = 1e-10;
     return solver;

@@ -26,7 +26,7 @@ int main()
     // force impurity occupation |10>
     ek[0]=-10;
     ek[1]=10;
-    auto fb=model.slater<cmpx>(ek);
+    auto fb=slater<cmpx>(model, ek);
     fb.tol=1e-10;
 
     double dt=0.1;

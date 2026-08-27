@@ -2,7 +2,7 @@
 #define FBR_PARAM_H
 
 #include "graph.h"
-#include "fb_mps.h"
+#include "layout.h"
 #include <armadillo>
 #include <itensor/all.h>
 #include <set>
@@ -59,9 +59,14 @@ struct ImpurityParam {
     void toStar() { layout==leading ? toStarLeading() : toStarCentered(); }
 
     /// Split sites into two ordered halves consistent with a centered layout:
-    ///   sites_up = [bath_up..., impPos[0], impPos[1], ..., impPos[nUp-1]]
+    ///   sites_up = [bath_up reversed..., impPos[0], ..., impPos[nUp-1]]
     ///   sites_dw = [impPos[nUp], ..., impPos[nImp-1], bath_dw...]
     /// so that concatenation = pos_all maps new->old.
+    ///
+    /// The up bath is listed in reverse so that reading the up half from the
+    /// center outwards visits its sites in the same order as the dw half does:
+    /// the two halves are then mirror images as matrices, which is what lets
+    /// toStarCentered() reflect one onto the other.
     std::pair<std::vector<int>, std::vector<int>> split_sites() const
     {
         int L = length();
@@ -87,7 +92,7 @@ struct ImpurityParam {
         if ((int)(bath_up.size() + nUp) != L/2 || (int)(bath_dw.size() + nUp) != L/2)
             throw std::runtime_error("ImpurityParam::split_sites: spin block size mismatch");
 
-        std::vector<int> sites_up = bath_up;
+        std::vector<int> sites_up(bath_up.rbegin(), bath_up.rend());
         for (int i = 0; i < nUp; i++) sites_up.push_back(impPos[i]);
         std::vector<int> sites_dw;
         for (int i = nUp; i < nImp(); i++) sites_dw.push_back(impPos[i]);
@@ -178,17 +183,37 @@ private:
         rot  = rot.cols(pos_all).eval();
         for (int i = 0; i < nImp(); i++) impPos[i] = L/2 - nUp + i;
 
-        // 2) diagonalize the dw bath: dw submatrix has impurities at positions [0..nUp-1]
-        arma::mat Umat_half(L/2, L/2, arma::fill::zeros);
-        ImpurityParam half = {.Kmat = Kmat.submat(L/2, L/2, L-1, L-1), .Umat = Umat_half, .impPos=iota(nUp)};
-        half.toStar();   // a leading star on the half chain
-
-        // 3) duplicate by reflection to the up side
+        // 2) diagonalize the dw bath. Read from the center outwards each half is
+        // a leading chain of its own -- impurities first, then its bath -- which
+        // is the |imp|bath| shape toStarLeading() expects. For dw that reading is
+        // the submatrix itself; for up it is the submatrix under `irev`.
         arma::uvec irev = arma::reverse(arma::regspace<arma::uvec>(0, L/2 - 1));
+        auto halfStar=[&](arma::mat const& Khalf) {
+            ImpurityParam half = {.Kmat = Khalf,
+                                  .Umat = arma::mat(L/2, L/2, arma::fill::zeros),
+                                  .impPos = iota(nUp)};
+            half.toStar();   // a leading star on the half chain
+            return half;
+        };
+        if (layout==spin_symmetric) {   // the layout only holds for a symmetric model
+            arma::mat asym = Kmat.submat(irev,irev) - Kmat.submat(L/2, L/2, L-1, L-1);
+            if (asym.max() > 1e-10 || asym.min() < -1e-10)
+                throw std::invalid_argument("ImpurityParam: spin_symmetric needs the two spin "
+                                            "sectors to be mirror images; use spin_block instead");
+        }
+        auto half = halfStar(Kmat.submat(L/2, L/2, L-1, L-1));
         Kmat.submat(L/2, L/2, L-1, L-1) = half.Kmat;
-        Kmat.submat(irev, irev) = half.Kmat;
         rot.cols(L/2, L-1) = rot.cols(L/2, L-1).eval() * half.rot;
-        rot.cols(irev)     = rot.cols(irev).eval() * half.rot;
+
+        // 3) and the up bath. Under spin_symmetric the two halves are the same
+        // matrix, so reflecting the dw result is both cheaper and exact -- and it
+        // keeps the mirror symmetry that layout relies on free of any eigenvector
+        // sign the two diagonalizations could disagree on. spin_block assumes no
+        // such symmetry, so its up bath is diagonalized on its own.
+        auto const& up_half = (layout==spin_symmetric) ? half
+                                                       : halfStar(Kmat.submat(irev, irev));
+        Kmat.submat(irev, irev) = up_half.Kmat;
+        rot.cols(irev)         = rot.cols(irev).eval() * up_half.rot;
     }
 };
 
@@ -197,17 +222,6 @@ struct Impurity {
 
     Impurity() = default;
     Impurity(ImpurityParam const& param_) : param(param_) { param.toStar(); }
-
-    /// A Slater state in the model's own frame, filling and layout.
-    /// ek defaults to the diagonal of Kmat; pass your own to force a particular
-    /// occupation (e.g. ek[i]=-10 to fill orbital i).
-    template<class T=double>
-    Fb_mps<T> slater(arma::vec ek={}) const
-    {
-        if (ek.empty()) ek=arma::vec {param.Kmat.diag()};
-        return Fb_mps<T>::from_slater(arma::conv_to<arma::Mat<T>>::from(param.rot), ek,
-                                      param.nPart(), param.nImp(), param.layout);
-    }
 };
 
 } // namespace fbr

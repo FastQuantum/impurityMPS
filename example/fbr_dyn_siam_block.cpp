@@ -28,7 +28,7 @@ int main()
         auto ek=arma::vec {model.param.Kmat.diag()};
         ek[L/2-1]=ek[L/2]=-10;
         ek[L/2-2]=ek[L/2+1]=10;
-        fb=model.slater<cmpx>(ek);
+        fb=slater<cmpx>(model, ek);
     }
 
     double dt=0.1;

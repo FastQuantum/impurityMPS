@@ -5,6 +5,7 @@
 #include "itensor_utils.h"
 #include "impurity_param.h"
 #include "fb_mps.h"
+#include "initial_state.h"
 
 #include "tdvp.h"
 #include "basisextension.h"
@@ -26,7 +27,10 @@ inline int svRank(arma::mat const& block, double tol)
     return (int)arma::find(s>tol*s[0]).eval().size();
 }
 
-/// Rank of the impurity-bath coupling block of Kmat, per spin sector.
+/// Rank of the impurity-bath coupling block of Kmat: the largest over the spin
+/// sectors, so both grow the window by the same amount even when their coupling
+/// ranks differ (spin_block). An extra, weakly coupled representative costs one
+/// orbital; two different window widths would cost a special case everywhere.
 inline int couplingRank(Fb_mps<cmpx> const& fb, arma::mat const& Kmat)
 {
     int rank=0;

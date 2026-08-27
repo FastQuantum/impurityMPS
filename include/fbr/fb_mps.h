@@ -1,6 +1,7 @@
 #ifndef FBR_FB_MPS_H
 #define FBR_FB_MPS_H
 
+#include "layout.h"
 #include "givens_rotation.h"
 #include "itensor_utils.h"
 #include "orbital_update.h"
@@ -14,15 +15,6 @@
 #include <vector>
 
 namespace fbr {
-
-enum Spin{up, dw};
-
-/// Arrangement of the active orbital window.
-enum Layout {
-    leading,        ///< |imp|active|slater|, a single sector (spinless)
-    spin_symmetric, ///< centered window, spin up is the reflection of spin down
-    spin_block      ///< centered window, the two spin blocks are independent
-};
 
 /// This class stores a few body state: a small active window of orbitals kept
 /// in an MPS (with entanglement), while the rest is a Slater determinant.
@@ -183,11 +175,11 @@ struct Fb_mps
             arma::svd_econ(U,singular_values,V,k12);
             if (singular_values.empty()) return;
 
-            int nSv=rank(singular_values,(int)V.n_cols);
-            if (nSv<=0) return;
+            int count=rank(singular_values,(int)V.n_cols);
+            if (count<=0) return;
 
-            auto givens=(s==dw) ? GivensRotForRot_left(V.head_cols(nSv).eval())
-                                : GivensRotForRot_right(V.head_cols(nSv).eval());
+            auto givens=(s==dw) ? GivensRotForRot_left(V.head_cols(count).eval())
+                                : GivensRotForRot_right(V.head_cols(count).eval());
             GivensDaggerInPlace(givens);
             update.append(arma::regspace<arma::uvec>(a,b-1),givens);
             if (s==dw && layout==spin_symmetric) {
@@ -426,7 +418,9 @@ private:
     };
 
     /// The rank kept from a set of singular values: either the fixed nSv or
-    /// every value above the relative tolerance.
+    /// every value above the relative tolerance. It is deliberately one number
+    /// for both sectors: the window then grows by as much on either side, which
+    /// keeps every layout's bookkeeping the same.
     int rank(arma::vec const& singular_values, int nCols) const
     {
         if (nSv>=0) return std::min<int>(nSv,nCols);

@@ -4,6 +4,7 @@ add_executable(${PROJECT_NAME}_test
     # test_itensor.cpp
     test_graph.cpp
     test_fb_mps.cpp
+    test_impurity_param.cpp
 )
 
 target_include_directories(${PROJECT_NAME}_test INTERFACE Catch2::Catch2)

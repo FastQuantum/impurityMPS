@@ -23,7 +23,9 @@ uvec fbrIndexToChainIndex(int L)
     p[1] = L / 2;
     p[2] = L / 2 - 2;
     p[3] = L / 2 + 1;
-    for (int j = 0; j < L / 2 - 2; j++) p[2 * (j + 2)] = j;
+    // both baths are listed from the center outwards, so the up one -- which
+    // runs towards index 0 -- is mirrored with respect to the dw one
+    for (int j = 0; j < L / 2 - 2; j++) p[2 * (j + 2)] = L / 2 - 3 - j;
     for (int j = 0; j < L / 2 - 2; j++) p[2 * (j + 2) + 1] = L / 2 + 2 + j;
     return p;
 }
@@ -46,7 +48,7 @@ Solver makeFbrRun(int L, double dt, double U)
     auto ek = vec{model.param.Kmat.diag()};
     ek[L / 2 - 1] = ek[L / 2] = -10;
     ek[L / 2 - 2] = ek[L / 2 + 1] = 10;
-    auto fb = model.slater<cmpx>(ek);
+    auto fb = slater<cmpx>(model, ek);
     auto solver = Fbr_dyn(model, fb, dt);
     solver.fb.tol = 1e-12;
     return solver;
@@ -112,7 +114,7 @@ TEST_CASE("multi-state solver with one state matches single-state solver",
     auto ek=vec{model.param.Kmat.diag()};
     ek[L/2-1]=ek[L/2]=-10;
     ek[L/2-2]=ek[L/2+1]=10;
-    auto fb=model.slater<cmpx>(ek);
+    auto fb=slater<cmpx>(model, ek);
     fb.tol=1e-12;
 
     auto incompatible=fb;
