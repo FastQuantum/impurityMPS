@@ -44,7 +44,7 @@ Solver makeFbrRun(int L, double dt, double U)
         K(0, 2) = K(2, 0) = K(1, 3) = K(3, 1) = V;
         mat Umat(L, L, fill::zeros);
         Umat(0, 1) = U;
-        model = Impurity{{.Kmat = K, .Umat = Umat, .impPos = {2, 0, 1, 3}, .layout=spin_symmetric}};
+        model = Impurity{{.Kmat = K, .Umat = Umat, .imp_pos = {2, 0, 1, 3}, .layout=spin_symmetric}};
     }
 
     auto ek = vec{model.param.Kmat.diag()};
@@ -69,10 +69,10 @@ TrajResult const &resultFor(double U, std::string const &us)
     auto fbr = makeFbrRun(L, dt, U);
     auto p = fbrIndexToChainIndex(L);
     auto iter = [](Solver &f) {
-        // FBR: epsilonM=0 skips the subspace expansion, so nKrylov/epsilonK are
+        // FBR: epsilon_M=0 skips the subspace expansion, so n_krylov/epsilon_K are
         // inert and err_goal (default 1e-7) is the only TDVP knob; FBR is insensitive
         // to it (identical to 1e-8, tolerant to 1e-6). See test/ref/fbr_dyn_tune.cpp.
-        f.iterate({.nIter_diag = 8, .epsilonM = 0});
+        f.iterate({.n_iter_diag = 8, .epsilon_M = 0});
     };
     auto corr = [](Solver &f) { return f.correlator_all(); };
 
@@ -94,7 +94,7 @@ void checkChain(TrajResult const &res, std::map<std::string, Tol> const &tol)
 
 } // namespace
 
-TEST_CASE("buildK O(L^2) matches O(L^3) reference", "[fb_ref_fbr][buildK]") {
+TEST_CASE("build_K O(L^2) matches O(L^3) reference", "[fb_ref_fbr][build_K]") {
     constexpr int L = 40;
     constexpr double dt = 0.1;
     auto fbr = makeFbrRun(L, dt, 0.2);
@@ -107,11 +107,11 @@ TEST_CASE("buildK O(L^2) matches O(L^3) reference", "[fb_ref_fbr][buildK]") {
     fbr.fb.rot = Q;
 
     for (int n : {0, 1, 5, 37, 200}) {
-        fbr.nIter = n;
-        cx_mat Knew = fbr.buildK();
-        cx_mat Kref = fbr.buildK_reference();
+        fbr.n_iter = n;
+        cx_mat Knew = fbr.build_K();
+        cx_mat Kref = fbr.build_K_reference();
         double err = abs(Knew - Kref).max();
-        INFO("nIter = " << n << ", max abs error = " << err);
+        INFO("n_iter = " << n << ", max abs error = " << err);
         REQUIRE(err < 1e-9);
     }
 }
@@ -135,7 +135,7 @@ TEST_CASE("multi-state solver with one state matches single-state solver", "[mul
     K0(0,2)=K0(2,0)=K0(1,3)=K0(3,1)=0.1;
     mat Umat(L,L,fill::zeros);
     Umat(0,1)=U;
-    auto model=Impurity{{.Kmat=K0,.Umat=Umat,.impPos={2,0,1,3}, .layout=spin_symmetric}};
+    auto model=Impurity{{.Kmat=K0,.Umat=Umat,.imp_pos={2,0,1,3}, .layout=spin_symmetric}};
 
     auto ek=vec{model.param.Kmat.diag()};
     ek[L/2-1]=ek[L/2]=-10;
@@ -149,7 +149,7 @@ TEST_CASE("multi-state solver with one state matches single-state solver", "[mul
 
     auto old_solver=Fbr_dyn(model,fb,dt);
     auto new_solver=Fbr_ns_dyn(model,std::vector{fb},dt);
-    TdvpParam args {.max_bond_dim=512,.nIter_diag=8,.epsilonM=0};
+    TdvpParam args {.max_bond_dim=512,.n_iter_diag=8,.epsilon_M=0};
 
     for (int step=0; step<10; ++step) {
         old_solver.iterate(args);

@@ -20,7 +20,7 @@ int main()
     arma::mat Umat(L,L,arma::fill::zeros);
     Umat(0,1)=U;
 
-    auto model = Impurity {{.Kmat=K, .Umat=Umat, .impPos={0,1}}};
+    auto model = Impurity {{.Kmat=K, .Umat=Umat, .imp_pos={0,1}}};
 
     auto ek=arma::vec {model.param.Kmat.diag()};
     // force impurity occupation |10>
@@ -32,13 +32,13 @@ int main()
     double dt=0.1;
     auto solver=Fbr_dyn(model,fb,dt);
 
-    cout<<"time energy <n0> <cd> nActive\n"<<setprecision(12);
+    cout<<"time energy <n0> <cd> n_active\n"<<setprecision(12);
     itensor::cpu_time t0;
     for(auto i=0; i*dt<L; i++){
-        solver.iterate({.max_bond_dim=2048, .epsilonM=1e-4});
+        solver.iterate({.max_bond_dim=2048, .epsilon_M=1e-4});
         double n0 = solver.correlator(0,0).real();
         double cd = 2*solver.correlator(0,1).real();
-        cout<<(i+1)*solver.dt<<" "<<solver.energy<<" "<<n0<<" "<<cd<<" "<<solver.fb.nActive()<<endl;
+        cout<<(i+1)*solver.dt<<" "<<solver.energy<<" "<<n0<<" "<<cd<<" "<<solver.fb.n_active()<<endl;
         t0.mark();
     }
     return 0;

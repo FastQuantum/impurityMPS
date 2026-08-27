@@ -24,33 +24,33 @@ struct Fbr_gs {
 
     void iterate(DmrgParam args={})
     {
-        applyPlan(fb.planRepresentative(K,0,/*use_active=*/true));
-        applyPlan(fb.planRepresentative(K,1,/*use_active=*/true));
-        doDmrg(args);
-        applyPlan(fb.planNaturalOrbitals(fb.cc));
+        apply_plan(fb.plan_representative(K,0,/*use_active=*/true));
+        apply_plan(fb.plan_representative(K,1,/*use_active=*/true));
+        do_dmrg(args);
+        apply_plan(fb.plan_natural_orbitals(fb.cc));
     }
 
-    void applyPlan(OrbitalUpdate<double> const& update)
+    void apply_plan(OrbitalUpdate<double> const& update)
     {
-        update.applyAsBasis(K);
-        fb.applyUpdate(update);
+        update.apply_as_basis(K);
+        fb.apply(update);
     }
 
-    void doDmrg(DmrgParam args={})
+    void do_dmrg(DmrgParam args={})
     {
-        int nA=fb.nActive();
-        auto mpo=fullHamiltonian(K.submat(0,0,nA-1,nA-1));
+        int nA=fb.n_active();
+        auto mpo=full_hamiltonian(K.submat(0,0,nA-1,nA-1));
         auto sweeps = itensor::Sweeps(1);
         sweeps.maxdim() = args.max_bond_dim;
         sweeps.cutoff() = fb.tol;
-        sweeps.niter() = args.nIter_diag;
+        sweeps.niter() = args.n_iter_diag;
         sweeps.noise() = args.noise;
         energy=itensor::dmrg(fb.psi,mpo,sweeps, {"MaxSite",nA,"Quiet", true, "Silent", true});
-        energy += fb.SlaterEnergy(K);
+        energy += fb.slater_energy(K);
         fb.update_cc();
     }
 
-    itensor::MPO fullHamiltonian(arma::mat const& kin) const
+    itensor::MPO full_hamiltonian(arma::mat const& kin) const
     {
         itensor::AutoMPO h(fb.sites);
         int L=param.length();

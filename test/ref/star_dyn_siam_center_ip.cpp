@@ -16,10 +16,10 @@ using cmpx= std::complex<double>;
 /// return the kinetic energy in star geometry and the rotation to get it.
 /// Layout: [spin-up bath | spin-up imp | spin-down imp | spin-down bath]
 /// For spin-up the impurity is at the right end; for spin-down at the left end.
-auto computeKstar(mat K, int nImp)
+auto computeKstar(mat K, int n_imp)
 {
     int L=K.n_rows;
-    int nBath=L/2-nImp/2;  // bath sites per spin
+    int nBath=L/2-n_imp/2;  // bath sites per spin
 
     mat Kstar(L,L,arma::fill::zeros);
     mat rot(L,L,fill::eye);
@@ -32,7 +32,7 @@ auto computeKstar(mat K, int nImp)
     {
         uvec pos   = s==0 ? pos_up : pos_dw;
         uvec pos_bath = s==0 ? pos.head(nBath)   : pos.tail(nBath);   // bath on left (up) or right (dw)
-        uvec pos_impu = s==0 ? pos.tail(nImp/2)  : pos.head(nImp/2);  // imp on right (up) or left (dw)
+        uvec pos_impu = s==0 ? pos.tail(n_imp/2)  : pos.head(n_imp/2);  // imp on right (up) or left (dw)
 
         mat Kbath=K.submat(pos_bath,pos_bath);
         mat evec1; vec ek1;
@@ -58,11 +58,11 @@ auto computeKstar(mat K, int nImp)
     return make_pair(Kstar,Kstar_bath);
 }
 
-auto computeKip(arma::mat const& Kstar, int nImp, double dt)
+auto computeKip(arma::mat const& Kstar, int n_imp, double dt)
 {
     using namespace arma;
     int L=Kstar.n_rows;
-    int nBath=L/2-nImp/2;
+    int nBath=L/2-n_imp/2;
 
     uvec bathIdx;
     {
@@ -81,20 +81,20 @@ auto computeKip(arma::mat const& Kstar, int nImp, double dt)
     return Kip;
 }
 
-void doTdvp(itensor::MPS &psi, itensor::MPO const mpo, double dt, double tol=1e-12)
+void do_tdvp(itensor::MPS &psi, itensor::MPO const mpo, double dt, double tol=1e-12)
 {
     TdvpParam args;
     auto sweeps = itensor::Sweeps(1);
     sweeps.maxdim() = args.max_bond_dim;
     sweeps.cutoff() = tol;
-    sweeps.niter() = args.nIter_diag;
+    sweeps.niter() = args.n_iter_diag;
     sweeps.noise() = args.noise;
 
-    std::vector<double> epsilonK(args.nKrylov, args.epsilonK);
-    itensor::addBasis(psi, mpo, epsilonK,
-                      {"Cutoff", args.epsilonM,
+    std::vector<double> epsilon_K(args.n_krylov, args.epsilon_K);
+    itensor::addBasis(psi, mpo, epsilon_K,
+                      {"Cutoff", args.epsilon_M,
                        "Method", "DensityMatrix",
-                       "KrylovOrd", args.nKrylov,
+                       "KrylovOrd", args.n_krylov,
                        "DoNormalize", true,
                        "Quiet", true,
                        "Silent", true});
@@ -112,12 +112,12 @@ itensor::MPO getHamiltonian(itensor::Fermion sites, cx_mat const& K, mat const& 
 {
     double tol=1e-12;
     int L=K.n_rows;
-    int nImp=Umat.n_rows;
-    int nBath=L/2-nImp/2;  // impurity cluster occupies sites [nBath, nBath+nImp)
+    int n_imp=Umat.n_rows;
+    int nBath=L/2-n_imp/2;  // impurity cluster occupies sites [nBath, nBath+n_imp)
     itensor::AutoMPO h(sites);
-    for(auto i=0; i<nImp; i++)
-        for(auto j=0; j<nImp; j++) {
-            int ii=nBath+i;  // these positions change with nImp and nBath
+    for(auto i=0; i<n_imp; i++)
+        for(auto j=0; j<n_imp; j++) {
+            int ii=nBath+i;  // these positions change with n_imp and nBath
             int jj=nBath+j;
             if (std::abs(Umat(i,j))>1e-15)
                 h += Umat(i,j), "N", ii+1, "N", jj+1;
@@ -133,9 +133,9 @@ itensor::MPO getHamiltonian(itensor::Fermion sites, cx_mat const& K, mat const& 
 int main()
 {
     int L=100;
-    int nImp=4;
+    int n_imp=4;
     double dt=0.1;
-    int nBath=L/2-nImp/2;  // =4 for L=12, nImp=4
+    int nBath=L/2-n_imp/2;  // =4 for L=12, n_imp=4
 
     mat Kstar, Umat; // define the Hamiltonian
     mat Kbath;
@@ -147,17 +147,17 @@ int main()
             // spin-up chain (sites 0..L/2-1) and spin-down chain (sites L/2..L-1)
             for(auto i=0; i<L/2-1; i++) K(i,i+1)=K(i+1,i)=0.5;
             for(auto i=L/2; i<L-1; i++) K(i,i+1)=K(i+1,i)=0.5;
-            // impurity on-site energies: spin-up imp at site nBath+nImp/2-1, spin-down at L/2
-            K(nBath+nImp/2-1, nBath+nImp/2-1)=-U/2;
+            // impurity on-site energies: spin-up imp at site nBath+n_imp/2-1, spin-down at L/2
+            K(nBath+n_imp/2-1, nBath+n_imp/2-1)=-U/2;
             K(L/2, L/2)=-U/2;
             // hybridization V: overwrites the chain hop between buffer and physical impurity
-            K(nBath, nBath+nImp/2-1)=K(nBath+nImp/2-1, nBath)=V;      // spin-up
-            K(L/2, L/2+nImp/2-1)=K(L/2+nImp/2-1, L/2)=V;              // spin-down
+            K(nBath, nBath+n_imp/2-1)=K(nBath+n_imp/2-1, nBath)=V;      // spin-up
+            K(L/2, L/2+n_imp/2-1)=K(L/2+n_imp/2-1, L/2)=V;              // spin-down
         }
-        Umat.zeros(nImp,nImp);
-        Umat(nImp/2-1,nImp/2)=U;  // Hubbard U between spin-up imp (cluster idx nImp/2-1) and spin-down imp (nImp/2)
+        Umat.zeros(n_imp,n_imp);
+        Umat(n_imp/2-1,n_imp/2)=U;  // Hubbard U between spin-up imp (cluster idx n_imp/2-1) and spin-down imp (n_imp/2)
 
-        std::tie(Kstar,Kbath) = computeKstar(K, nImp);
+        std::tie(Kstar,Kbath) = computeKstar(K, n_imp);
     }
 
     itensor::Fermion sites=itensor::Fermion(L, {"ConserveNf",true});
@@ -165,14 +165,14 @@ int main()
     {
         auto ek=arma::vec {Kstar.diag()};
         // force impurity occupation: physical imp sites occupied, buffer sites empty
-        ek[nBath+nImp/2-1]=ek[L/2]=-10;    // spin-up and spin-down physical impurities
-        ek[nBath]=ek[L/2+nImp/2-1]=10;     // spin-up and spin-down buffers
+        ek[nBath+n_imp/2-1]=ek[L/2]=-10;    // spin-up and spin-down physical impurities
+        ek[nBath]=ek[L/2+n_imp/2-1]=10;     // spin-up and spin-down buffers
 
-        int nPart=L/2;
+        int n_part=L/2;
         sites=itensor::Fermion(ek.size(), {"ConserveNf",true});
         auto state = itensor::InitState(sites,"0");
         arma::uvec iek=arma::sort_index(ek);
-        for(int j = 0; j < nPart; j++) {
+        for(int j = 0; j < n_part; j++) {
             int k=iek[j];
             state.set(k+1,"1");
         }
@@ -181,7 +181,7 @@ int main()
 
 
     cout<<"time m n_up n_dw\n"<<setprecision(12);
-    arma::cx_mat Kip = computeKip(Kstar,nImp,dt);
+    arma::cx_mat Kip = computeKip(Kstar,n_imp,dt);
 
     // arma::real(Kip).eval().print("Kip ok");
 
@@ -193,9 +193,9 @@ int main()
         // arma::real(Kip).eval().print("Kip_n ok");
 
         auto mpo=getHamiltonian(sites,Kip_n,Umat);
-        doTdvp(psi,mpo,dt);        
-        double n_dw=itensor::expectC(psi,sites,"N",{nBath+nImp/2+1})[0].real();       // spin-down physical imp (1-indexed)
-        double n_dw_bf=itensor::expectC(psi,sites,"N",{nBath+nImp/2+2})[0].real();    // spin-down buffer site (1-indexed)
+        do_tdvp(psi,mpo,dt);        
+        double n_dw=itensor::expectC(psi,sites,"N",{nBath+n_imp/2+1})[0].real();       // spin-down physical imp (1-indexed)
+        double n_dw_bf=itensor::expectC(psi,sites,"N",{nBath+n_imp/2+2})[0].real();    // spin-down buffer site (1-indexed)
         cout<<(i+1)*dt<<" "<<itensor::maxLinkDim(psi)<<" "<<n_dw<<" "<<n_dw_bf<<endl;
     }
     return 0;

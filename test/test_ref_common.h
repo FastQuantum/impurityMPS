@@ -35,7 +35,7 @@ inline fbr::Impurity makeIrlmModel(int L, double U, double V)
     K(0, 0) = K(1, 1) = -U / 2;
     mat Umat(L, L, fill::zeros);
     Umat(0, 1) = U;
-    return fbr::Impurity{{.Kmat = K, .Umat = Umat, .impPos = {0, 1}}};
+    return fbr::Impurity{{.Kmat = K, .Umat = Umat, .imp_pos = {0, 1}}};
 }
 
 // Saving a few-body state: the MPS and its site set through ITensor, the two
@@ -56,7 +56,7 @@ void saveFbMps(std::string const &fname, fbr::Fb_mps<T> const &fb)
     itensor::write(s, 0);   // legacy slot: the removed Fb_mps::spin flag. Kept so
                             // the committed output/*.dat caches stay readable.
     itensor::write(s, fb.tol);
-    itensor::write(s, fb.nSv);
+    itensor::write(s, fb.n_sv);
     if (!fb.rot.save(s, arma_binary) || !fb.cc.save(s, arma_binary))
         throw std::runtime_error("cannot write the frame of " + fname);
 }
@@ -77,7 +77,7 @@ fbr::Fb_mps<T> loadFbMps(std::string const &fname)
     itensor::read(s, layout);
     itensor::read(s, legacy_spin);   // see saveFbMps
     itensor::read(s, fb.tol);
-    itensor::read(s, fb.nSv);
+    itensor::read(s, fb.n_sv);
     fb.layout = static_cast<fbr::Layout>(layout);
     if (!fb.rot.load(s, arma_binary) || !fb.cc.load(s, arma_binary))
         throw std::runtime_error("cannot read the frame of " + fname);
@@ -226,7 +226,7 @@ struct LargeLGreenSample {
     double t = 0;
     cmpx G00, G01;
     int maxBondDim = 0;
-    int nActive = 0;
+    int n_active = 0;
 };
 
 // Parse an fbr_green_irlm_ref_v1 file, at most nSteps rows.
@@ -250,7 +250,7 @@ inline std::vector<LargeLGreenSample> loadLargeLGreenReference(std::string const
     for (int s = 0; s < nSteps; ++s) {
         LargeLGreenSample r;
         double re0 = 0, im0 = 0, re1 = 0, im1 = 0;
-        in >> r.t >> re0 >> im0 >> re1 >> im1 >> r.maxBondDim >> r.nActive;
+        in >> r.t >> re0 >> im0 >> re1 >> im1 >> r.maxBondDim >> r.n_active;
         if (!in) throw std::runtime_error("truncated large-L Green reference " + name);
         r.G00 = cmpx(re0, im0);
         r.G01 = cmpx(re1, im1);

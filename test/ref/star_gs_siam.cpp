@@ -20,7 +20,7 @@ int main()
     }
     arma::mat Umat(L,L,arma::fill::zeros);
     Umat(0,1)=U;
-    auto model = Impurity {{.Kmat=K, .Umat=Umat, .impPos={0,1}}};
+    auto model = Impurity {{.Kmat=K, .Umat=Umat, .imp_pos={0,1}}};
 
     auto ek=arma::vec {model.param.Kmat.diag()};
     // optional: force impurity ocupation |10>
@@ -28,8 +28,8 @@ int main()
     ek[1]=10;
     auto fb=slater<double>(model, ek);
     itensor::AutoMPO h(fb.sites);
-    for(auto i=0; i<model.param.nImp(); i++)
-        for(auto j=0; j<model.param.nImp(); j++)
+    for(auto i=0; i<model.param.n_imp(); i++)
+        for(auto j=0; j<model.param.n_imp(); j++)
             if (std::abs(model.param.Umat(i,j))>1e-15)
                 h += model.param.Umat(i,j), "N", i+1, "N", j+1;
     for(auto i=0; i<model.param.Kmat.n_rows; i++)
@@ -47,7 +47,7 @@ int main()
     cout<<"iteration m 0 energy time\n"<<setprecision(12);
     itensor::cpu_time t0;
     for(auto i=0;i<100;i++){
-        double energy=itensor::dmrg(fb.psi,mpo,sweeps, {/*"MaxSite",fb.nActive,*/"Quiet", true, "Silent", true});
+        double energy=itensor::dmrg(fb.psi,mpo,sweeps, {/*"MaxSite",fb.n_active,*/"Quiet", true, "Silent", true});
         double n0=itensor::expect(fb.psi,fb.sites,"N",{1})[0];
         cout<<i+1<<" "<<itensor::maxLinkDim(fb.psi)<<" "<<n0<<" "<<energy<<" "<<t0.sincemark().wall<<endl;
         t0.mark();

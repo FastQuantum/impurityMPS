@@ -1,10 +1,10 @@
 // Parameter-tuning driver for the FBR (active-window) SIAM dynamics, mirroring
-// test/test_ref_fbr.cpp's makeFbrRun. FBR runs with epsilonM=0 (no subspace
-// expansion), so nKrylov/epsilonK are inert here — the only TDVP knob is err_goal
-// (plus nIter_diag). Compares the FBR trajectory against the committed chain
+// test/test_ref_fbr.cpp's makeFbrRun. FBR runs with epsilon_M=0 (no subspace
+// expansion), so n_krylov/epsilon_K are inert here — the only TDVP knob is err_goal
+// (plus n_iter_diag). Compares the FBR trajectory against the committed chain
 // reference and prints per-snapshot max|dni|, max|dcc|.
 //
-// Usage: fbr_dyn_tune <U> <err_goal> <nIter_diag> <maxSteps>
+// Usage: fbr_dyn_tune <U> <err_goal> <n_iter_diag> <maxSteps>
 #include "fbr/fbr_dyn.h"
 #include "../../test/test_ref_common.h"
 
@@ -37,7 +37,7 @@ static auto makeFbrRun(int L, double dt, double U)
         K(0, 2) = K(2, 0) = K(1, 3) = K(3, 1) = V;
         mat Umat(L, L, fill::zeros);
         Umat(0, 1) = U;
-        model = Impurity{{.Kmat = K, .Umat = Umat, .impPos = {2, 0, 1, 3}, .layout=spin_symmetric}};
+        model = Impurity{{.Kmat = K, .Umat = Umat, .imp_pos = {2, 0, 1, 3}, .layout=spin_symmetric}};
     }
     auto ek = vec{model.param.Kmat.diag()};
     ek[L / 2 - 1] = ek[L / 2] = -10;
@@ -63,7 +63,7 @@ int main(int argc, char** argv)
     auto ref = loadReference("chain_dyn_siam_center_U" + us + "_ref.txt");
 
     std::cerr << "# FBR U=" << U << " errGoal=" << errGoal
-              << " nIterDiag=" << nIterDiag << " (epsilonM=0, nKrylov inert)\n";
+              << " nIterDiag=" << nIterDiag << " (epsilon_M=0, n_krylov inert)\n";
     std::cout << std::setprecision(3) << std::scientific;
 
     auto report = [&](int step, std::string const& label) {
@@ -79,7 +79,7 @@ int main(int argc, char** argv)
     if (ref.count("initial")) report(0, "initial");
     itensor::cpu_time t0;
     for (int step = 1; step <= maxSteps; step++) {
-        fbr.iterate({.nIter_diag = nIterDiag, .err_goal = errGoal, .epsilonM = 0e-8});
+        fbr.iterate({.n_iter_diag = nIterDiag, .err_goal = errGoal, .epsilon_M = 0e-8});
         for (auto const& w : wanted)
             if (w.first == step && ref.count(w.second)) report(step, w.second);
     }

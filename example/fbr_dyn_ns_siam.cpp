@@ -24,7 +24,7 @@ int main()
         arma::mat Umat(L,L,arma::fill::zeros);
         Umat(0,1)=U;
 
-        model = Impurity {{.Kmat=K, .Umat=Umat, .impPos={0,1,2,3}}};
+        model = Impurity {{.Kmat=K, .Umat=Umat, .imp_pos={0,1,2,3}}};
 
         K.print("Kmat before star ns");
     }
@@ -51,13 +51,13 @@ int main()
     // arma::real(solver.Kip0*1).eval().clean(1e-11).print("Kip0 before main() iterations");
     // terminate();
 
-    cout<<"time m <n0> <cd> nActive\n"<<setprecision(12);
+    cout<<"time m <n0> <cd> n_active\n"<<setprecision(12);
     itensor::cpu_time t0;
     for(auto i=0; i*dt<L; i++){
-        solver.iterate({.max_bond_dim=2048, .epsilonM=1e-4});
+        solver.iterate({.max_bond_dim=2048, .epsilon_M=1e-4});
         double n0= solver.fb.occupations_ni2()(0);
         double n1= solver.fb.occupations_ni2()(2);
-        cout<<(i+1)*solver.dt<<" "<<itensor::maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<n1<<" "<<solver.fb.nActive()<<endl;
+        cout<<(i+1)*solver.dt<<" "<<itensor::maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<n1<<" "<<solver.fb.n_active()<<endl;
         t0.mark();
     }
     return 0;

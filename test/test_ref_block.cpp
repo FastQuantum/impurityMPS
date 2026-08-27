@@ -42,7 +42,7 @@ Solver makeFbrRun(int L, double dt, double U)
         K(0, 2) = K(2, 0) = K(1, 3) = K(3, 1) = V;
         mat Umat(L, L, fill::zeros);
         Umat(0, 1) = U;
-        model = Impurity{{.Kmat = K, .Umat = Umat, .impPos = {2, 0, 1, 3}, .layout=spin_block}};
+        model = Impurity{{.Kmat = K, .Umat = Umat, .imp_pos = {2, 0, 1, 3}, .layout=spin_block}};
     }
 
     auto ek = vec{model.param.Kmat.diag()};
@@ -65,9 +65,9 @@ TrajResult const &resultFor(double U, std::string const &us)
     auto fbr = makeFbrRun(L, dt, U);
     auto p = fbrIndexToChainIndex(L);
     auto iter = [](Solver &f) {
-        // epsilonM=0 skips the subspace expansion (nKrylov/epsilonK inert); err_goal
+        // epsilon_M=0 skips the subspace expansion (n_krylov/epsilon_K inert); err_goal
         // comes from the default (1e-7), to which FBR dynamics is insensitive.
-        f.iterate({.epsilonM = 0});
+        f.iterate({.epsilon_M = 0});
     };
     auto corr = [](Solver &f) { return f.correlator_all(); };
 
@@ -109,7 +109,7 @@ TEST_CASE("multi-state solver with one state matches single-state solver",
     K0(0,2)=K0(2,0)=K0(1,3)=K0(3,1)=0.1;
     mat Umat(L,L,fill::zeros);
     Umat(0,1)=U;
-    auto model=Impurity{{.Kmat=K0,.Umat=Umat,.impPos={2,0,1,3}, .layout=spin_block}};
+    auto model=Impurity{{.Kmat=K0,.Umat=Umat,.imp_pos={2,0,1,3}, .layout=spin_block}};
 
     auto ek=vec{model.param.Kmat.diag()};
     ek[L/2-1]=ek[L/2]=-10;
@@ -123,7 +123,7 @@ TEST_CASE("multi-state solver with one state matches single-state solver",
 
     auto old_solver=Fbr_dyn(model,fb,dt);
     auto new_solver=Fbr_ns_dyn(model,std::vector{fb},dt);
-    TdvpParam args {.max_bond_dim=512,.nIter_diag=8,.epsilonM=0};
+    TdvpParam args {.max_bond_dim=512,.n_iter_diag=8,.epsilon_M=0};
 
     for (int step=0; step<10; ++step) {
         old_solver.iterate(args);

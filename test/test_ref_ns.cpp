@@ -38,7 +38,7 @@ Solver makeFbrRun(int L, double dt, double U)
         K(0, 2) = K(2, 0) = K(1, 3) = K(3, 1) = V;
         mat Umat(L, L, fill::zeros);
         Umat(0, 1) = U;
-        model = Impurity{{.Kmat = K, .Umat = Umat, .impPos = {0, 1, 2, 3}}};
+        model = Impurity{{.Kmat = K, .Umat = Umat, .imp_pos = {0, 1, 2, 3}}};
     }
 
     auto ek = vec{model.param.Kmat.diag()};
@@ -60,7 +60,7 @@ TrajResult const &resultFor(double U, std::string const &us)
     constexpr double dt = 0.1;
     auto fbr = makeFbrRun(L, dt, U);
     auto p = fbrIndexToChainIndex(L);
-    auto iter = [](Solver &f) { f.iterate({.max_bond_dim = 2048, .epsilonM = 1e-4}); };
+    auto iter = [](Solver &f) { f.iterate({.max_bond_dim = 2048, .epsilon_M = 1e-4}); };
     auto corr = [](Solver &f) { return f.correlator_all(); };
 
     auto ref = loadReference("chain_dyn_siam_center_U" + us + "_ref.txt");
@@ -99,7 +99,7 @@ TEST_CASE("multi-state solver with one state matches single-state solver", "[mul
     K0(0,2)=K0(2,0)=K0(1,3)=K0(3,1)=0.1;
     mat Umat(L,L,fill::zeros);
     Umat(0,1)=U;
-    auto model=Impurity{{.Kmat=K0,.Umat=Umat,.impPos={0,1,2,3}}};
+    auto model=Impurity{{.Kmat=K0,.Umat=Umat,.imp_pos={0,1,2,3}}};
 
     auto ek=vec{model.param.Kmat.diag()};
     ek[0]=ek[1]=-10;
@@ -113,7 +113,7 @@ TEST_CASE("multi-state solver with one state matches single-state solver", "[mul
 
     auto old_solver=Fbr_dyn(model,fb,dt);
     auto new_solver=Fbr_ns_dyn(model,std::vector{fb},dt);
-    TdvpParam args {.max_bond_dim=512,.nIter_diag=8,.epsilonM=0};
+    TdvpParam args {.max_bond_dim=512,.n_iter_diag=8,.epsilon_M=0};
 
     for (int step=0; step<10; ++step) {
         old_solver.iterate(args);
@@ -121,14 +121,14 @@ TEST_CASE("multi-state solver with one state matches single-state solver", "[mul
 
         auto const& old=old_solver.fb;
         auto const& current=new_solver.states.front();
-        CAPTURE(step,old.nActive(),current.nActive());
+        CAPTURE(step,old.n_active(),current.n_active());
         INFO("correlator error = " << arma::abs(new_solver.correlator_all()-old_solver.correlator_all()).max());
         INFO("energy error = " << std::abs(new_solver.energies.front()-old_solver.energy));
         INFO("rot error = " << arma::abs(current.rot-old.rot).max());
         INFO("cc error = " << arma::abs(current.cc-old.cc).max());
         INFO("K error = " << arma::abs(new_solver.K-old_solver.K).max());
 
-        REQUIRE(current.nActive()==old.nActive());
+        REQUIRE(current.n_active()==old.n_active());
         REQUIRE(arma::abs(new_solver.correlator_all()-old_solver.correlator_all()).max()<1e-8);
         REQUIRE(std::abs(new_solver.energies.front()-old_solver.energy)<1e-8);
     }
@@ -149,7 +149,7 @@ TEST_CASE("dynamics starting from a rotated frame", "[fbr_dyn][frame]") {
     for (int i=1; i<L-1; ++i) K(i,i+1)=K(i+1,i)=0.5;
     K(0,1)=K(1,0)=0.5;
     mat Umat(L,L,fill::zeros);        // U=0: the ground state is an eigenstate
-    auto model=Impurity{{.Kmat=K,.Umat=Umat,.impPos={0,1}}};
+    auto model=Impurity{{.Kmat=K,.Umat=Umat,.imp_pos={0,1}}};
 
     auto gs=slater<double>(model);
     gs.tol=1e-12;
@@ -163,7 +163,7 @@ TEST_CASE("dynamics starting from a rotated frame", "[fbr_dyn][frame]") {
 
     auto solver=Fbr_dyn(model,fb,dt);
     cx_mat cc0=solver.correlator_all();
-    for (int step=0; step<20; ++step) solver.iterate({.epsilonM=0});
+    for (int step=0; step<20; ++step) solver.iterate({.epsilon_M=0});
 
     double drift=arma::abs(solver.correlator_all()-cc0).max();
     INFO("correlator drift of a stationary state = "<<drift);

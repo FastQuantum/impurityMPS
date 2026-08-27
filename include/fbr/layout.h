@@ -13,7 +13,7 @@ enum Spin{up, dw};
 /// degenerate case with an empty up sector, where the chain is simply
 /// |imp|active|slater|.
 ///
-/// Both the model (ImpurityParam, which produces this geometry in toStar) and
+/// Both the model (ImpurityParam, which produces this geometry in to_star) and
 /// the state (Fb_mps, which lives in it) are described by the same Layout.
 enum Layout {
     leading,        ///< |imp|active|slater|, a single sector (spinless)

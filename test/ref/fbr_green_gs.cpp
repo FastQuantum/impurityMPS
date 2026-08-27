@@ -25,7 +25,7 @@ int main()
 {
     constexpr int L = 100;
     constexpr double V = 0.1;
-    constexpr int nIter = 80;
+    constexpr int n_iter = 80;
 
     for (auto us : {string("0.1"), string("0.2")}) {
         double U = std::stod(us);
@@ -35,13 +35,13 @@ int main()
         auto gs = slater<double>(model);
         gs.tol = 1e-12;
         auto solver = Fbr_gs(model, gs);
-        for (int i = 0; i < nIter; i++) solver.iterate({.max_bond_dim = 512});
+        for (int i = 0; i < n_iter; i++) solver.iterate({.max_bond_dim = 512});
 
         string name = "fbr_green_gs_L" + to_string(L) + "_U" + us + ".dat";
         saveFbMps(name, solver.fb);
         cout << setprecision(12)
              << "# wrote " << name << "  energy=" << solver.energy
-             << " nActive=" << solver.fb.nActive()
+             << " n_active=" << solver.fb.n_active()
              << " in " << clk.sincemark().wall << " s" << endl;
     }
     return 0;

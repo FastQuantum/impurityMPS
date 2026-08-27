@@ -23,8 +23,8 @@
 // TDVP settings: the chain is nearest-neighbour, so two-site TDVP grows the
 // bonds by itself and the global subspace expansion is nearly free of effect
 // here. Measured at U=0 against the analytic Green function (L=60, t<=2), all of
-// nKrylov=15, nKrylov=2 and no expansion at all agree to 4.3e-8, at 536s, 324s
-// and 248s. We keep the expansion at the tuned nKrylov=2: same accuracy as the
+// n_krylov=15, n_krylov=2 and no expansion at all agree to 4.3e-8, at 536s, 324s
+// and 248s. We keep the expansion at the tuned n_krylov=2: same accuracy as the
 // overkill set, and it is still there for the interacting runs, where the
 // entanglement grows and it is no longer free.
 //
@@ -113,24 +113,24 @@ void findGs(itensor::MPS& psi, itensor::MPO const& mpo)
 double envD(char const* k, double d) { return getenv(k) ? std::stod(getenv(k)) : d; }
 int    envI(char const* k, int d)    { return getenv(k) ? std::stoi(getenv(k)) : d; }
 
-void doTdvp(itensor::MPS& psi, itensor::MPO const& mpo, double dt)
+void do_tdvp(itensor::MPS& psi, itensor::MPO const& mpo, double dt)
 {
     fbr::TdvpParam args{.err_goal=1e-8,
-                        .epsilonM=envD("GREEN_EPSM",1e-4),
-                        .nKrylov=envI("GREEN_NKRYLOV",2),
-                        .epsilonK=1e-4};
+                        .epsilon_M=envD("GREEN_EPSM",1e-4),
+                        .n_krylov=envI("GREEN_NKRYLOV",2),
+                        .epsilon_K=1e-4};
     auto sweeps=itensor::Sweeps(1);
     sweeps.maxdim()=args.max_bond_dim;
     sweeps.cutoff()=1e-12;
-    sweeps.niter()=args.nIter_diag;
+    sweeps.niter()=args.n_iter_diag;
     sweeps.noise()=args.noise;
 
-    if (args.epsilonM!=0) {
-    std::vector<double> epsilonK(args.nKrylov,args.epsilonK);
-    itensor::addBasis(psi,mpo,epsilonK,
-                      {"Cutoff",args.epsilonM,
+    if (args.epsilon_M!=0) {
+    std::vector<double> epsilon_K(args.n_krylov,args.epsilon_K);
+    itensor::addBasis(psi,mpo,epsilon_K,
+                      {"Cutoff",args.epsilon_M,
                        "Method","DensityMatrix",
-                       "KrylovOrd",args.nKrylov,
+                       "KrylovOrd",args.n_krylov,
                        "DoNormalize",true,
                        "Quiet",true,
                        "Silent",true});
@@ -155,7 +155,7 @@ int main(int argc, char** argv)
     double U = argc>1 ? std::stod(argv[1]) : 0.2;
     int nStep = getenv("GREEN_NSTEP") ? std::stoi(getenv("GREEN_NSTEP")) : 200;  // t = 20
     int maxBondDim=1024;       // stop as soon as any state reaches this
-    int nPart=L/2;
+    int n_part=L/2;
 
     mat K(L,L,fill::zeros);
     for (int i=1; i<L-1; i++) K(i,i+1)=K(i+1,i)=0.5;
@@ -167,7 +167,7 @@ int main(int argc, char** argv)
     eig_sym(ek,evec,K);
     auto G_free=[&](int i,int j,double t) {
         cmpx g=0;
-        for (int a=nPart; a<L; a++)      // unoccupied modes only
+        for (int a=n_part; a<L; a++)      // unoccupied modes only
             g += std::exp(-cmpx(0,1)*ek[a]*t)*evec(i,a)*evec(j,a);
         return -cmpx(0,1)*g;
     };
@@ -178,7 +178,7 @@ int main(int argc, char** argv)
     itensor::MPS psi;
     {
         auto state=itensor::InitState(sites,"0");
-        for (int j=0; j<nPart; j++) state.set(2*j+1,"1");
+        for (int j=0; j<n_part; j++) state.set(2*j+1,"1");
         psi=itensor::MPS(state);
     }
     findGs(psi,mpo);
@@ -219,7 +219,7 @@ int main(int argc, char** argv)
             break;
         }
         if (step<nStep)
-            for (auto* p : {&A,&B0,&B1}) doTdvp(*p,mpo,dt);
+            for (auto* p : {&A,&B0,&B1}) do_tdvp(*p,mpo,dt);
     }
 
     if (U==0) cout<<"# max |G - G_free| = "<<scientific<<freeErr<<endl;

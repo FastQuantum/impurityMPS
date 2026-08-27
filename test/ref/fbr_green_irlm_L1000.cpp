@@ -59,7 +59,7 @@ static double envD(char const *k, double fallback)
 static cmpx cElement(Fb_mps<cmpx> const &A, Fb_mps<cmpx> const &B, int i)
 {
     auto Ai = A;
-    Ai.applyLocalOp("Cdag", i);
+    Ai.apply_local_op("Cdag", i);
     return itensor::innerC(Ai.psi, B.psi);
 }
 
@@ -69,7 +69,7 @@ static cmpx cElement(Fb_mps<cmpx> const &A, Fb_mps<cmpx> const &B, int i)
 static std::pair<Fb_mps<cmpx>, double> addParticle(Fb_mps<cmpx> const &psi0, int j)
 {
     auto state = psi0;
-    state.applyLocalOp("Cdag", j);
+    state.apply_local_op("Cdag", j);
     double nrm = std::sqrt(std::real(itensor::innerC(state.psi, state.psi)));
     state.psi.normalize();
     state.update_cc();
@@ -88,7 +88,7 @@ int main(int argc, char **argv)
     // times as many orbitals carrying a tiny fraction of a particle, so a
     // tighter tol makes the active window (and the cost) explode.
     double tol = envD("GREEN_TOL", 1e-10);
-    int nPart = L / 2;
+    int n_part = L / 2;
 
     mat K(L, L, fill::zeros);
     for (int i = 1; i < L - 1; i++) K(i, i + 1) = K(i + 1, i) = 0.5;
@@ -96,7 +96,7 @@ int main(int argc, char **argv)
     K(0, 0) = K(1, 1) = -U / 2;
     mat Umat(L, L, fill::zeros);
     Umat(0, 1) = U;
-    auto model = Impurity{{.Kmat = K, .Umat = Umat, .impPos = {0, 1}}};
+    auto model = Impurity{{.Kmat = K, .Umat = Umat, .imp_pos = {0, 1}}};
 
     itensor::cpu_time clk;
     // The reference state: a Slater determinant with BOTH impurity orbitals
@@ -106,7 +106,7 @@ int main(int argc, char **argv)
     auto ek = vec{model.param.Kmat.diag()};
     ek[0] = ek[1] = 10;
     auto psi0 = Fb_mps<cmpx>::from_slater(model.param.rot * cmpx(1, 0), ek,
-                                          nPart, model.param.nImp(), leading);
+                                          n_part, model.param.n_imp(), leading);
     psi0.tol = tol;
     auto [B0, nrm0] = addParticle(psi0, 0);
     auto [B1, nrm1] = addParticle(psi0, 1);
@@ -126,20 +126,20 @@ int main(int argc, char **argv)
 
         rows << t << " " << G00.real() << " " << G00.imag() << " "
              << G01.real() << " " << G01.imag() << " "
-             << m << " " << solver.states[0].nActive() << "\n";
+             << m << " " << solver.states[0].n_active() << "\n";
 
         // rewrite every step, so an interrupted run still leaves usable data
         ofstream out(name);
         out << "fbr_green_irlm_ref_v1 L " << L << " U " << U << " V " << V
             << " dt " << dt << " steps " << (step + 1) << "\n"
-            << "# t ReG00 ImG00 ReG01 ImG01 maxBondDim nActive\n"
+            << "# t ReG00 ImG00 ReG01 ImG01 maxBondDim n_active\n"
             << rows.str();
         out.close();
 
         if (step % 10 == 0)
-            cerr << "# t=" << t << " m=" << m << " nActive=" << solver.states[0].nActive()
+            cerr << "# t=" << t << " m=" << m << " n_active=" << solver.states[0].n_active()
                  << " " << clk.sincemark().wall << " s\n";
-        if (step < nStep) solver.iterate({.epsilonM = 0});
+        if (step < nStep) solver.iterate({.epsilon_M = 0});
     }
     cerr << "# wrote " << name << " with " << (nStep + 1) << " rows\n";
     return 0;

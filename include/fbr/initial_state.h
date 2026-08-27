@@ -17,7 +17,7 @@ Fb_mps<T> slater(ImpurityParam const& param, arma::vec ek={})
 {
     if (ek.empty()) ek=arma::vec {param.Kmat.diag()};
     return Fb_mps<T>::from_slater(arma::conv_to<arma::Mat<T>>::from(param.rot), ek,
-                                  param.nPart(), param.nImp(), param.layout);
+                                  param.n_part(), param.n_imp(), param.layout);
 }
 
 template<class T=double>

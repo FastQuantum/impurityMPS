@@ -17,7 +17,7 @@
 // which ITensor's AutoMPO cannot build with particle-number conservation.)
 //
 // For U=0 the Hamiltonian is quadratic, c_i(t)=sum_k [e^{-iKt}]_ik c_k, and with
-// the ground state filling the nPart lowest modes of K = V diag(e) V^T,
+// the ground state filling the n_part lowest modes of K = V diag(e) V^T,
 //     G(i,j,t) = -i sum_{a unoccupied} e^{-i e_a t} V_ia V_ja,
 // which is the reference printed next to the computed values.
 //
@@ -44,7 +44,7 @@ namespace {
 cmpx c_element(Fb_mps<cmpx> const& A, Fb_mps<cmpx> const& B, int i)
 {
     auto Ai=A;
-    Ai.applyLocalOp("Cdag",i);          // |c_i^dag A>
+    Ai.apply_local_op("Cdag",i);          // |c_i^dag A>
     return itensor::innerC(Ai.psi,B.psi);
 }
 
@@ -54,7 +54,7 @@ cmpx c_element(Fb_mps<cmpx> const& A, Fb_mps<cmpx> const& B, int i)
 std::pair<Fb_mps<cmpx>,double> add_particle(Fb_mps<cmpx> const& psi0, int j)
 {
     auto state=psi0;
-    state.applyLocalOp("Cdag",j);
+    state.apply_local_op("Cdag",j);
     double nrm=std::sqrt(std::real(itensor::innerC(state.psi,state.psi)));
     state.psi.normalize();
     state.update_cc();
@@ -70,7 +70,7 @@ int main(int argc, char** argv)
     double V=0.5;          // impurity-bath hybridization
     double dt=0.05;
     int nStep=40;
-    int nPart=L/2;
+    int n_part=L/2;
 
     arma::mat K(L,L, arma::fill::zeros);
     {
@@ -89,23 +89,23 @@ int main(int argc, char** argv)
     eig_sym(ek_exact,evec_exact,K);
     auto G_exact=[&](int i,int j,double t) {
         cmpx g=0;
-        for(auto a=nPart; a<L; a++)   // unoccupied modes only
+        for(auto a=n_part; a<L; a++)   // unoccupied modes only
             g += std::exp(-imag_1*ek_exact[a]*t)*evec_exact(i,a)*evec_exact(j,a);
         return -imag_1*g;
     };
 
-    auto model = Impurity {{.Kmat=K, .Umat=Umat, .impPos={0,1}}};
+    auto model = Impurity {{.Kmat=K, .Umat=Umat, .imp_pos={0,1}}};
 
     // ---- ground state ----
     auto gs=Fb_mps<double>::from_slater(model.param.rot,
                                         vec{model.param.Kmat.diag()},
-                                        nPart, model.param.nImp(), leading);
+                                        n_part, model.param.n_imp(), leading);
     gs.tol=1e-12;
     auto gs_solver=Fbr_gs(model,gs);
     for(auto i=0; i<60; i++) gs_solver.iterate({.max_bond_dim=256});
     cout<<setprecision(12)
         <<"# ground state energy: fbr="<<gs_solver.energy
-        <<"  exact="<<arma::sum(ek_exact.head(nPart))<<endl;
+        <<"  exact="<<arma::sum(ek_exact.head(n_part))<<endl;
 
     // ---- |psi0>, c_0^dag|psi0> and c_1^dag|psi0> in one common basis ----
     auto psi0=gs_solver.fb.to_complex();
@@ -141,7 +141,7 @@ int main(int argc, char** argv)
                 <<"  "<<G01.real()<<" "<<G01.imag()
                 <<"  "<<G01e.real()<<" "<<G01e.imag()<<endl;
 
-        if (step<nStep) solver.iterate({.epsilonM=0});
+        if (step<nStep) solver.iterate({.epsilon_M=0});
     }
     cout<<"# max |G - G_exact| = "<<scientific<<err
         <<(U==0 ? "  (U=0: the reference is exact)"

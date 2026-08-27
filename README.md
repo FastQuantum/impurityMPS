@@ -61,8 +61,8 @@ int main()
     arma::mat Umat(L,L,arma::fill::zeros);
     Umat(0,1)=U;
 
-    // Impurity transforms Kmat to star geometry (impurities at impPos)
-    auto model = Impurity {{.Kmat=K, .Umat=Umat, .impPos={0,1}}};
+    // Impurity transforms Kmat to star geometry (impurities at imp_pos)
+    auto model = Impurity {{.Kmat=K, .Umat=Umat, .imp_pos={0,1}}};
 
     auto ek=arma::vec {model.param.Kmat.diag()};
     // optional: force impurity occupation |10>
@@ -73,11 +73,11 @@ int main()
 
     auto solver=Fbr_gs(model,fb);
 
-    cout<<"iteration nActive energy time\n"<<setprecision(12);
+    cout<<"iteration n_active energy time\n"<<setprecision(12);
     itensor::cpu_time t0;
     for(auto i=0;i<100;i++){
         solver.iterate();
-        cout<<i+1<<" "<<solver.fb.nActive()<<" "<<solver.energy<<" "<<t0.sincemark().wall<<endl;
+        cout<<i+1<<" "<<solver.fb.n_active()<<" "<<solver.energy<<" "<<t0.sincemark().wall<<endl;
         t0.mark();
     }
     return 0;
@@ -85,7 +85,7 @@ int main()
 ```
 The output is
 ```bash
-iteration nActive energy time(s)
+iteration n_active energy time(s)
 ...
 96 12 -318.016525257 0.809131
 97 12 -318.016525257 0.757191
@@ -110,12 +110,12 @@ fb.tol=1e-10;
 double dt=0.1;
 auto solver=Fbr_dyn(model,fb,dt);
 
-cout<<"time energy <n0> <cd> nActive\n"<<setprecision(12);
+cout<<"time energy <n0> <cd> n_active\n"<<setprecision(12);
 for(auto i=0; i*dt<L; i++){
-    solver.iterate({.max_bond_dim=2048, .epsilonM=1e-4});
+    solver.iterate({.max_bond_dim=2048, .epsilon_M=1e-4});
     double n0 = solver.correlator(0,0).real();      // impurity occupation
     double cd = 2*solver.correlator(0,1).real();     // impurity-bath coherence
-    cout<<(i+1)*solver.dt<<" "<<solver.energy<<" "<<n0<<" "<<cd<<" "<<solver.fb.nActive()<<endl;
+    cout<<(i+1)*solver.dt<<" "<<solver.energy<<" "<<n0<<" "<<cd<<" "<<solver.fb.n_active()<<endl;
 }
 ```
 
@@ -128,13 +128,13 @@ For models with spin you describe the impurities by listing them from the outerm
 - **Spin-flip symmetric** (`spin_symmetric`) — up and down are equivalent, so only one spin block is computed. See [`fbr_gs_siam.cpp`](example/fbr_gs_siam.cpp) and [`fbr_dyn_siam.cpp`](example/fbr_dyn_siam.cpp).
 - **Generic spin (block)** (`spin_block`) — the two spin blocks are handled independently, for cases without spin-flip symmetry. See [`fbr_dyn_siam_block.cpp`](example/fbr_dyn_siam_block.cpp).
 
-The layout is part of the model: `ImpurityParam::layout` selects the chain geometry `toStar()` produces, and `slater<T>(model)` builds a matching initial state. The spinless case is `leading`, the default.
+The layout is part of the model: `ImpurityParam::layout` selects the chain geometry `to_star()` produces, and `slater<T>(model)` builds a matching initial state. The spinless case is `leading`, the default.
 
 ```c++
 #include "fbr/fbr_gs_spin.h"
 // SIAM: U between the up impurity (site 0) and dw impurity (site 1)
 arma::mat Umat(L,L,arma::fill::zeros);  Umat(0,1)=U;
-auto model = Impurity {{.Kmat=K, .Umat=Umat, .impPos={0,1}, .layout=spin_symmetric}};
+auto model = Impurity {{.Kmat=K, .Umat=Umat, .imp_pos={0,1}, .layout=spin_symmetric}};
 
 auto fb=slater<double>(model, ek);   // ek defaults to param.Kmat.diag()
 auto solver=Fbr_gs_spin(model,fb);

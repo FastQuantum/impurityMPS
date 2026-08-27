@@ -12,7 +12,7 @@ const cmpx imag_1 = {0.0, 1.0};
 
 /// compute the exp(-i H) assuming H is Hermitian
 template<class T>
-arma::cx_mat expIH(arma::Mat<T> const& H)
+arma::cx_mat exp_iH(arma::Mat<T> const& H)
 {
     arma::Mat<T> evec;
     arma::vec eval;
@@ -52,12 +52,12 @@ struct GivensRot {
     T c=1, s=0;  ///< cos, sin, radius
 
     /// build the J s.t.  J * (p,q)=(0,r) is go_right=true. Adapted from eigen.tuxfamily.org
-    static GivensRot<T> createFromPair(size_t b, T p,  T q, bool go_right, T* r=nullptr);
+    static GivensRot<T> create_from_pair(size_t b, T p,  T q, bool go_right, T* r=nullptr);
 
     matrix22 matrix() const;
 
     /// the underline "Hamiltonian" the output is Hermitian.
-    arma::cx_mat ilogMatrix() const
+    arma::cx_mat ilog_matrix() const
     {
         matrix22 rot=matrix();
         auto [eval,evec]=eig_unitary(rot);
@@ -80,14 +80,14 @@ struct GivensRot {
 };
 
 template<class T>
-void applyGivens(GivensRot<T> const& g, arma::Mat<T>& A)
+void apply_givens(GivensRot<T> const& g, arma::Mat<T>& A)
 {
     auto Ar=A.rows(g.b,g.b+1).eval();
     A.rows(g.b,g.b+1)=g.matrix()*Ar;
 }
 
 template<class T>
-void applyGivens(arma::Mat<T>& A, GivensRot<T> const& g)
+void apply_givens(arma::Mat<T>& A, GivensRot<T> const& g)
 {
     auto Ac=A.cols(g.b,g.b+1).eval();
     A.cols(g.b,g.b+1) = Ac * g.matrix();
@@ -95,7 +95,7 @@ void applyGivens(arma::Mat<T>& A, GivensRot<T> const& g)
 
 
 template<>
-inline GivensRot<double> GivensRot<double>::createFromPair(size_t b, double p,  double q, bool go_right, double *r)
+inline GivensRot<double> GivensRot<double>::create_from_pair(size_t b, double p,  double q, bool go_right, double *r)
 {
     using Scalar=double;
     using std::sqrt;
@@ -152,7 +152,7 @@ template<>
 inline GivensRot<double> GivensRot<double>::reflect(int L) const { return {.b=L-2-b, .c=c, .s=-s}; }
 
 template<>
-inline GivensRot<cmpx> GivensRot<cmpx>::createFromPair(size_t b, cmpx p, cmpx q, bool go_right, cmpx *r)
+inline GivensRot<cmpx> GivensRot<cmpx>::create_from_pair(size_t b, cmpx p, cmpx q, bool go_right, cmpx *r)
 {
     using Scalar=cmpx;
     using RealScalar=double;
@@ -232,26 +232,26 @@ inline GivensRot<cmpx> GivensRot<cmpx>::reflect(int L) const { return {.b=L-2-b,
 //------------------------- set of Givens rotations -----------------------------------------
 
 template<class T>
-void applyGivens(std::vector<GivensRot<T>> const& gs,arma::Mat<T>& A)
+void apply_givens(std::vector<GivensRot<T>> const& gs,arma::Mat<T>& A)
 {
     for(auto const& g:gs)
-        applyGivens(g,A);
+        apply_givens(g,A);
 }
 
 template<class T>
-void applyGivens(arma::Mat<T>& A, std::vector<GivensRot<T>> const& gs)
+void apply_givens(arma::Mat<T>& A, std::vector<GivensRot<T>> const& gs)
 {
     for(auto it=gs.crbegin(); it!=gs.crend(); ++it)
-        applyGivens(A,*it);
+        apply_givens(A,*it);
 }
 
 
 /// Apply a Givens list to the columns of A indexed by `pos` (possibly non-contiguous).
-/// Equivalent to A <- A * E, where E embeds matrot_from_Givens(gs) into the index
-/// set `pos` (i.e. E(pos[i],pos[j]) = matrot_from_Givens(gs)(i,j)). Cost O(|gs|*n_rows),
+/// Equivalent to A <- A * E, where E embeds matrot_from_givens(gs) into the index
+/// set `pos` (i.e. E(pos[i],pos[j]) = matrot_from_givens(gs)(i,j)). Cost O(|gs|*n_rows),
 /// avoiding the O(n^2 * n_rows) dense product when `pos` spans O(n) indices.
 template<class T>
-void applyGivensCols(arma::Mat<T>& A, std::vector<GivensRot<T>> const& gs, arma::uvec const& pos)
+void apply_givens_cols(arma::Mat<T>& A, std::vector<GivensRot<T>> const& gs, arma::uvec const& pos)
 {
     for(auto it=gs.crbegin(); it!=gs.crend(); ++it) {
         auto m = it->matrix();
@@ -263,9 +263,9 @@ void applyGivensCols(arma::Mat<T>& A, std::vector<GivensRot<T>> const& gs, arma:
 }
 
 /// Apply a Givens list to the rows of A indexed by `pos` (possibly non-contiguous).
-/// Equivalent to A <- E * A, with E embedding matrot_from_Givens(gs) into `pos`.
+/// Equivalent to A <- E * A, with E embedding matrot_from_givens(gs) into `pos`.
 template<class T>
-void applyGivensRows(std::vector<GivensRot<T>> const& gs, arma::Mat<T>& A, arma::uvec const& pos)
+void apply_givens_rows(std::vector<GivensRot<T>> const& gs, arma::Mat<T>& A, arma::uvec const& pos)
 {
     for(auto const& g : gs) {
         auto m = g.matrix();
@@ -277,7 +277,7 @@ void applyGivensRows(std::vector<GivensRot<T>> const& gs, arma::Mat<T>& A, arma:
 }
 
 template<class T>
-arma::Mat<T> matrot_from_Givens(std::vector<GivensRot<T>> const& gates, size_t n)
+arma::Mat<T> matrot_from_givens(std::vector<GivensRot<T>> const& gates, size_t n)
 {
     if (n==0) { // read the length from the gates
         for(const GivensRot<T>& g : gates) if (g.b>n) n=g.b;
@@ -294,7 +294,7 @@ arma::Mat<T> matrot_from_Givens(std::vector<GivensRot<T>> const& gates, size_t n
 
 /// generate the corresponding Givens rotations: every column is one (left-stair-like) layer of gates
 template<class T>
-static std::vector<GivensRot<T>> GivensRotForRot_left(arma::Mat<T> rot)
+static std::vector<GivensRot<T>> givens_for_rot_left(arma::Mat<T> rot)
 {
     std::vector<GivensRot<T>> givens;
     for(int j=0u; j<rot.n_cols; j++) {
@@ -302,10 +302,10 @@ static std::vector<GivensRot<T>> GivensRotForRot_left(arma::Mat<T> rot)
         std::vector<GivensRot<T>> gs1;
         for(int i=v.size()-2; i>=j; i--)
         {
-            auto g=GivensRot<T>::createFromPair(i,v[i],v[i+1], false, &v[i]);
+            auto g=GivensRot<T>::create_from_pair(i,v[i],v[i+1], false, &v[i]);
             gs1.push_back(g);
         }
-        applyGivens(gs1,rot);
+        apply_givens(gs1,rot);
         for(auto g : gs1) givens.push_back(g);
     }
     return givens;
@@ -313,7 +313,7 @@ static std::vector<GivensRot<T>> GivensRotForRot_left(arma::Mat<T> rot)
 
 /// generate the corresponding Givens rotations: every column is one (right-stair-like) layer of gates
 template<class T>
-static std::vector<GivensRot<T>> GivensRotForRot_right(arma::Mat<T> rot)
+static std::vector<GivensRot<T>> givens_for_rot_right(arma::Mat<T> rot)
 {
     std::vector<GivensRot<T>> givens;
     for(int j=0u; j<rot.n_cols; j++) {
@@ -321,10 +321,10 @@ static std::vector<GivensRot<T>> GivensRotForRot_right(arma::Mat<T> rot)
         std::vector<GivensRot<T>> gs1;
         for(int i=0u; i+1+j<v.size(); i++)
         {
-            auto g=GivensRot<T>::createFromPair(i,v[i],v[i+1], true, &v[i+1]);
+            auto g=GivensRot<T>::create_from_pair(i,v[i],v[i+1], true, &v[i+1]);
             gs1.push_back(g);
         }
-        applyGivens(gs1,rot);
+        apply_givens(gs1,rot);
         for(auto g : gs1) givens.push_back(g);
     }
     return givens;
@@ -332,7 +332,7 @@ static std::vector<GivensRot<T>> GivensRotForRot_right(arma::Mat<T> rot)
 
 // return a list of local 2-site gates: see fig5a of PRB 92, 075132 (2015)
 template<class T>
-std::vector<GivensRot<T>> GivensRotForCC_right(arma::Mat<T> cc, int depth=-1, int pfinal=-1)
+std::vector<GivensRot<T>> givens_for_cc_right(arma::Mat<T> cc, int depth=-1, int pfinal=-1)
 {
     if (pfinal==-1 || pfinal>cc.n_rows-1) pfinal=cc.n_rows-1;
     if (depth==-1) depth=cc.n_rows;
@@ -353,10 +353,10 @@ std::vector<GivensRot<T>> GivensRotForCC_right(arma::Mat<T> cc, int depth=-1, in
         for(auto i=0u; i+1<v.size(); i++)
         {
             auto b=i+p1;
-            auto g=GivensRot<T>::createFromPair(b,v[i],v[i+1],true, &v[i+1]);
+            auto g=GivensRot<T>::create_from_pair(b,v[i],v[i+1],true, &v[i+1]);
             gs1.push_back(g);
         }
-        auto rot1=matrot_from_Givens(gs1,p2+1);
+        auto rot1=matrot_from_givens(gs1,p2+1);
         cc.submat(0,0,p2,p2)=rot1*cc.submat(0,0,p2,p2)*rot1.t();
         for(auto g : gs1) givens.push_back(g);
     }
@@ -365,7 +365,7 @@ std::vector<GivensRot<T>> GivensRotForCC_right(arma::Mat<T> cc, int depth=-1, in
 
 // return a list of local 2-site gates: see fig5a of PRB 92, 075132 (2015)
 template<class T>
-std::vector<GivensRot<T>> GivensRotForCC_right_inactive(arma::Mat<T> cc, double tol)
+std::vector<GivensRot<T>> givens_for_cc_right_inactive(arma::Mat<T> cc, double tol)
 {
     int pfinal=cc.n_rows-1;
     int depth=cc.n_rows;
@@ -387,10 +387,10 @@ std::vector<GivensRot<T>> GivensRotForCC_right_inactive(arma::Mat<T> cc, double 
         for(auto i=0u; i+1<v.size(); i++)
         {
             auto b=i+p1;
-            auto g=GivensRot<T>::createFromPair(b,v[i],v[i+1],true, &v[i+1]);
+            auto g=GivensRot<T>::create_from_pair(b,v[i],v[i+1],true, &v[i+1]);
             gs1.push_back(g);
         }
-        auto rot1=matrot_from_Givens(gs1,p2+1);
+        auto rot1=matrot_from_givens(gs1,p2+1);
         cc.submat(0,0,p2,p2)=rot1*cc.submat(0,0,p2,p2)*rot1.t();
         for(auto g : gs1) givens.push_back(g);
     }
@@ -398,22 +398,22 @@ std::vector<GivensRot<T>> GivensRotForCC_right_inactive(arma::Mat<T> cc, double 
 }
 
 template<class T>
-void GivensDaggerInPlace(std::vector<GivensRot<T>> &givens)
+void givens_dagger_in_place(std::vector<GivensRot<T>> &givens)
 {
     for(auto& g:givens) g=g.dagger();
     std::reverse(givens.begin(),givens.end());
 }
 
 template<class T>
-std::vector<GivensRot<T>> GivensDagger(std::vector<GivensRot<T>> const& givens)
+std::vector<GivensRot<T>> givens_dagger(std::vector<GivensRot<T>> const& givens)
 {
     auto out=givens;
-    GivensDaggerInPlace(out);
+    givens_dagger_in_place(out);
     return out;
 }
 
 template<class T>
-std::vector<GivensRot<T>> GivensTranspose(std::vector<GivensRot<T>> givens)
+std::vector<GivensRot<T>> givens_transpose(std::vector<GivensRot<T>> givens)
 {
     std::reverse(givens.begin(),givens.end());
     for(auto& g:givens) g=g.transpose();
@@ -421,7 +421,7 @@ std::vector<GivensRot<T>> GivensTranspose(std::vector<GivensRot<T>> givens)
 }
 
 template<class T>
-std::vector<GivensRot<T>> GivensReflect(std::vector<GivensRot<T>> givens, int L)
+std::vector<GivensRot<T>> givens_reflect(std::vector<GivensRot<T>> givens, int L)
 {
     for(auto& g:givens) g=g.reflect(L);
     return givens;

@@ -7,7 +7,7 @@ using namespace arma;
 using namespace fbr;
 
 /// return the kinetic energy in star geometry and the rotation to get it.
-auto computeKstar(mat K, int nImp)
+auto computeKstar(mat K, int n_imp)
 {
     int L=K.n_rows;
     auto pos_up = regspace<uvec>(0,2,L-1);
@@ -18,8 +18,8 @@ auto computeKstar(mat K, int nImp)
 
     for(auto pos : {pos_up,pos_dw})
     {
-        uvec pos_bath = pos.subvec(nImp/2,L/2-1); // these two uvec can change if the impurity is in the center
-        uvec pos_impu = pos.subvec(0,nImp/2-1);
+        uvec pos_bath = pos.subvec(n_imp/2,L/2-1); // these two uvec can change if the impurity is in the center
+        uvec pos_impu = pos.subvec(0,n_imp/2-1);
 
         mat Kbath = K.submat(pos_bath,pos_bath);
         mat evec1;
@@ -49,7 +49,7 @@ auto computeKstar(mat K, int nImp)
 int main()
 {
     int L=100;
-    int nImp=4;
+    int n_imp=4;
     double dt=0.1;
 
     mat Kstar, Umat;
@@ -68,7 +68,7 @@ int main()
         Umat.zeros(L,L);
         Umat(0,1)=U;
 
-        std::tie(Kstar,rot) = computeKstar(K, nImp);
+        std::tie(Kstar,rot) = computeKstar(K, n_imp);
     }
 
     Fb_mps<cmpx> fb;
@@ -77,17 +77,17 @@ int main()
         // force impurity occupation: physical imp sites occupied, buffer sites empty
         ek[0]=ek[1]=-10;    // spin-up and spin-down physical impurities
         ek[2]=ek[3]=10;     // spin-up and spin-down buffers
-        fb=Fb_mps<cmpx>::from_slater(rot*cmpx(1,0), ek, L/2, nImp, leading);
+        fb=Fb_mps<cmpx>::from_slater(rot*cmpx(1,0), ek, L/2, n_imp, leading);
     }
 
-    // Construct model from pre-computed star geometry (bypassing toStar)
+    // Construct model from pre-computed star geometry (bypassing to_star)
     Impurity model;
     {
         model.param.Kmat = Kstar;
         model.param.Umat = Umat;
         model.param.rot  = rot;//arma::mat(L,L,arma::fill::eye);
         // impurity cluster sits at the same positions in Kstar as in K (computeKstar does not move them)
-        model.param.impPos = iota(nImp);
+        model.param.imp_pos = iota(n_imp);
     }
 
     auto solver=Fbr_dyn(model,fb,dt);
@@ -101,18 +101,18 @@ int main()
     // arma::real(solver.Kip0*1).eval().clean(1e-11).print("Kip0 before main() iterations");
     // terminate();
 
-    cout<<"time m <n0> <cd> nActive\n"<<setprecision(12);
+    cout<<"time m <n0> <cd> n_active\n"<<setprecision(12);
     itensor::cpu_time t0;
     for(auto i=0; i*dt<L; i++){
         // arma::real(solver.K*1).eval().clean(1e-11).print("K");
         // auto [a,b]=solver.fb.interval_active_full();
         // solver.fb.occupations_ni().as_row().eval().cols(a,b-1).eval().print("ni");
 
-        solver.iterate({.max_bond_dim=2048, .epsilonM=1e-4});
+        solver.iterate({.max_bond_dim=2048, .epsilon_M=1e-4});
         // double n0 = solver.fb.correlator(1,1).real();
         double n0= solver.fb.occupations_ni2()(0);
         double n1= solver.fb.occupations_ni2()(2);
-        cout<<(i+1)*solver.dt<<" "<<itensor::maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<n1<<" "<<solver.fb.nActive()<<endl;
+        cout<<(i+1)*solver.dt<<" "<<itensor::maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<n1<<" "<<solver.fb.n_active()<<endl;
         t0.mark();
     }
     return 0;

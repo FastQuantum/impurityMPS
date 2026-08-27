@@ -20,9 +20,9 @@ int main()
     // Umat: L×L, indexed by site in input Kmat layout. U on (site 0 = imp_up, site 1 = imp_dw).
     arma::mat Umat(L, L, arma::fill::zeros);
     Umat(0, 1) = U;
-    // impPos in convention 2 (outer up, inner up=imp_up, inner dw=imp_dw, outer dw).
-    // Only physical impurities here (no buffer): impPos = {0, 1}.
-    auto model = Impurity {{.Kmat=K, .Umat=Umat, .impPos={0,1}, .layout=spin_symmetric}};
+    // imp_pos in convention 2 (outer up, inner up=imp_up, inner dw=imp_dw, outer dw).
+    // Only physical impurities here (no buffer): imp_pos = {0, 1}.
+    auto model = Impurity {{.Kmat=K, .Umat=Umat, .imp_pos={0,1}, .layout=spin_symmetric}};
 
     auto ek=arma::vec {model.param.Kmat.diag()};
     // optional: force impurity ocupation |10>
@@ -33,7 +33,7 @@ int main()
 
     auto solver=Fbr_gs_spin(model,fb);
 
-    cout<<"iteration m nActive energy time\n"<<setprecision(12);
+    cout<<"iteration m n_active energy time\n"<<setprecision(12);
     itensor::cpu_time t0;
     double n0 = solver.fb.correlator(0,0);
     double cd=2*solver.fb.correlator(0,1);

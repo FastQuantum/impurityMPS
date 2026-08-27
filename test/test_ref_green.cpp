@@ -32,7 +32,7 @@ namespace {
 std::pair<Fb_mps<cmpx>, double> addParticle(Fb_mps<cmpx> const &psi0, int j)
 {
     auto state = psi0;
-    state.applyLocalOp("Cdag", j);
+    state.apply_local_op("Cdag", j);
     double nrm = std::sqrt(std::real(itensor::innerC(state.psi, state.psi)));
     state.psi.normalize();
     state.update_cc();
@@ -42,7 +42,7 @@ std::pair<Fb_mps<cmpx>, double> addParticle(Fb_mps<cmpx> const &psi0, int j)
 cmpx cElement(Fb_mps<cmpx> const &A, Fb_mps<cmpx> const &B, int i)
 {
     auto Ai = A;
-    Ai.applyLocalOp("Cdag", i);
+    Ai.apply_local_op("Cdag", i);
     return itensor::innerC(Ai.psi, B.psi);
 }
 
@@ -122,7 +122,7 @@ GreenError const &resultFor(std::string const &us)
             }
         if (step == 0) err.atZero = d;
         err.tMax = ref[step].t;
-        if (step + 1 < nStep) solver.iterate({.epsilonM = 0});
+        if (step + 1 < nStep) solver.iterate({.epsilon_M = 0});
     }
     return cache.emplace(us, err).first->second;
 }
@@ -218,18 +218,18 @@ void checkLargeL(std::string const &us)
         cmpx G01 = -imag_1 * nrm1 * cElement(solver.states[0], solver.states[2], 0);
         int m = 0;
         for (auto const &s : solver.states) m = std::max(m, itensor::maxLinkDim(s.psi));
-        int nActive = solver.states[0].nActive();
+        int n_active = solver.states[0].n_active();
         auto const &want = ref[step];
 
-        CAPTURE(U, step, m, nActive, want.maxBondDim, want.nActive);
+        CAPTURE(U, step, m, n_active, want.maxBondDim, want.n_active);
         INFO("|dG00|=" << std::abs(G00 - want.G00) << " |dG01|=" << std::abs(G01 - want.G01));
         REQUIRE(want.t == Approx(step * dt).margin(1e-12));
         REQUIRE(std::abs(G00 - want.G00) < 1e-6);
         REQUIRE(std::abs(G01 - want.G01) < 1e-6);
         REQUIRE(nearEnough(m, want.maxBondDim));
-        REQUIRE(nearEnough(nActive, want.nActive));
+        REQUIRE(nearEnough(n_active, want.n_active));
 
-        if (step + 1 < nSteps) solver.iterate({.epsilonM = 0});
+        if (step + 1 < nSteps) solver.iterate({.epsilon_M = 0});
     }
 }
 

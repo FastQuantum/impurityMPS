@@ -27,7 +27,7 @@ static auto makeSolver(int L, double dt)
     K(0, 2) = K(2, 0) = K(1, 3) = K(3, 1) = V;
     mat Umat(L, L, fill::zeros);
     Umat(0, 1) = U;
-    model = Impurity{{.Kmat = K, .Umat = Umat, .impPos = {2, 0, 1, 3}, .layout=spin_symmetric}};
+    model = Impurity{{.Kmat = K, .Umat = Umat, .imp_pos = {2, 0, 1, 3}, .layout=spin_symmetric}};
 
     auto ek = vec{model.param.Kmat.diag()};
     ek[L / 2 - 1] = ek[L / 2] = -10;
@@ -47,7 +47,7 @@ static double ms_since(clock_t_::time_point t0)
 int main()
 {
     double dt = 0.1;
-    TdvpParam args{.nIter_diag = 6, .epsilonM = 0};  // epsilonM=0 -> no expansion; nKrylov inert
+    TdvpParam args{.n_iter_diag = 6, .epsilon_M = 0};  // epsilon_M=0 -> no expansion; n_krylov inert
 
     std::printf("%8s %14s %14s %14s\n", "L", "buildK_ms", "iterate_ms", "iterate/L^2");
     std::printf("%8s %14s %14s %14s\n", "----", "--------", "----------", "-----------");
@@ -55,19 +55,19 @@ int main()
     for (int L : {500, 1000, 2000, 4000, 8000}) {
         auto solver = makeSolver(L, dt);
 
-        // buildK on a random unitary frame (pure L-dependent linear algebra).
+        // build_K on a random unitary frame (pure L-dependent linear algebra).
         arma_rng::set_seed(11);
         cx_mat G = cx_mat(L, L, fill::randn) + cmpx(0, 1) * cx_mat(L, L, fill::randn);
         cx_mat Q, R;
         qr(Q, R, G);
         solver.fb.rot = Q;
-        solver.nIter = 5;
+        solver.n_iter = 5;
         int rk = L <= 2000 ? 10 : 4;
         auto tb = clock_t_::now();
-        for (int r = 0; r < rk; r++) { volatile double s = std::abs(solver.buildK()(0,0)); (void)s; }
+        for (int r = 0; r < rk; r++) { volatile double s = std::abs(solver.build_K()(0,0)); (void)s; }
         double buildK_ms = ms_since(tb) / rk;
 
-        // Full iterate(): rebuild a fresh solver (buildK test trashed fb.rot/state).
+        // Full iterate(): rebuild a fresh solver (build_K test trashed fb.rot/state).
         auto run = makeSolver(L, dt);
         run.iterate(args);                 // warm up (sets active window)
         run.iterate(args);

@@ -36,25 +36,25 @@ struct Fb_mps
     int p1=0, p2=0;             ///< the active orbitals are in [p1,p2)
     Layout layout=leading;      ///< the arrangement of the active window
     double tol=1e-10;           ///< the tolerance used for both applying the gates and defining active orbitals.
-    int nSv=-1;                 ///< fixed rank of impurity–bath coupling (set by dynamics solver). -1 = recompute dynamically.
+    int n_sv=-1;                 ///< fixed rank of impurity–bath coupling (set by dynamics solver). -1 = recompute dynamically.
 
     /**
      * @brief Construct a Fb_mps as a Slater state.
      * @param rot is the rotation to get the ek
      * @param ek is the energy of every site, ordered as the chosen layout
-     * @param nPart is the number of particles,
+     * @param n_part is the number of particles,
      * @param imp_size is the number of central sites that will not be rotated later
      * @param layout is the arrangement of the active window
      */
     static Fb_mps<T> from_slater(arma::Mat<T> const& rot, arma::vec const& ek,
-                                 int nPart, int imp_size, Layout layout)
+                                 int n_part, int imp_size, Layout layout)
     {
         Fb_mps<T> fb;
         fb.sites=itensor::Fermion(ek.size(), {"ConserveNf",true});
         fb.cc=arma::Mat<T>(ek.size(), ek.size(), arma::fill::zeros);
         auto state = itensor::InitState(fb.sites,"0");
         arma::uvec iek=arma::sort_index(ek);
-        for(int j = 0; j < nPart; j++) {
+        for(int j = 0; j < n_part; j++) {
             int k=iek[j];
             state.set(k+1,"1");
             fb.cc(k,k)=1;
@@ -71,7 +71,7 @@ struct Fb_mps
     int length() const { return sites.length(); }
 
     /// the number of active orbitals
-    int nActive() const { return p2-p1; }
+    int n_active() const { return p2-p1; }
 
     /// the center of the chain: the impurity sits there, the two spin sectors
     /// grow away from it. The `leading` layout has no up sector, so its center
@@ -122,7 +122,7 @@ struct Fb_mps
     }
 
     /// ensure reflection symmetry of rows and columns
-    static void ensure_reflection_mat(arma::Mat<T> &K)
+    static void ensure_reflection(arma::Mat<T> &K)
     {
         int L=K.n_rows;
         auto irev=arma::regspace<arma::uvec>(L/2-1,0);
@@ -132,20 +132,20 @@ struct Fb_mps
     /// impose on K the symmetry of this layout, if any
     void ensure_symmetry(arma::Mat<T> &K) const
     {
-        if (layout==spin_symmetric) ensure_reflection_mat(K);
+        if (layout==spin_symmetric) ensure_reflection(K);
     }
 
     /// convert to complex values. There is an specialization for `double` below.
     Fb_mps<cmpx> to_complex() const { return *this; }
 
-    OrbitalUpdate<T> planRepresentative(arma::Mat<T> const& K,int nRef,
+    OrbitalUpdate<T> plan_representative(arma::Mat<T> const& K,int nRef,
                                         bool use_active=false) const
     {
         OrbitalUpdate<T> update(p1,p2);
-        auto plan_dw=representativeSector(K,nRef,use_active,dw);
+        auto plan_dw=representative_sector(K,nRef,use_active,dw);
         SectorPlan plan_up;
-        if (layout==spin_symmetric)   plan_up=reflectSector(plan_dw);
-        else if (layout==spin_block)  plan_up=representativeSector(K,nRef,use_active,up);
+        if (layout==spin_symmetric)   plan_up=reflect_sector(plan_dw);
+        else if (layout==spin_block)  plan_up=representative_sector(K,nRef,use_active,up);
 
         update.append(plan_up.positions,plan_up.givens);
         update.append(plan_dw.positions,plan_dw.givens);
@@ -161,7 +161,7 @@ struct Fb_mps
         return update;
     }
 
-    OrbitalUpdate<T> planActiveRepresentative(arma::Mat<T> const& K) const
+    OrbitalUpdate<T> plan_active_representative(arma::Mat<T> const& K) const
     {
         OrbitalUpdate<T> update(p1,p2);
         auto sector=[&](Spin s) {
@@ -178,14 +178,14 @@ struct Fb_mps
             int count=rank(singular_values,(int)V.n_cols);
             if (count<=0) return;
 
-            auto givens=(s==dw) ? GivensRotForRot_left(V.head_cols(count).eval())
-                                : GivensRotForRot_right(V.head_cols(count).eval());
-            GivensDaggerInPlace(givens);
+            auto givens=(s==dw) ? givens_for_rot_left(V.head_cols(count).eval())
+                                : givens_for_rot_right(V.head_cols(count).eval());
+            givens_dagger_in_place(givens);
             update.append(arma::regspace<arma::uvec>(a,b-1),givens);
             if (s==dw && layout==spin_symmetric) {
                 auto [a_up,b_up]=interval_rotating(up);
                 update.append(arma::regspace<arma::uvec>(a_up,b_up-1),
-                              GivensReflect(givens,b-a));
+                              givens_reflect(givens,b-a));
             }
         };
         if (layout==spin_block) sector(up);
@@ -193,7 +193,7 @@ struct Fb_mps
         return update;
     }
 
-    OrbitalUpdate<T> planNaturalOrbitals(arma::Mat<T> const& cc_source) const
+    OrbitalUpdate<T> plan_natural_orbitals(arma::Mat<T> const& cc_source) const
     {
         OrbitalUpdate<T> update(p1,p2);
         auto [a_dw,b_dw]=interval_rotating(dw);
@@ -211,16 +211,16 @@ struct Fb_mps
             arma::eig_sym(occupations,orbitals,block);
             arma::vec activity=occupations;
             for (auto& x : activity) x=std::min(x,1-x);
-            arma::Mat<T> rotation=orbitals.cols(sortActivity(activity));
+            arma::Mat<T> rotation=orbitals.cols(sort_activity(activity));
             if (flipped) rotation=arma::flipud(rotation).eval();
 
-            auto givens=flipped ? GivensRotForRot_left(rotation)
-                                : GivensRotForRot_right(rotation);
-            update.append(arma::regspace<arma::uvec>(a,b-1),GivensTranspose(givens));
+            auto givens=flipped ? givens_for_rot_left(rotation)
+                                : givens_for_rot_right(rotation);
+            update.append(arma::regspace<arma::uvec>(a,b-1),givens_transpose(givens));
             if (s==dw && layout==spin_symmetric) {
                 auto [a_up,b_up]=interval_rotating(up);
                 update.append(arma::regspace<arma::uvec>(a_up,b_up-1),
-                              GivensTranspose(GivensReflect(givens,b-a)));
+                              givens_transpose(givens_reflect(givens,b-a)));
             }
         };
         if (layout==spin_block) sector(up);
@@ -228,40 +228,40 @@ struct Fb_mps
 
         arma::Mat<T> rotated_cc=cc_source;
         for (auto const& gate : update.gates)
-            gate.applyAsCorrelator(rotated_cc);
+            gate.apply_as_correlator(rotated_cc);
         ensure_symmetry(rotated_cc);
 
         // the window keeps the orbitals that are neither empty nor full
         if (layout==spin_block) {
             auto [a_up,b_up]=interval_rotating(up);
             if (a_up<b_up) {
-                arma::uvec act=activeOrbitals(rotated_cc,a_up,b_up);
+                arma::uvec act=active_orbitals(rotated_cc,a_up,b_up);
                 update.active.first=act.empty() ? std::max(b_up-2,a_up)
                                                 : a_up+(int)act.front();
             }
             if (a_dw<b_dw) {
-                arma::uvec act=activeOrbitals(rotated_cc,a_dw,b_dw);
+                arma::uvec act=active_orbitals(rotated_cc,a_dw,b_dw);
                 update.active.second=act.empty() ? std::min(a_dw+2,b_dw)
                                                  : a_dw+(int)act.back()+1;
             }
         }
         else if (layout==spin_symmetric) {
-            arma::uvec act=activeOrbitals(rotated_cc,a_dw,b_dw);
+            arma::uvec act=active_orbitals(rotated_cc,a_dw,b_dw);
             int active_end=act.empty() ? a_dw+2 : a_dw+(int)act.back()+1;
             update.active={p1-(active_end-p2),active_end};   // grow symmetrically
         }
         else {  // leading: the window grows only to the right
-            arma::uvec act=activeOrbitals(rotated_cc,a_dw,rotated_cc.n_rows);
+            arma::uvec act=active_orbitals(rotated_cc,a_dw,rotated_cc.n_rows);
             update.active={p1, act.empty() ? a_dw+1 : a_dw+(int)act.back()+1};
         }
         return update;
     }
 
-    void applyUpdate(OrbitalUpdate<T> const& update)
+    void apply(OrbitalUpdate<T> const& update)
     {
         std::vector<GivensRot<T>> circuit;
-        auto flushCircuit=[&]() {
-            auto gates=NOGates(sites,circuit);
+        auto flush_circuit=[&]() {
+            auto gates=gates_from_givens(sites,circuit);
             if (!gates.empty())
                 itensor::gateTEvol(gates,1,1,psi,
                                    {"Cutoff",tol,"Quiet",true,"Normalize",false,"ShowPercent",false});
@@ -270,8 +270,8 @@ struct Fb_mps
 
         for (auto const& gate : update.gates) {
             if (gate.swap) {
-                flushCircuit();
-                SlaterWaveFunctionSwap(gate.a,gate.b);
+                flush_circuit();
+                swap_slater_orbitals(gate.a,gate.b);
             }
             else {
                 bool a_active=gate.a>=p1 && gate.a<p2;
@@ -284,10 +284,10 @@ struct Fb_mps
                     circuit.push_back(gate.givens(gate.a).transpose());
                 }
             }
-            gate.applyAsFrame(rot);
-            gate.applyAsCorrelator(cc);
+            gate.apply_as_frame(rot);
+            gate.apply_as_correlator(cc);
         }
-        flushCircuit();
+        flush_circuit();
         ensure_symmetry(cc);
         p1=update.active.first;
         p2=update.active.second;
@@ -315,7 +315,7 @@ struct Fb_mps
     }
 
     /// Energy of the Slater part. K is the kinetic energy matrix
-    double SlaterEnergy(arma::Mat<T> const& K) const
+    double slater_energy(arma::Mat<T> const& K) const
     {
         double energy=0;
         for(auto s : {up,dw}) {
@@ -341,18 +341,18 @@ struct Fb_mps
     /// is one of {"C", "Cdag", "N"} as in itensor. Only valid on the non-rotating impurity
     /// orbitals (interval_impurity_full): there site i maps exactly onto a single MPS site,
     /// so the operator is a genuine single-site operator.
-    void applyLocalOp(std::string op, int i)
+    void apply_local_op(std::string op, int i)
     {
         using namespace std;
         static const set<string> op_all={"C", "Cdag", "N"};
         if (op_all.count(op)==0)
-            throw invalid_argument("Fb_mps::applyLocalOp: op is not in my list. See itensor op for Fermion");
+            throw invalid_argument("Fb_mps::apply_local_op: op is not in my list. See itensor op for Fermion");
 
         arma::Mat<T> Qinv=rot.st();
         int i0=(int)arma::abs(Qinv.col(i)).index_max();
         auto [a_imp,b_imp] = interval_impurity_full();
         if (i0 < a_imp || i0 >= b_imp)
-            throw invalid_argument("Fb_mps::applyLocalOp: site i is not a non-rotating impurity site");
+            throw invalid_argument("Fb_mps::apply_local_op: site i is not a non-rotating impurity site");
 
         // C and Cdag are odd operators: the sites to the left of i0 carry the
         // Jordan-Wigner string. F is diagonal and unitary, so applying it does
@@ -417,26 +417,26 @@ private:
         int count=0;
     };
 
-    /// The rank kept from a set of singular values: either the fixed nSv or
+    /// The rank kept from a set of singular values: either the fixed n_sv or
     /// every value above the relative tolerance. It is deliberately one number
     /// for both sectors: the window then grows by as much on either side, which
     /// keeps every layout's bookkeeping the same.
     int rank(arma::vec const& singular_values, int nCols) const
     {
-        if (nSv>=0) return std::min<int>(nSv,nCols);
+        if (n_sv>=0) return std::min<int>(n_sv,nCols);
         return (int)arma::find(singular_values>tol*singular_values[0]).eval().size();
     }
 
     /// Order of the natural orbitals by activity min(n,1-n). The centered
     /// layouts need a stable order to keep up and dw mirror images.
-    arma::uvec sortActivity(arma::vec const& activity) const
+    arma::uvec sort_activity(arma::vec const& activity) const
     {
         if (layout==leading) return arma::sort_index(activity);
         return arma::stable_sort_index(activity);
     }
 
     /// Positions (relative to a) of the orbitals in [a,b) that are neither empty nor full.
-    arma::uvec activeOrbitals(arma::Mat<T> const& cc_source, int a, int b) const
+    arma::uvec active_orbitals(arma::Mat<T> const& cc_source, int a, int b) const
     {
         arma::vec ni=arma::real(cc_source.diag()).eval().rows(a,b-1);
         return arma::find(ni>tol && ni<1-tol).eval();
@@ -444,7 +444,7 @@ private:
 
     /// Rotate the Slater orbitals of one spin sector so that their coupling to
     /// the impurity (or to the whole active window) concentrates on `count` of them.
-    SectorPlan representativeSector(arma::Mat<T> const& K,int nRef,
+    SectorPlan representative_sector(arma::Mat<T> const& K,int nRef,
                                     bool use_active,Spin s) const
     {
         SectorPlan plan;
@@ -467,26 +467,26 @@ private:
         plan.count=rank(singular_values,(int)V.n_cols);
         if (plan.count<=0) { plan.count=0; return plan; }
 
-        plan.givens=(s==dw) ? GivensRotForRot_left(V.head_cols(plan.count).eval())
-                            : GivensRotForRot_right(V.head_cols(plan.count).eval());
-        GivensDaggerInPlace(plan.givens);
+        plan.givens=(s==dw) ? givens_for_rot_left(V.head_cols(plan.count).eval())
+                            : givens_for_rot_right(V.head_cols(plan.count).eval());
+        givens_dagger_in_place(plan.givens);
         return plan;
     }
 
     /// The up sector of a symmetric layout is the mirror image of the dw one.
-    SectorPlan reflectSector(SectorPlan const& plan_dw) const
+    SectorPlan reflect_sector(SectorPlan const& plan_dw) const
     {
         SectorPlan plan;
         if (plan_dw.positions.empty()) return plan;
         plan.positions=length()-1-arma::reverse(plan_dw.positions);
-        plan.givens=GivensReflect(plan_dw.givens,(int)plan_dw.positions.size());
+        plan.givens=givens_reflect(plan_dw.givens,(int)plan_dw.positions.size());
         plan.count=plan_dw.count;
         return plan;
     }
 
     /// Swap two sites inside the Slater part via a hopping MPO c†_i c_j - c†_j c_i.
     /// AutoMPO supplies the Jordan-Wigner string between non-adjacent orbitals.
-    void SlaterWaveFunctionSwap(int i,int j)
+    void swap_slater_orbitals(int i,int j)
     {
         if (i==j) return;
         auto [a,b]=interval_active_full();
@@ -519,7 +519,7 @@ inline Fb_mps<cmpx> Fb_mps<double>::to_complex() const
     fb.p2 = p2;
     fb.layout = layout;
     fb.tol = tol;
-    fb.nSv = nSv;
+    fb.n_sv = n_sv;
     return fb;
 }
 

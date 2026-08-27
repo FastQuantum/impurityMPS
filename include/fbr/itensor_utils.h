@@ -8,7 +8,7 @@ namespace fbr {
 
 struct DmrgParam {
     int max_bond_dim=512;
-    int nIter_diag=4;
+    int n_iter_diag=4;
     double noise=1e-8;
 };
 
@@ -17,21 +17,21 @@ struct TdvpParam {
     // --- pure TDVP parameters ---
     int max_bond_dim=1024;  ///< Maximum MPS bond dimension during the TDVP sweep.
     double noise=0;         ///< ITensor sweep noise term.
-    int nIter_diag=16;      ///< Krylov iterations used to apply exp(-i * Heff * dt) locally.
+    int n_iter_diag=16;      ///< Krylov iterations used to apply exp(-i * Heff * dt) locally.
     double err_goal=1e-7;   ///< TDVP local evolution error goal.
     // --- addBasis (global subspace expansion) parameters ---
     // Defaults tuned on the star-geometry SIAM benchmark (test/ref/star_dyn_tune.cpp):
     // this set tracks the chain baseline as tightly as the old overkill
-    // (nKrylov=15, err_goal=1e-8, epsilonM=1e-7, epsilonK=1e-8) at ~4x less cost.
-    // nKrylov is the cheap knob (15->2 is free); err_goal and the two epsilon cutoffs
+    // (n_krylov=15, err_goal=1e-8, epsilon_M=1e-7, epsilon_K=1e-8) at ~4x less cost.
+    // n_krylov is the cheap knob (15->2 is free); err_goal and the two epsilon cutoffs
     // are sensitive (~1 order of loosening is the safe limit). FBR callers set
-    // epsilonM=0 to skip the expansion entirely, so nKrylov/epsilonK are inert there.
-    double epsilonM=3e-7;   ///< addBasis density-matrix cutoff; set to 0 to skip basis expansion.
-    int nKrylov=2;          ///< Krylov order of the addBasis global subspace expansion
-    double epsilonK=3e-8;   ///< add basis cutoff for each Krylov-vector
+    // epsilon_M=0 to skip the expansion entirely, so n_krylov/epsilon_K are inert there.
+    double epsilon_M=3e-7;   ///< addBasis density-matrix cutoff; set to 0 to skip basis expansion.
+    int n_krylov=2;          ///< Krylov order of the addBasis global subspace expansion
+    double epsilon_K=3e-8;   ///< add basis cutoff for each Krylov-vector
 };
 
-inline arma::cx_mat getCc(itensor::Fermion const& sites, itensor::MPS const& psi)
+inline arma::cx_mat get_cc(itensor::Fermion const& sites, itensor::MPS const& psi)
 {
     arma::cx_mat cc(sites.length(), sites.length());
     auto ccz=correlationMatrixC(psi, sites,"Cdag","C");
@@ -41,7 +41,7 @@ inline arma::cx_mat getCc(itensor::Fermion const& sites, itensor::MPS const& psi
     return cc;
 }
 
-inline arma::vec getNi(itensor::Fermion const& sites, itensor::MPS const& psi)
+inline arma::vec get_ni(itensor::Fermion const& sites, itensor::MPS const& psi)
 {
     arma::vec ni(sites.length());
     auto niz=expectC(psi, sites,"N");
@@ -50,8 +50,10 @@ inline arma::vec getNi(itensor::Fermion const& sites, itensor::MPS const& psi)
     return ni;
 }
 
+/// The ITensor two-site gates that apply a circuit of Givens rotations to an MPS,
+/// used to rotate the active window into its natural orbitals.
 template<class T>
-std::vector<itensor::BondGate> NOGates(itensor::Fermion const& sites, std::vector<GivensRot<T>> const& gs)
+std::vector<itensor::BondGate> gates_from_givens(itensor::Fermion const& sites, std::vector<GivensRot<T>> const& gs)
 {
     using itensor::BondGate;
     std::vector<itensor::BondGate> gates;

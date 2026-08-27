@@ -22,12 +22,12 @@ Set `OMP_NUM_THREADS=1` and `OPENBLAS_NUM_THREADS=1` when running executables â€
 
 ### Core idea: active orbital window
 
-The library tracks a small window of `nActive` orbitals in a full MPS (with entanglement) while the remaining orbitals are described by a Slater determinant. After each DMRG or TDVP sweep, the one-particle density matrix is diagonalized to find natural orbitals; the MPS is rotated into this basis to minimize entanglement, and orbitals near half-filling are promoted into the active window while those near 0 or 1 are demoted back to the Slater part.
+The library tracks a small window of `n_active` orbitals in a full MPS (with entanglement) while the remaining orbitals are described by a Slater determinant. After each DMRG or TDVP sweep, the one-particle density matrix is diagonalized to find natural orbitals; the MPS is rotated into this basis to minimize entanglement, and orbitals near half-filling are promoted into the active window while those near 0 or 1 are demoted back to the Slater part.
 
 
 ### Hamiltonian geometry
 
-Input is a generic kinetic matrix `Kmat`. `toStar()` transforms it to star geometry (bath modes are orthogonalized so the bath Hamiltonian is diagonal), enabling efficient DMRG. After rotation, the system is a central impurity coupled to a set of bath orbitals.
+Input is a generic kinetic matrix `Kmat`. `to_star()` transforms it to star geometry (bath modes are orthogonalized so the bath Hamiltonian is diagonal), enabling efficient DMRG. After rotation, the system is a central impurity coupled to a set of bath orbitals.
 
 ### Spin variants
 

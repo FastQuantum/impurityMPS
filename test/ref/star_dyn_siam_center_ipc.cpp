@@ -14,10 +14,10 @@ using namespace arma;
 /// return the kinetic energy in star geometry and the rotation to get it.
 /// Layout: [spin-up bath | spin-up imp | spin-down imp | spin-down bath]
 /// For spin-up the impurity is at the right end; for spin-down at the left end.
-auto computeKstar(mat K, int nImp)
+auto computeKstar(mat K, int n_imp)
 {
     int L=K.n_rows;
-    int nBath=L/2-nImp/2;
+    int nBath=L/2-n_imp/2;
 
     mat Kstar(L,L,arma::fill::zeros);
     mat rot(L,L,fill::eye);
@@ -29,7 +29,7 @@ auto computeKstar(mat K, int nImp)
     {
         uvec pos      = s==0 ? pos_up : pos_dw;
         uvec pos_bath = s==0 ? pos.head(nBath)   : pos.tail(nBath);
-        uvec pos_impu = s==0 ? pos.tail(nImp/2)  : pos.head(nImp/2);
+        uvec pos_impu = s==0 ? pos.tail(n_imp/2)  : pos.head(n_imp/2);
 
         mat Kbath=K.submat(pos_bath,pos_bath);
         mat evec1; vec ek1;
@@ -55,20 +55,20 @@ auto computeKstar(mat K, int nImp)
     return make_pair(Kstar,rot);
 }
 
-void doTdvp(itensor::MPS &psi, itensor::MPO const mpo, double dt, double tol=1e-12)
+void do_tdvp(itensor::MPS &psi, itensor::MPO const mpo, double dt, double tol=1e-12)
 {
     fbr::TdvpParam args;
     auto sweeps = itensor::Sweeps(1);
     sweeps.maxdim() = args.max_bond_dim;
     sweeps.cutoff() = tol;
-    sweeps.niter() = args.nIter_diag;
+    sweeps.niter() = args.n_iter_diag;
     sweeps.noise() = args.noise;
 
-    std::vector<double> epsilonK(args.nKrylov, args.epsilonK);
-    itensor::addBasis(psi, mpo, epsilonK,
-                      {"Cutoff", args.epsilonM,
+    std::vector<double> epsilon_K(args.n_krylov, args.epsilon_K);
+    itensor::addBasis(psi, mpo, epsilon_K,
+                      {"Cutoff", args.epsilon_M,
                        "Method", "DensityMatrix",
-                       "KrylovOrd", args.nKrylov,
+                       "KrylovOrd", args.n_krylov,
                        "DoNormalize", true,
                        "Quiet", true,
                        "Silent", true});
@@ -91,14 +91,14 @@ itensor::MPO getHamiltonian2(itensor::Fermion sites,
 {
     double tol=1e-12;
     int L=K2.n_rows;
-    int nImp=Umat.n_rows;
+    int n_imp=Umat.n_rows;
     using cmpx=complex<double>;
 
     itensor::AutoMPO h(sites);
 
     // Hubbard U (real, unchanged)
-    for(auto i=0; i<nImp; i++)
-        for(auto j=0; j<nImp; j++) {
+    for(auto i=0; i<n_imp; i++)
+        for(auto j=0; j<n_imp; j++) {
             int ii=nBath+i;
             int jj=nBath+j;
             if(std::abs(Umat(i,j))>1e-15)
@@ -179,9 +179,9 @@ arma::cx_mat buildK2(arma::mat   const& Kstar,
 int main()
 {
     int L=100;
-    int nImp=4;
+    int n_imp=4;
     double dt=0.1;
-    int nBath=L/2-nImp/2;
+    int nBath=L/2-n_imp/2;
 
     mat Kstar, Umat;
     mat rot;
@@ -192,15 +192,15 @@ int main()
         {
             for(auto i=0; i<L/2-1; i++) K(i,i+1)=K(i+1,i)=0.5;
             for(auto i=L/2; i<L-1; i++) K(i,i+1)=K(i+1,i)=0.5;
-            K(nBath+nImp/2-1,nBath+nImp/2-1)=-U/2;
+            K(nBath+n_imp/2-1,nBath+n_imp/2-1)=-U/2;
             K(L/2,L/2)=-U/2;
-            K(nBath,nBath+nImp/2-1)=K(nBath+nImp/2-1,nBath)=V;
-            K(L/2,L/2+nImp/2-1)=K(L/2+nImp/2-1,L/2)=V;
+            K(nBath,nBath+n_imp/2-1)=K(nBath+n_imp/2-1,nBath)=V;
+            K(L/2,L/2+n_imp/2-1)=K(L/2+n_imp/2-1,L/2)=V;
         }
-        Umat.zeros(nImp,nImp);
-        Umat(nImp/2-1,nImp/2)=U;
+        Umat.zeros(n_imp,n_imp);
+        Umat(n_imp/2-1,n_imp/2)=U;
 
-        tie(Kstar,rot)=computeKstar(K,nImp);
+        tie(Kstar,rot)=computeKstar(K,n_imp);
     }
 
     // --- Site index sets (0-indexed) ---
@@ -209,12 +209,12 @@ int main()
     uvec pos_up  = regspace<uvec>(0,   L/2-1);
     uvec pos_dw  = regspace<uvec>(L/2, L-1);
     uvec bath_up = pos_up.head(nBath);    // spin-up  bath:  0 .. nBath-1
-    uvec bath_dw = pos_dw.tail(nBath);   // spin-down bath:  L/2+nImp/2 .. L-1
-    uvec imp_up  = pos_up.tail(nImp/2);  // spin-up  imp:   nBath .. nBath+nImp/2-1
-    uvec imp_dw  = pos_dw.head(nImp/2);  // spin-down imp:  L/2   .. L/2+nImp/2-1
+    uvec bath_dw = pos_dw.tail(nBath);   // spin-down bath:  L/2+n_imp/2 .. L-1
+    uvec imp_up  = pos_up.tail(n_imp/2);  // spin-up  imp:   nBath .. nBath+n_imp/2-1
+    uvec imp_dw  = pos_dw.head(n_imp/2);  // spin-down imp:  L/2   .. L/2+n_imp/2-1
 
     uvec bathIdx = join_vert(bath_up, bath_dw);   // 0-indexed, length = 2*nBath
-    uvec impIdx  = join_vert(imp_up,  imp_dw);    // 0-indexed, length = nImp
+    uvec impIdx  = join_vert(imp_up,  imp_dw);    // 0-indexed, length = n_imp
 
     // Original star bath energies (diagonal of Kstar at bath sites)
     vec bathEk = Kstar.diag().eval()(bathIdx);           // length 2*nBath
@@ -240,14 +240,14 @@ int main()
     itensor::MPS psi;
     {
         auto ek=arma::vec{Kstar.diag()};
-        ek[nBath+nImp/2-1]=ek[L/2]=-10;    // physical imp: force occupied
-        ek[nBath]=ek[L/2+nImp/2-1]=10;     // buffer sites: force empty
+        ek[nBath+n_imp/2-1]=ek[L/2]=-10;    // physical imp: force occupied
+        ek[nBath]=ek[L/2+n_imp/2-1]=10;     // buffer sites: force empty
 
-        int nPart=L/2;
+        int n_part=L/2;
         sites=itensor::Fermion(ek.size(),{"ConserveNf",true});
         auto state=itensor::InitState(sites,"0");
         arma::uvec iek=arma::sort_index(ek);
-        for(int j=0; j<nPart; j++) {
+        for(int j=0; j<n_part; j++) {
             int k=iek[j];
             state.set(k+1,"1");
         }
@@ -273,7 +273,7 @@ int main()
         auto mpo2 = getHamiltonian2(sites, K2, Umat, nBath);
 
         // TDVP step: apply exp(-i H^(2) dt) to the MPS
-        doTdvp(psi, mpo2, dt);
+        do_tdvp(psi, mpo2, dt);
 
         // Advance Ubath by the (postponed) bath phase exp(-i eps dt):
         // Ubath <- diag(exp(-i*eps*dt)) * Ubath  (left-multiply row by row)
@@ -283,8 +283,8 @@ int main()
         // *** Insert any intra-bath rotation R here: Ubath = R * Ubath ***
 
         // Fbr observables (same in IP and Schrödinger picture)
-        double n_dw   =itensor::expectC(psi,sites,"N",{nBath+nImp/2+1})[0].real();
-        double n_dw_bf=itensor::expectC(psi,sites,"N",{nBath+nImp/2+2})[0].real();
+        double n_dw   =itensor::expectC(psi,sites,"N",{nBath+n_imp/2+1})[0].real();
+        double n_dw_bf=itensor::expectC(psi,sites,"N",{nBath+n_imp/2+2})[0].real();
         cout<<(i+1)*dt<<" "<<itensor::maxLinkDim(psi)<<" "<<n_dw<<" "<<n_dw_bf<<endl;
     }
 

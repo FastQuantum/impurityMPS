@@ -34,7 +34,7 @@ struct OrbitalGate {
     }
 
     /// Apply K -> R^dagger K R, or swap its rows and columns.
-    void applyAsBasis(arma::Mat<T>& K) const
+    void apply_as_basis(arma::Mat<T>& K) const
     {
         if (swap) {
             K.swap_cols(a,b);
@@ -43,22 +43,22 @@ struct OrbitalGate {
         }
 
         auto g=givens();
-        applyRight(K,g);
-        applyLeft(g.dagger(),K);
+        apply_right(K,g);
+        apply_left(g.dagger(),K);
     }
 
     /// Apply rot -> rot R, or swap its columns.
-    void applyAsFrame(arma::Mat<T>& rot) const
+    void apply_as_frame(arma::Mat<T>& rot) const
     {
         if (swap) {
             rot.swap_cols(a,b);
             return;
         }
-        applyRight(rot,givens());
+        apply_right(rot,givens());
     }
 
     /// Apply cc -> R^T cc R*, or swap its rows and columns.
-    void applyAsCorrelator(arma::Mat<T>& cc) const
+    void apply_as_correlator(arma::Mat<T>& cc) const
     {
         if (swap) {
             cc.swap_cols(a,b);
@@ -83,7 +83,7 @@ private:
         else return std::conj(x);
     }
 
-    void applyRight(arma::Mat<T>& matrix,GivensRot<T> const& g) const
+    void apply_right(arma::Mat<T>& matrix,GivensRot<T> const& g) const
     {
         auto m=g.matrix();
         arma::Col<T> ca=matrix.col(a), cb=matrix.col(b);
@@ -91,7 +91,7 @@ private:
         matrix.col(b)=ca*m(0,1)+cb*m(1,1);
     }
 
-    void applyLeft(GivensRot<T> const& g,arma::Mat<T>& matrix) const
+    void apply_left(GivensRot<T> const& g,arma::Mat<T>& matrix) const
     {
         auto m=g.matrix();
         arma::Row<T> ra=matrix.row(a), rb=matrix.row(b);
@@ -118,9 +118,9 @@ struct OrbitalUpdate {
                                (int)orbitals[it->b+1],*it);
     }
 
-    void applyAsBasis(arma::Mat<T>& K) const
+    void apply_as_basis(arma::Mat<T>& K) const
     {
-        for (auto const& gate : gates) gate.applyAsBasis(K);
+        for (auto const& gate : gates) gate.apply_as_basis(K);
     }
 };
 

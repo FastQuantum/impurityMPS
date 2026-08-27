@@ -5,7 +5,7 @@ These standalone executables produce *trusted* baselines for the SIAM dynamics,
 used to validate the few-body (active-window) FBR solvers in ../../test/. They are
 built only when CMake is configured with -DFBR_EXAMPLE_REF=ON.
 
-The model is the same throughout: spinful SIAM, L=100, nImp=4, hybridization
+The model is the same throughout: spinful SIAM, L=100, n_imp=4, hybridization
 V=0.1, Hubbard U (default 0.2). The dynamics programs take U as an optional first
 argument, e.g.  ./chain_dyn_siam_center 0.1
 
@@ -74,15 +74,15 @@ Pure-ITensor programs (raw itensor::MPS, no few-body state classes)
     in the same format and at the same times as the chain program. The impurity
     couples to all bath eigenmodes (long-range), so the subspace expansion must be
     resolved well. TDVP params were tuned (star_dyn_tune.cpp) to match the earlier
-    overkill run (nKrylov=15, err_goal=1e-8, epsilonM=1e-7, epsilonK=1e-8) at
+    overkill run (n_krylov=15, err_goal=1e-8, epsilon_M=1e-7, epsilon_K=1e-8) at
     minimum cost. Findings, at U=0.2:
-      - nKrylov is the cheap knob: 15 -> 2 cuts runtime ~4x, leaves t=20 unchanged
+      - n_krylov is the cheap knob: 15 -> 2 cuts runtime ~4x, leaves t=20 unchanged
         (dcc 1.09e-3 vs 1.10e-3) and t<=10 within the same order (~5e-5 vs ~3e-5).
-      - err_goal and epsilonM/epsilonK are sensitive: err_goal 1e-8 -> 1e-7 is fine
+      - err_goal and epsilon_M/epsilon_K are sensitive: err_goal 1e-8 -> 1e-7 is fine
         (dcc 6.4e-5 at t=5) but 1e-6 breaks (4.9e-4); the expansion cutoffs tolerate
         ~3x loosening (6.7e-5) but 10x breaks (8.8e-4).
-    The program now uses the tuned set nKrylov=2, err_goal=1e-7, epsilonM=3e-7,
-    epsilonK=3e-8, which tracks the chain baseline as well as the overkill run.
+    The program now uses the tuned set n_krylov=2, err_goal=1e-7, epsilon_M=3e-7,
+    epsilon_K=3e-8, which tracks the chain baseline as well as the overkill run.
     Kept as a record only, not used in the tests. (Much coarser expansion cutoffs
     give a ~1e-2 agreement.)
 
@@ -109,7 +109,7 @@ Programs bridging to the few-body state classes (Fb_mps / Impurity[Spin])
 
 - star_dyn_siam_spin.cpp
     Dynamics, spinful: Impurity (spin_symmetric layout) + Fb_mps<cmpx>. Block layout, constructing
-    the star model directly (bypassing toStar) to check that building the state
+    the star model directly (bypassing to_star) to check that building the state
     through the library types reproduces the raw-ITensor result.
 
 
@@ -121,7 +121,7 @@ chain_dyn_siam_center_ref_v1) hold ni + correlation-matrix snapshots.
 - test/test_ref_{fbr,block,ns}.cpp compare each FBR variant against the CHAIN
   baseline only (the trusted standard), at every snapshot present in the file.
 - output/fbr_green_irlm_L1000_U<U>.txt (format tag fbr_green_irlm_ref_v1) holds
-  "t ReG00 ImG00 ReG01 ImG01 maxBondDim nActive" per step. test_ref_green.cpp
+  "t ReG00 ImG00 ReG01 ImG01 maxBondDim n_active" per step. test_ref_green.cpp
   replays the first 20 steps: Green functions to 1e-6, bond dimension and window
   width to within a quarter (or 3).
 - output/chain_green_irlm_U<U>_ref.txt (format tag chain_green_irlm_ref_v1) is a

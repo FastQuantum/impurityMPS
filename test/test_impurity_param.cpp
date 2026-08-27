@@ -46,9 +46,9 @@ TEST_CASE("star transform, leading layout", "[param]")
     for (int i = 1; i < L-1; i++) K(i,i+1) = K(i+1,i) = 0.5;
     K(0,1) = K(1,0) = 0.1;
 
-    auto model = Impurity {{.Kmat=K, .Umat=mat(L,L,fill::zeros), .impPos={0,1}}};
+    auto model = Impurity {{.Kmat=K, .Umat=mat(L,L,fill::zeros), .imp_pos={0,1}}};
 
-    REQUIRE(model.param.impPos == vector{0,1});
+    REQUIRE(model.param.imp_pos == vector{0,1});
     requireDiagonalBath(model.param.Kmat, 2, L);
     requireFrameRecoversInput(model.param, K);
 }
@@ -62,9 +62,9 @@ TEST_CASE("star transform, centered layouts", "[param]")
     {
         mat K = interleavedChain(L, V, 0.5, 0.5);
         auto model = Impurity {{.Kmat=K, .Umat=mat(L,L,fill::zeros),
-                                .impPos={0,1}, .layout=spin_symmetric}};
+                                .imp_pos={0,1}, .layout=spin_symmetric}};
 
-        REQUIRE(model.param.impPos == vector{L/2-1, L/2});
+        REQUIRE(model.param.imp_pos == vector{L/2-1, L/2});
         requireDiagonalBath(model.param.Kmat, 0, L/2-1);      // up bath
         requireDiagonalBath(model.param.Kmat, L/2+1, L);      // dw bath
         requireFrameRecoversInput(model.param, K);
@@ -80,8 +80,8 @@ TEST_CASE("star transform, centered layouts", "[param]")
     {
         mat K = interleavedChain(L, V, 0.5, 0.8);
         ImpurityParam param {.Kmat=K, .Umat=mat(L,L,fill::zeros),
-                             .impPos={0,1}, .layout=spin_symmetric};
-        REQUIRE_THROWS_AS(param.toStar(), std::invalid_argument);
+                             .imp_pos={0,1}, .layout=spin_symmetric};
+        REQUIRE_THROWS_AS(param.to_star(), std::invalid_argument);
     }
 
     SECTION("spin_block diagonalizes each spin bath on its own")
@@ -91,9 +91,9 @@ TEST_CASE("star transform, centered layouts", "[param]")
         // bath by a copy of the dw one.
         mat K = interleavedChain(L, V, 0.5, 0.8);
         auto model = Impurity {{.Kmat=K, .Umat=mat(L,L,fill::zeros),
-                                .impPos={0,1}, .layout=spin_block}};
+                                .imp_pos={0,1}, .layout=spin_block}};
 
-        REQUIRE(model.param.impPos == vector{L/2-1, L/2});
+        REQUIRE(model.param.imp_pos == vector{L/2-1, L/2});
         requireDiagonalBath(model.param.Kmat, 0, L/2-1);
         requireDiagonalBath(model.param.Kmat, L/2+1, L);
         requireFrameRecoversInput(model.param, K);
