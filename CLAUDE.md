@@ -59,7 +59,7 @@ All library types live in `namespace fbr`. Include as `#include "fbr/<header>.h"
 | `fbr_dyn.h` | `Fbr_dyn` — dynamics: TDVP loop + orbital rotation: `Fbr_dyn(model,fb,dt)`. `Fbr_ns_dyn` evolves several states in one common orbital basis: `Fbr_ns_dyn(model,states,dt)` |
 | `graph.h` | Index/set utilities (`iota`, `regspace`, `set_diff`) and `fbr::graph::find_islands` for connected-component detection |
 | `itensor_utils.h` | `DmrgParam`, `TdvpParam`; `NOGates()` — converts Givens rotations to ITensor `BondGate`s |
-| `givens_rotation.h` | Givens rotations applied to MPS: `GivensRotForRot_left()`, `expIH()`, `my_svd()` |
+| `givens_rotation.h` | Givens rotations applied to MPS: `GivensRotForRot_left()`, `expIH()`, `ilogMatrix()` |
 
 ### Hamiltonian geometry
 

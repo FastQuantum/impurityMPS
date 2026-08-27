@@ -130,7 +130,7 @@ int main()
         // force impurity occupation |1100>
         ek[0]=ek[1]=-10;
         ek[2]=ek[3]=10;
-        fb=Fb_mps<cmpx>::from_slater(rot*cmpx(1,0), ek, L/2, nImp, leading, false);
+        fb=Fb_mps<cmpx>::from_slater(rot*cmpx(1,0), ek, L/2, nImp, leading);
     }
 
     auto mpo=getHamiltonian(fb.sites,Kstar,Umat);

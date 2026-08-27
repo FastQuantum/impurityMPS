@@ -53,7 +53,8 @@ void saveFbMps(std::string const &fname, fbr::Fb_mps<T> const &fb)
     itensor::write(s, fb.p1);
     itensor::write(s, fb.p2);
     itensor::write(s, static_cast<int>(fb.layout));
-    itensor::write(s, static_cast<int>(fb.spin));
+    itensor::write(s, 0);   // legacy slot: the removed Fb_mps::spin flag. Kept so
+                            // the committed output/*.dat caches stay readable.
     itensor::write(s, fb.tol);
     itensor::write(s, fb.nSv);
     if (!fb.rot.save(s, arma_binary) || !fb.cc.save(s, arma_binary))
@@ -67,18 +68,17 @@ fbr::Fb_mps<T> loadFbMps(std::string const &fname)
     if (!s) throw std::runtime_error("missing saved state " + fname
                                      + " (regenerate with test/ref/fbr_green_gs.cpp)");
     fbr::Fb_mps<T> fb;
-    int layout = 0, spin = 0;
+    int layout = 0, legacy_spin = 0;
     itensor::read(s, fb.sites);
     itensor::read(s, fb.psi);
     itensor::read(s, fb.imp_size);
     itensor::read(s, fb.p1);
     itensor::read(s, fb.p2);
     itensor::read(s, layout);
-    itensor::read(s, spin);
+    itensor::read(s, legacy_spin);   // see saveFbMps
     itensor::read(s, fb.tol);
     itensor::read(s, fb.nSv);
     fb.layout = static_cast<fbr::Layout>(layout);
-    fb.spin = spin != 0;
     if (!fb.rot.load(s, arma_binary) || !fb.cc.load(s, arma_binary))
         throw std::runtime_error("cannot read the frame of " + fname);
     return fb;

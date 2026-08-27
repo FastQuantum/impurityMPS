@@ -43,7 +43,6 @@ struct Fb_mps
     int imp_size=0;             ///< the number of non-rotating impurity orbitals, at the center
     int p1=0, p2=0;             ///< the active orbitals are in [p1,p2)
     Layout layout=leading;      ///< the arrangement of the active window
-    bool spin=false;            ///< (`leading` only) the sites can be splitted in even/odd for cc
     double tol=1e-10;           ///< the tolerance used for both applying the gates and defining active orbitals.
     int nSv=-1;                 ///< fixed rank of impurity–bath coupling (set by dynamics solver). -1 = recompute dynamically.
 
@@ -54,16 +53,15 @@ struct Fb_mps
      * @param nPart is the number of particles,
      * @param imp_size is the number of central sites that will not be rotated later
      * @param layout is the arrangement of the active window
-     * @param spin (`leading` only) whether even/odd sites are independent spin sectors
      */
     static Fb_mps<T> from_slater(arma::Mat<T> const& rot, arma::vec const& ek,
-                                 int nPart, int imp_size, Layout layout, bool spin=false)
+                                 int nPart, int imp_size, Layout layout)
     {
         Fb_mps<T> fb;
         fb.sites=itensor::Fermion(ek.size(), {"ConserveNf",true});
         fb.cc=arma::Mat<T>(ek.size(), ek.size(), arma::fill::zeros);
         auto state = itensor::InitState(fb.sites,"0");
-        arma::uvec iek=my_sort_index(ek,spin);
+        arma::uvec iek=arma::sort_index(ek);
         for(int j = 0; j < nPart; j++) {
             int k=iek[j];
             state.set(k+1,"1");
@@ -73,7 +71,6 @@ struct Fb_mps
         fb.rot=rot;
         fb.imp_size=imp_size;
         fb.layout=layout;
-        fb.spin=spin;
         // initially the active window is exactly the non-rotating impurity
         std::tie(fb.p1,fb.p2)=fb.interval_impurity_full();
         return fb;
@@ -183,7 +180,7 @@ struct Fb_mps
             arma::Mat<T> k12=K.rows(a_imp,b_imp-1).eval().cols(a,b-1);
             arma::vec singular_values;
             arma::Mat<T> U,V;
-            my_svd(U,singular_values,V,k12,spin);
+            arma::svd_econ(U,singular_values,V,k12);
             if (singular_values.empty()) return;
 
             int nSv=rank(singular_values,(int)V.n_cols);
@@ -219,7 +216,7 @@ struct Fb_mps
             if (flipped) block=arma::fliplr(arma::flipud(block).eval()).eval();
             arma::vec occupations;
             arma::Mat<T> orbitals;
-            my_eig_sym(occupations,orbitals,block,spin);
+            arma::eig_sym(occupations,orbitals,block);
             arma::vec activity=occupations;
             for (auto& x : activity) x=std::min(x,1-x);
             arma::Mat<T> rotation=orbitals.cols(sortActivity(activity));
@@ -440,8 +437,8 @@ private:
     /// layouts need a stable order to keep up and dw mirror images.
     arma::uvec sortActivity(arma::vec const& activity) const
     {
-        return layout==leading ? my_sort_index(activity,spin)
-                               : arma::stable_sort_index(activity);
+        if (layout==leading) return arma::sort_index(activity);
+        return arma::stable_sort_index(activity);
     }
 
     /// Positions (relative to a) of the orbitals in [a,b) that are neither empty nor full.
@@ -470,7 +467,7 @@ private:
         auto k12=K.rows(a_source,b_source-1).eval().cols(plan.positions).eval();
         arma::vec singular_values;
         arma::Mat<T> U,V;
-        my_svd(U,singular_values,V,k12,spin);
+        arma::svd_econ(U,singular_values,V,k12);
         if (singular_values.empty()) return plan;
 
         plan.count=rank(singular_values,(int)V.n_cols);
@@ -527,7 +524,6 @@ inline Fb_mps<cmpx> Fb_mps<double>::to_complex() const
     fb.p1 = p1;
     fb.p2 = p2;
     fb.layout = layout;
-    fb.spin = spin;
     fb.tol = tol;
     fb.nSv = nSv;
     return fb;

@@ -110,7 +110,7 @@ TEST_CASE("planRepresentative: spin vs spinless", "[fb_mps_spin]") {
     // Create Fb_mps objects with same occupations in each sector: imp + 1 bath
     auto fb_sl = Fb_mps<double>::from_slater(mat(L, L, fill::eye),
                                              vec{-2.0, -2.0, -1.0, -1.0, 1.0, 1.0, 2.0, 2.0},
-                                             4, imp_size, leading, false);
+                                             4, imp_size, leading);
 
     auto fb_sp = Fb_mps<double>::from_slater(mat(L, L, fill::eye),
                                                   vec{2.0, 1.0, -1.0, -2.0, -2.0, -1.0, 1.0, 2.0},
@@ -164,7 +164,7 @@ TEST_CASE("planActiveRepresentative: spin vs spinless", "[fb_mps_spin]") {
     auto fb_sl = Fb_mps<double>::from_slater(mat(L, L, fill::eye),
                                              vec{-3.0, -3.0, -2.0, -2.0, -1.0, -1.0,
                                                   1.0,  1.0,  2.0,  2.0,  3.0,  3.0},
-                                             nPart, imp_size, leading, /*spin=*/false);
+                                             nPart, imp_size, leading);
 
     auto fb_sp = Fb_mps<double>::from_slater(mat(L, L, fill::eye),
                                                   vec{3.0, 2.0, 1.0, -1.0, -2.0, -3.0,
@@ -198,7 +198,7 @@ TEST_CASE("Fb_mps Slater swap includes the fermionic string", "[fb_mps][orbital_
     constexpr int i=2;
     constexpr int j=5;
     auto check=[&](vec const& ek) {
-        auto fb=Fb_mps<double>::from_slater(mat(L,L,fill::eye),ek,3,1, leading, false);
+        auto fb=Fb_mps<double>::from_slater(mat(L,L,fill::eye),ek,3,1, leading);
         double ni=std::real(fb.cc(i,i));
         double nj=std::real(fb.cc(j,j));
 
@@ -481,7 +481,7 @@ TEST_CASE("complex frames use simple transpose in real-space correlators",
     qr(rot,R,raw);
     vec ek={-3.0,-2.0,-1.0,1.0,2.0,3.0};
 
-    auto fb=Fb_mps<cmpx>::from_slater(rot,ek,L/2,2, leading, false);
+    auto fb=Fb_mps<cmpx>::from_slater(rot,ek,L/2,2, leading);
     auto fb_spin=Fb_mps<cmpx>::from_slater(rot,ek,L/2,2, spin_symmetric);
     auto fb_block=Fb_mps<cmpx>::from_slater(rot,ek,L/2,2, spin_block);
 
@@ -504,7 +504,7 @@ TEST_CASE("Fb_mps applyLocalOp: N on impurity and active-window guard", "[fb_mps
     const int L = 8, imp_size = 2, nPart = 4;
     // ascending ek occupies the 4 lowest -> sites 0,1,2,3; impurity sites 0,1 occupied.
     vec ek = {-2, -2, 1, 1, 2, 2, 3, 3};
-    auto fb = Fb_mps<double>::from_slater(mat(L, L, fill::eye), ek, nPart, imp_size, leading, /*spin=*/false);
+    auto fb = Fb_mps<double>::from_slater(mat(L, L, fill::eye), ek, nPart, imp_size, leading);
 
     REQUIRE(std::real(fb.cc(0,0)) == Approx(1.0));
     fb.applyLocalOp("N", 0);                                   // occupied impurity, in active window
@@ -551,7 +551,7 @@ TEST_CASE("Fb_mps complex applyLocalOp updates the active correlator",
     rot(2,2)=cmpx(0,1);
     rot(3,3)=std::exp(cmpx(0,0.37));
     vec ek={1.0,-2.0,-1.0,2.0,3.0,4.0};
-    auto fb=Fb_mps<cmpx>::from_slater(rot,ek,2,2, leading, false);
+    auto fb=Fb_mps<cmpx>::from_slater(rot,ek,2,2, leading);
 
     REQUIRE(std::real(fb.cc(0,0))==Approx(0.0).margin(1e-12));
     fb.applyLocalOp("Cdag",0);

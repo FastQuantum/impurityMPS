@@ -77,7 +77,7 @@ int main()
         // force impurity occupation: physical imp sites occupied, buffer sites empty
         ek[0]=ek[1]=-10;    // spin-up and spin-down physical impurities
         ek[2]=ek[3]=10;     // spin-up and spin-down buffers
-        fb=Fb_mps<cmpx>::from_slater(rot*cmpx(1,0), ek, L/2, nImp, leading, false);
+        fb=Fb_mps<cmpx>::from_slater(rot*cmpx(1,0), ek, L/2, nImp, leading);
     }
 
     // Construct model from pre-computed star geometry (bypassing toStar)
