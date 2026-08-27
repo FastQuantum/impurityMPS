@@ -405,8 +405,8 @@ TEST_CASE("Fb_mps_spin: real-space correlator on SIAM star matches rot*cc*rot.t(
     // Ground truth: c_i = sum_a rot[i,a] d_a  =>  Corr = rot * cc * rot.t() for real rot.
     mat Corr_true = rot * fb.cc * rot.t();
 
-    SECTION("correlator_all()") {
-        mat Corr_code = fb.correlator_all();
+    SECTION("correlator()") {
+        mat Corr_code = fb.correlator();
         INFO("|Corr_code - Corr_true|_F = " << norm(Corr_code - Corr_true, "fro"));
         REQUIRE(norm(Corr_code - Corr_true, "fro") < 1e-10);
     }
@@ -415,13 +415,13 @@ TEST_CASE("Fb_mps_spin: real-space correlator on SIAM star matches rot*cc*rot.t(
             for (int j : {0, 3, 5, 6, 8, L-1})
                 REQUIRE(std::abs(fb.correlator(i, j) - Corr_true(i, j)) < 1e-10);
     }
-    SECTION("correlator_all_i(j) is column j of Corr_true") {
+    SECTION("correlator_col(j) is column j of Corr_true") {
         for (int j : {0, 3, 5, 6, 8, L-1})
-            REQUIRE(norm(fb.correlator_all_i(j) - Corr_true.col(j), 2) < 1e-10);
+            REQUIRE(norm(fb.correlator_col(j) - Corr_true.col(j), 2) < 1e-10);
     }
-    SECTION("correlator_all_j(i) is row i of Corr_true") {
+    SECTION("correlator_row(i) is row i of Corr_true") {
         for (int i : {0, 3, 5, 6, 8, L-1})
-            REQUIRE(norm(fb.correlator_all_j(i) - Corr_true.row(i).t(), 2) < 1e-10);
+            REQUIRE(norm(fb.correlator_row(i) - Corr_true.row(i).t(), 2) < 1e-10);
     }
 }
 
@@ -438,21 +438,21 @@ TEST_CASE("Fb_mps_spin_block: real-space correlator on SIAM star matches rot*cc*
 
     mat Corr_true = rot * fb.cc * rot.t();
 
-    SECTION("correlator_all()") {
-        REQUIRE(norm(fb.correlator_all() - Corr_true, "fro") < 1e-10);
+    SECTION("correlator()") {
+        REQUIRE(norm(fb.correlator() - Corr_true, "fro") < 1e-10);
     }
     SECTION("correlator(i,j)") {
         for (int i : {0, 3, 5, 6, 8, L-1})
             for (int j : {0, 3, 5, 6, 8, L-1})
                 REQUIRE(std::abs(fb.correlator(i, j) - Corr_true(i, j)) < 1e-10);
     }
-    SECTION("correlator_all_i(j)") {
+    SECTION("correlator_col(j)") {
         for (int j : {0, 3, 5, 6, 8, L-1})
-            REQUIRE(norm(fb.correlator_all_i(j) - Corr_true.col(j), 2) < 1e-10);
+            REQUIRE(norm(fb.correlator_col(j) - Corr_true.col(j), 2) < 1e-10);
     }
-    SECTION("correlator_all_j(i)") {
+    SECTION("correlator_row(i)") {
         for (int i : {0, 3, 5, 6, 8, L-1})
-            REQUIRE(norm(fb.correlator_all_j(i) - Corr_true.row(i).t(), 2) < 1e-10);
+            REQUIRE(norm(fb.correlator_row(i) - Corr_true.row(i).t(), 2) < 1e-10);
     }
 }
 
@@ -460,14 +460,14 @@ namespace {
 template<class Fb>
 void check_complex_correlators(Fb const& fb, cx_mat const& expected)
 {
-    REQUIRE(norm(fb.correlator_all()-expected,"fro")<1e-12);
+    REQUIRE(norm(fb.correlator()-expected,"fro")<1e-12);
     for (int i : {0,2,5}) {
         for (int j : {1,3,5})
             REQUIRE(std::abs(fb.correlator(i,j)-expected(i,j))<1e-12);
-        REQUIRE(norm(fb.correlator_all_j(i)-expected.row(i).st(),2)<1e-12);
+        REQUIRE(norm(fb.correlator_row(i)-expected.row(i).st(),2)<1e-12);
     }
     for (int j : {1,3,5})
-        REQUIRE(norm(fb.correlator_all_i(j)-expected.col(j),2)<1e-12);
+        REQUIRE(norm(fb.correlator_col(j)-expected.col(j),2)<1e-12);
 }
 } // namespace
 

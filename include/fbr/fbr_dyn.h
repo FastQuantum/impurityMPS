@@ -43,7 +43,7 @@ inline int coupling_rank(Fb_mps<cmpx> const& fb, arma::mat const& Kmat)
     return rank;
 }
 
-/// Machinery shared by the single-state (Fbr_dyn) and multi-state (Fbr_ns_dyn)
+/// Machinery shared by the single-state (Fbr_dyn) and multi-state (Fbr_dyn_shared)
 /// dynamics solvers: the interaction picture of the diagonal bath Hamiltonian
 /// and the frame algebra built on top of it. The MPS never sees the bath
 /// phases, fb.rot tracks only the natural-orbital basis change, and
@@ -236,8 +236,8 @@ struct DynCommon {
         return rot_star * M;
     }
 
-    /// Schrödinger-picture real-space <c_i^dag c_j> matrix.
-    arma::cx_mat correlator_all(State const& fb) const
+    /// The whole Schrödinger-picture real-space <c_i^dag c_j> matrix.
+    arma::cx_mat correlator(State const& fb) const
     {
         arma::cx_mat Q = effective_rot(fb);
         return arma::conj(Q) * fb.cc * Q.st();
@@ -251,16 +251,16 @@ struct DynCommon {
         return arma::cdot(Q.row(i).st(), ccQj);
     }
 
-    /// Row of the Schrödinger-picture correlator: <c_i^dag c_j> for fixed j, all i.
-    arma::cx_vec correlator_all_i(State const& fb, int j) const
+    /// Column j of the Schrödinger-picture correlator: <c_i^dag c_j> for fixed j, all i.
+    arma::cx_vec correlator_col(State const& fb, int j) const
     {
         arma::cx_mat Q = effective_rot(fb);
         arma::cx_vec ccQj = fb.cc * Q.row(j).st();
         return arma::conj(Q) * ccQj;
     }
 
-    /// Column of the Schrödinger-picture correlator: <c_i^dag c_j> for fixed i, all j.
-    arma::cx_vec correlator_all_j(State const& fb, int i) const
+    /// Row i of the Schrödinger-picture correlator: <c_i^dag c_j> for fixed i, all j.
+    arma::cx_vec correlator_row(State const& fb, int i) const
     {
         arma::cx_mat Q = effective_rot(fb);
         arma::cx_rowvec v = arma::conj(Q.row(i)) * fb.cc;
@@ -274,7 +274,7 @@ struct DynCommon {
 /// spin-flip symmetric or generic spin) comes from the state and the model,
 /// which share it through ImpurityParam::layout:
 ///   auto solver = Fbr_dyn(model, fb, dt);
-/// For several states evolving in one common orbital basis, see Fbr_ns_dyn.
+/// For several states evolving in one common orbital basis, see Fbr_dyn_shared.
 struct Fbr_dyn : detail::DynCommon {
     using Common = detail::DynCommon;
     using State = typename Common::State;
@@ -320,10 +320,10 @@ struct Fbr_dyn : detail::DynCommon {
     arma::cx_mat build_K_reference() const { return Common::build_K_reference(fb); }
     arma::cx_mat effective_rot() const { return Common::effective_rot(fb); }
 
-    arma::cx_mat correlator_all() const { return Common::correlator_all(fb); }
+    arma::cx_mat correlator() const { return Common::correlator(fb); }
     cmpx correlator(int i, int j) const { return Common::correlator(fb,i,j); }
-    arma::cx_vec correlator_all_i(int j) const { return Common::correlator_all_i(fb,j); }
-    arma::cx_vec correlator_all_j(int i) const { return Common::correlator_all_j(fb,i); }
+    arma::cx_vec correlator_col(int j) const { return Common::correlator_col(fb,j); }
+    arma::cx_vec correlator_row(int i) const { return Common::correlator_row(fb,i); }
 };
 
 /// Few-body real-time evolution of several states in one common orbital basis.
@@ -332,7 +332,7 @@ struct Fbr_dyn : detail::DynCommon {
 /// (natural orbitals come from their averaged correlation matrix) and applied
 /// identically to every MPS. Each state is nevertheless evolved by its own
 /// TDVP call, since the TDVP projection and truncation are state-dependent.
-struct Fbr_ns_dyn : detail::DynCommon {
+struct Fbr_dyn_shared : detail::DynCommon {
     using Common = detail::DynCommon;
     using State = typename Common::State;
 
@@ -340,7 +340,7 @@ struct Fbr_ns_dyn : detail::DynCommon {
     std::vector<State> states;    ///< the current few body MPS states
     std::vector<double> energies; ///< energy of every state
 
-    explicit Fbr_ns_dyn(Impurity const& imp, std::vector<State> states_, double dt_=0.1)
+    explicit Fbr_dyn_shared(Impurity const& imp, std::vector<State> states_, double dt_=0.1)
         : Common(imp,first_of(states_),dt_)
         , states(std::move(states_))
     {
@@ -380,16 +380,16 @@ struct Fbr_ns_dyn : detail::DynCommon {
 
     arma::cx_mat effective_rot(std::size_t n=0) const { return Common::effective_rot(states.at(n)); }
 
-    arma::cx_mat correlator_all(std::size_t n=0) const { return Common::correlator_all(states.at(n)); }
+    arma::cx_mat correlator(std::size_t n=0) const { return Common::correlator(states.at(n)); }
     cmpx correlator(int i, int j, std::size_t n=0) const { return Common::correlator(states.at(n),i,j); }
-    arma::cx_vec correlator_all_i(int j, std::size_t n=0) const { return Common::correlator_all_i(states.at(n),j); }
-    arma::cx_vec correlator_all_j(int i, std::size_t n=0) const { return Common::correlator_all_j(states.at(n),i); }
+    arma::cx_vec correlator_col(int j, std::size_t n=0) const { return Common::correlator_col(states.at(n),j); }
+    arma::cx_vec correlator_row(int i, std::size_t n=0) const { return Common::correlator_row(states.at(n),i); }
 
 private:
     static State const& first_of(std::vector<State> const& states)
     {
         if (states.empty())
-            throw std::invalid_argument("Fbr_ns_dyn: at least one state is required");
+            throw std::invalid_argument("Fbr_dyn_shared: at least one state is required");
         return states.front();
     }
 
@@ -400,19 +400,19 @@ private:
         auto const& first=states.front();
         int L=this->param.length();
         if (first.sites.length()!=L)
-            throw std::invalid_argument("Fbr_ns_dyn: state length does not match the model");
+            throw std::invalid_argument("Fbr_dyn_shared: state length does not match the model");
 
         auto [a,b]=first.interval_active_full();
         for (std::size_t n=1; n<states.size(); ++n) {
             auto const& state=states[n];
             if (state.sites.length()!=L || state.interval_active_full()!=std::pair{a,b}
                 || state.imp_size!=first.imp_size)
-                throw std::invalid_argument("Fbr_ns_dyn: states do not share the same orbital layout");
+                throw std::invalid_argument("Fbr_dyn_shared: states do not share the same orbital layout");
             if (arma::norm(state.rot-first.rot,"fro")>10*first.tol)
-                throw std::invalid_argument("Fbr_ns_dyn: states do not share the same orbital rotation");
+                throw std::invalid_argument("Fbr_dyn_shared: states do not share the same orbital rotation");
             for (int i=1; i<=L; ++i)
                 if (state.sites(i)!=first.sites(i))
-                    throw std::invalid_argument("Fbr_ns_dyn: states must share the same ITensor site indices");
+                    throw std::invalid_argument("Fbr_dyn_shared: states must share the same ITensor site indices");
         }
 
         double tolerance=slater_tol();
@@ -421,12 +421,12 @@ private:
             double occupation=std::real(first.cc(i,i))>0.5 ? 1.0 : 0.0;
             for (auto const& state : states)
                 if (std::abs(state.cc(i,i)-occupation)>tolerance)
-                    throw std::invalid_argument("Fbr_ns_dyn: states do not share the same Slater state");
+                    throw std::invalid_argument("Fbr_dyn_shared: states do not share the same Slater state");
             for (std::size_t n=1; n<states.size(); ++n)
                 for (int j=0; j<L; ++j) {
                     if (j>=a && j<b) continue;
                     if (std::abs(states[n].cc(i,j)-first.cc(i,j))>tolerance)
-                        throw std::invalid_argument("Fbr_ns_dyn: states do not share the same Slater correlator");
+                        throw std::invalid_argument("Fbr_dyn_shared: states do not share the same Slater correlator");
                 }
         }
     }

@@ -61,7 +61,7 @@ TrajResult const &resultFor(double U, std::string const &us)
     auto fbr = makeFbrRun(L, dt, U);
     auto p = fbrIndexToChainIndex(L);
     auto iter = [](Solver &f) { f.iterate({.max_bond_dim = 2048, .epsilon_M = 1e-4}); };
-    auto corr = [](Solver &f) { return f.correlator_all(); };
+    auto corr = [](Solver &f) { return f.correlator(); };
 
     auto ref = loadReference("chain_dyn_siam_center_U" + us + "_ref.txt");
     auto res = compareTrajectory(fbr, iter, corr, ref, p);
@@ -109,10 +109,10 @@ TEST_CASE("multi-state solver with one state matches single-state solver", "[mul
 
     auto incompatible=fb;
     incompatible.cc(fb.p2,fb.p2)=1.0-incompatible.cc(fb.p2,fb.p2);
-    REQUIRE_THROWS_AS(Fbr_ns_dyn(model,std::vector{fb,incompatible},dt),std::invalid_argument);
+    REQUIRE_THROWS_AS(Fbr_dyn_shared(model,std::vector{fb,incompatible},dt),std::invalid_argument);
 
     auto old_solver=Fbr_dyn(model,fb,dt);
-    auto new_solver=Fbr_ns_dyn(model,std::vector{fb},dt);
+    auto new_solver=Fbr_dyn_shared(model,std::vector{fb},dt);
     TdvpParam args {.max_bond_dim=512,.n_iter_diag=8,.epsilon_M=0};
 
     for (int step=0; step<10; ++step) {
@@ -122,14 +122,14 @@ TEST_CASE("multi-state solver with one state matches single-state solver", "[mul
         auto const& old=old_solver.fb;
         auto const& current=new_solver.states.front();
         CAPTURE(step,old.n_active(),current.n_active());
-        INFO("correlator error = " << arma::abs(new_solver.correlator_all()-old_solver.correlator_all()).max());
+        INFO("correlator error = " << arma::abs(new_solver.correlator()-old_solver.correlator()).max());
         INFO("energy error = " << std::abs(new_solver.energies.front()-old_solver.energy));
         INFO("rot error = " << arma::abs(current.rot-old.rot).max());
         INFO("cc error = " << arma::abs(current.cc-old.cc).max());
         INFO("K error = " << arma::abs(new_solver.K-old_solver.K).max());
 
         REQUIRE(current.n_active()==old.n_active());
-        REQUIRE(arma::abs(new_solver.correlator_all()-old_solver.correlator_all()).max()<1e-8);
+        REQUIRE(arma::abs(new_solver.correlator()-old_solver.correlator()).max()<1e-8);
         REQUIRE(std::abs(new_solver.energies.front()-old_solver.energy)<1e-8);
     }
 }
@@ -162,10 +162,10 @@ TEST_CASE("dynamics starting from a rotated frame", "[fbr_dyn][frame]") {
     REQUIRE(arma::abs(fb.rot-model.param.rot*cmpx(1,0)).max()>0.1);
 
     auto solver=Fbr_dyn(model,fb,dt);
-    cx_mat cc0=solver.correlator_all();
+    cx_mat cc0=solver.correlator();
     for (int step=0; step<20; ++step) solver.iterate({.epsilon_M=0});
 
-    double drift=arma::abs(solver.correlator_all()-cc0).max();
+    double drift=arma::abs(solver.correlator()-cc0).max();
     INFO("correlator drift of a stationary state = "<<drift);
     REQUIRE(drift<1e-3);
 }

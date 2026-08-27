@@ -17,7 +17,7 @@ using namespace arma;
 // One measured time slice: occupations and the full one-particle correlation
 // matrix <c_i^dag c_j>, expressed in the ORIGINAL real-space basis (rotated back
 // from the star basis) so it is directly comparable to chain_dyn_siam_center and
-// to Fb_mps_spin::correlator_all().
+// to Fb_mps_spin::correlator().
 struct Snap {
     string label;
     arma::vec ni;

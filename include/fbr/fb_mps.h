@@ -377,7 +377,7 @@ struct Fb_mps
     /// Convention (impurity_param.h): c_i = sum_a rot[i,a] d_a, so
     ///   <c_i^dag c_j> = sum_{a,b} conj(rot[i,a]) cc[a,b] rot[j,b] = (Qinv^dag cc Qinv)[i,j]
     /// with Qinv = rot.st() (so that Qinv.col(i) holds rot.row(i) as a column).
-    arma::Mat<T> correlator_all() const
+    arma::Mat<T> correlator() const
     {
         arma::Mat<T> Qinv=rot.st();
         return Qinv.t() * cc * Qinv;
@@ -392,7 +392,7 @@ struct Fb_mps
     }
 
     /// compute the correlator <ci^ cj> for all i, where i and j are original sites (i.e. before the rotation).
-    arma::Col<T> correlator_all_i(int j) const
+    arma::Col<T> correlator_col(int j) const
     {
         arma::Mat<T> Qinv=rot.st();
         arma::Col<T> ccQinv=cc*Qinv.col(j);
@@ -400,7 +400,7 @@ struct Fb_mps
     }
 
     /// compute the correlator <ci^ cj> for all j, where i and j are original sites (i.e. before the rotation).
-    arma::Col<T> correlator_all_j(int i) const
+    arma::Col<T> correlator_row(int i) const
     {
         arma::Mat<T> Qinv=rot.st();
         arma::Row<T> Qinv_t_cc=Qinv.col(i).t()*cc;

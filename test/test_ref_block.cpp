@@ -69,7 +69,7 @@ TrajResult const &resultFor(double U, std::string const &us)
         // comes from the default (1e-7), to which FBR dynamics is insensitive.
         f.iterate({.epsilon_M = 0});
     };
-    auto corr = [](Solver &f) { return f.correlator_all(); };
+    auto corr = [](Solver &f) { return f.correlator(); };
 
     auto ref = loadReference("chain_dyn_siam_center_U" + us + "_ref.txt");
     auto res = compareTrajectory(fbr, iter, corr, ref, p);
@@ -119,10 +119,10 @@ TEST_CASE("multi-state solver with one state matches single-state solver",
 
     auto incompatible=fb;
     incompatible.cc(fb.p2,fb.p2)=1.0-incompatible.cc(fb.p2,fb.p2);
-    REQUIRE_THROWS_AS(Fbr_ns_dyn(model,std::vector{fb,incompatible},dt),std::invalid_argument);
+    REQUIRE_THROWS_AS(Fbr_dyn_shared(model,std::vector{fb,incompatible},dt),std::invalid_argument);
 
     auto old_solver=Fbr_dyn(model,fb,dt);
-    auto new_solver=Fbr_ns_dyn(model,std::vector{fb},dt);
+    auto new_solver=Fbr_dyn_shared(model,std::vector{fb},dt);
     TdvpParam args {.max_bond_dim=512,.n_iter_diag=8,.epsilon_M=0};
 
     for (int step=0; step<10; ++step) {
@@ -132,12 +132,12 @@ TEST_CASE("multi-state solver with one state matches single-state solver",
         auto const& old=old_solver.fb;
         auto const& current=new_solver.states.front();
         CAPTURE(step,old.p1,old.p2,current.p1,current.p2);
-        INFO("correlator error = " << arma::abs(new_solver.correlator_all()-old_solver.correlator_all()).max());
+        INFO("correlator error = " << arma::abs(new_solver.correlator()-old_solver.correlator()).max());
         INFO("energy error = " << std::abs(new_solver.energies.front()-old_solver.energy));
 
         REQUIRE(current.p1==old.p1);
         REQUIRE(current.p2==old.p2);
-        REQUIRE(arma::abs(new_solver.correlator_all()-old_solver.correlator_all()).max()<1e-8);
+        REQUIRE(arma::abs(new_solver.correlator()-old_solver.correlator()).max()<1e-8);
         REQUIRE(std::abs(new_solver.energies.front()-old_solver.energy)<1e-8);
     }
 }

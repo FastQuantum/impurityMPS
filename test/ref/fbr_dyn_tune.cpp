@@ -67,7 +67,7 @@ int main(int argc, char** argv)
     std::cout << std::setprecision(3) << std::scientific;
 
     auto report = [&](int step, std::string const& label) {
-        cx_mat cc = toChainOrder(fbr.correlator_all(), p);
+        cx_mat cc = toChainOrder(fbr.correlator(), p);
         auto m = compare(cc, ref.at(label));
         std::cout << "  " << std::setw(8) << label
                   << "  dni=" << m.niMax << "  dcc=" << m.ccMax << "\n";

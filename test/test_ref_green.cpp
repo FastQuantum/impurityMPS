@@ -19,7 +19,7 @@ using namespace fbrtest;
 //     G(i,j,t) = -i <psi0| c_i(t) c_j^dag(0) |psi0> = -i <c_i^dag A(t) | B_j(t)>
 //
 // with A=|psi0> and B_j=c_j^dag|psi0> evolved together in one common orbital
-// basis by Fbr_ns_dyn. The impurity orbitals are never rotated, so the
+// basis by Fbr_dyn_shared. The impurity orbitals are never rotated, so the
 // real-space site i is the MPS orbital i and c_i is local there.
 
 namespace {
@@ -27,7 +27,7 @@ namespace {
 // Same model as test/ref/chain_green_irlm.cpp and example/fbr_dyn_irlm.cpp.
 
 // c_j^dag|psi0>, normalized, with the norm it had before normalizing: the states
-// of one Fbr_ns_dyn share their Slater determinant, so they have to be
+// of one Fbr_dyn_shared share their Slater determinant, so they have to be
 // normalized, and the norm goes back into G afterwards.
 std::pair<Fb_mps<cmpx>, double> addParticle(Fb_mps<cmpx> const &psi0, int j)
 {
@@ -99,7 +99,7 @@ GreenError const &resultFor(std::string const &us)
     // the three states share one active window, which has to hold every orbital
     // where they differ; a tight tolerance keeps it wide enough
     psi0.tol = B0.tol = B1.tol = 1e-12;
-    auto solver = Fbr_ns_dyn(model, std::vector{psi0, B0, B1}, dt);
+    auto solver = Fbr_dyn_shared(model, std::vector{psi0, B0, B1}, dt);
 
     std::size_t nStep = ref.size();
 #ifndef FBR_ENABLE_LONG_TEST
@@ -211,7 +211,7 @@ void checkLargeL(std::string const &us)
     auto [B0, nrm0] = addParticle(psi0, 0);
     auto [B1, nrm1] = addParticle(psi0, 1);
     B0.tol = B1.tol = largeTol;
-    auto solver = Fbr_ns_dyn(model, std::vector{psi0, B0, B1}, dt);
+    auto solver = Fbr_dyn_shared(model, std::vector{psi0, B0, B1}, dt);
 
     for (int step = 0; step < nSteps; step++) {
         cmpx G00 = -imag_1 * nrm0 * cElement(solver.states[0], solver.states[1], 0);

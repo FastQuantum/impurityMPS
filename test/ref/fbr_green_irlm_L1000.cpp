@@ -64,7 +64,7 @@ static cmpx cElement(Fb_mps<cmpx> const &A, Fb_mps<cmpx> const &B, int i)
 }
 
 /// c_j^dag|psi0>, normalized, with the norm it had before normalizing: the
-/// states of one Fbr_ns_dyn share their Slater part, so it has to be
+/// states of one Fbr_dyn_shared share their Slater part, so it has to be
 /// normalized, and the norm goes back into G.
 static std::pair<Fb_mps<cmpx>, double> addParticle(Fb_mps<cmpx> const &psi0, int j)
 {
@@ -111,7 +111,7 @@ int main(int argc, char **argv)
     auto [B0, nrm0] = addParticle(psi0, 0);
     auto [B1, nrm1] = addParticle(psi0, 1);
     B0.tol = B1.tol = tol;
-    auto solver = Fbr_ns_dyn(model, std::vector{psi0, B0, B1}, dt);
+    auto solver = Fbr_dyn_shared(model, std::vector{psi0, B0, B1}, dt);
 
     string name = "fbr_green_irlm_L" + to_string(L) + "_U" + string(argv[1] ? argv[1] : "0.2") + ".txt";
     ostringstream rows;
