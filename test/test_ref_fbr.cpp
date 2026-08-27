@@ -159,7 +159,7 @@ TEST_CASE("multi-state solver with one state matches single-state solver", "[mul
     fb.tol=1e-12;
 
     auto incompatible=fb;
-    incompatible.cc(fb.p2,fb.p2)=1.0-incompatible.cc(fb.p2,fb.p2);
+    incompatible.cc(fb.active.b,fb.active.b)=1.0-incompatible.cc(fb.active.b,fb.active.b);
     REQUIRE_THROWS_AS(Fbr_dyn_shared(model,std::vector{fb,incompatible},dt),std::invalid_argument);
 
     auto old_solver=Fbr_dyn(model,fb,dt);
@@ -172,15 +172,15 @@ TEST_CASE("multi-state solver with one state matches single-state solver", "[mul
 
         auto const& old=old_solver.fb;
         auto const& current=new_solver.states.front();
-        CAPTURE(step,old.p1,old.p2,current.p1,current.p2);
+        CAPTURE(step,old.active.a,old.active.b,current.active.a,current.active.b);
         INFO("correlator error = " << arma::abs(new_solver.correlator()-old_solver.correlator()).max());
         INFO("energy error = " << std::abs(new_solver.energies.front()-old_solver.energy));
         INFO("rot error = " << arma::abs(current.rot-old.rot).max());
         INFO("cc error = " << arma::abs(current.cc-old.cc).max());
         INFO("K error = " << arma::abs(new_solver.K-old_solver.K).max());
 
-        REQUIRE(current.p1==old.p1);
-        REQUIRE(current.p2==old.p2);
+        REQUIRE(current.active.a==old.active.a);
+        REQUIRE(current.active.b==old.active.b);
         REQUIRE(arma::abs(new_solver.correlator()-old_solver.correlator()).max()<1e-8);
         REQUIRE(std::abs(new_solver.energies.front()-old_solver.energy)<1e-8);
     }

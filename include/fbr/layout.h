@@ -21,6 +21,23 @@ enum Layout {
     spin_block      ///< centered window, the two spin blocks are independent
 };
 
+/// A half-open interval of chain positions, [a,b). Destructures, so
+/// `auto [a,b] = fb.range(Part::active);` still reads the way it always did.
+struct Range {
+    int a=0, b=0;
+    int size() const { return b-a; }
+    bool empty() const { return b<=a; }
+    bool contains(int i) const { return i>=a && i<b; }
+    friend bool operator==(Range x, Range y) { return x.a==y.a && x.b==y.b; }
+    friend bool operator!=(Range x, Range y) { return !(x==y); }
+};
+
+/// The parts of the chain a Range can name, from the center outwards:
+/// the non-rotating impurity, the active window that holds it, the Slater
+/// determinant beyond, everything that is not impurity (bath), and the
+/// orbitals a rotation may touch (active minus impurity).
+enum class Part { impurity, active, slater, bath, rotating };
+
 } // namespace fbr
 
 #endif // FBR_LAYOUT_H

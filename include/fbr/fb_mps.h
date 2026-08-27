@@ -33,7 +33,7 @@ struct Fb_mps
     arma::Mat<T> rot;           ///< the actual rotation frame
     arma::Mat<T> cc;            ///< the correlation matrix or one-particle density matrix
     int imp_size=0;             ///< the number of non-rotating impurity orbitals, at the center
-    int p1=0, p2=0;             ///< the active orbitals are in [p1,p2)
+    Range active;               ///< the active orbitals, [active.a, active.b)
     Layout layout=leading;      ///< the arrangement of the active window
     double tol=1e-10;           ///< the tolerance used for both applying the gates and defining active orbitals.
     int n_sv=-1;                 ///< fixed rank of impurity–bath coupling (set by dynamics solver). -1 = recompute dynamically.
@@ -64,61 +64,48 @@ struct Fb_mps
         fb.imp_size=imp_size;
         fb.layout=layout;
         // initially the active window is exactly the non-rotating impurity
-        std::tie(fb.p1,fb.p2)=fb.interval_impurity_full();
+        fb.active=fb.range(Part::impurity);
         return fb;
     }
 
     int length() const { return sites.length(); }
 
     /// the number of active orbitals
-    int n_active() const { return p2-p1; }
+    int n_active() const { return active.size(); }
 
     /// the center of the chain: the impurity sits there, the two spin sectors
     /// grow away from it. The `leading` layout has no up sector, so its center
     /// is the left edge.
     int mid() const { return layout==leading ? 0 : length()/2; }
 
-    /// return interval [a,b) of the impurity part
-    std::pair<int,int> interval_impurity_full() const
+    /// The chain positions of one part of one spin sector, [a,b).
+    Range range(Part p, Spin s) const
     {
         int m=mid();
-        return layout==leading ? std::pair<int,int>{m, m+imp_size}
-                               : std::pair<int,int>{m-imp_size/2, m+imp_size/2};
+        Range imp=range(Part::impurity);
+        switch (p) {
+        case Part::impurity: return s==up ? Range{imp.a,m} : Range{m,imp.b};
+        case Part::active:   return s==up ? Range{active.a,m} : Range{m,active.b};
+        case Part::slater:   return s==up ? Range{0,active.a} : Range{active.b,length()};
+        case Part::bath:     return s==up ? Range{0,imp.a} : Range{imp.b,length()};
+        case Part::rotating: return s==up ? Range{active.a,imp.a} : Range{imp.b,active.b};
+        }
+        throw std::invalid_argument("Fb_mps::range: unknown Part");
     }
 
-    /// return interval [a,b) of the impurity part
-    std::pair<int,int> interval_impurity(Spin s) const
+    /// The chain positions of one part, both sectors at once. Only the impurity
+    /// and the active window are contiguous across the center; the rest are two
+    /// disjoint intervals under a centered layout, so they need a Spin.
+    Range range(Part p) const
     {
-        auto [a,b]=interval_impurity_full();
         int m=mid();
-        if (s==up) return {a,m};
-        else       return {m,b};
-    }
-
-    /// return interval [a,b) of the slater part
-    std::pair<int,int> interval_slater(Spin s) const { if (s==up) return {0,p1}; else return {p2,length()}; }
-
-    /// return interval [a,b) of the active part
-    std::pair<int,int> interval_active_full() const { return {p1,p2}; }
-
-    /// return interval [a,b) of the active part
-    std::pair<int,int> interval_active(Spin s) const { if (s==up) return {p1,mid()}; else return {mid(),p2}; }
-
-    /// return interval [a,b) of the bath part
-    std::pair<int,int> interval_bath(Spin s) const
-    {
-        auto [a,b] = interval_impurity(s);
-        if (s==up) return {0,a};
-        else       return {b,length()};
-    }
-
-    /// return interval [a,b) that can be rotated
-    std::pair<int,int> interval_rotating(Spin s) const
-    {
-        auto [a0,b0]=interval_impurity(s);
-        auto [a1,b1]=interval_active(s);
-        if (s==up) return {a1,a0};
-        else       return {b0,b1};
+        switch (p) {
+        case Part::impurity: return layout==leading ? Range{m,m+imp_size}
+                                                    : Range{m-imp_size/2,m+imp_size/2};
+        case Part::active:   return active;
+        default: break;
+        }
+        throw std::invalid_argument("Fb_mps::range: this part is not contiguous, pass a Spin");
     }
 
     /// ensure reflection symmetry of rows and columns
@@ -141,7 +128,7 @@ struct Fb_mps
     OrbitalUpdate<T> plan_representative(arma::Mat<T> const& K,int nRef,
                                         bool use_active=false) const
     {
-        OrbitalUpdate<T> update(p1,p2);
+        OrbitalUpdate<T> update(active.a,active.b);
         auto plan_dw=representative_sector(K,nRef,use_active,dw);
         SectorPlan plan_up;
         if (layout==spin_symmetric)   plan_up=reflect_sector(plan_dw);
@@ -151,7 +138,7 @@ struct Fb_mps
         update.append(plan_dw.positions,plan_dw.givens);
 
         // bring the representatives into the window, growing it on both sides
-        int active_begin=p1, active_end=p2;
+        int active_begin=active.a, active_end=active.b;
         for (int i=0; i<plan_up.count; ++i)
             update.gates.emplace_back(--active_begin,
                                       (int)plan_up.positions[plan_up.positions.size()-1-i]);
@@ -163,10 +150,10 @@ struct Fb_mps
 
     OrbitalUpdate<T> plan_active_representative(arma::Mat<T> const& K) const
     {
-        OrbitalUpdate<T> update(p1,p2);
+        OrbitalUpdate<T> update(active.a,active.b);
         auto sector=[&](Spin s) {
-            auto [a,b]=interval_rotating(s);
-            auto [a_imp,b_imp]=interval_impurity(s);
+            auto [a,b]=range(Part::rotating,s);
+            auto [a_imp,b_imp]=range(Part::impurity,s);
             if (a>=b || a_imp>=b_imp) return;
 
             arma::Mat<T> k12=K.rows(a_imp,b_imp-1).eval().cols(a,b-1);
@@ -183,7 +170,7 @@ struct Fb_mps
             givens_dagger_in_place(givens);
             update.append(arma::regspace<arma::uvec>(a,b-1),givens);
             if (s==dw && layout==spin_symmetric) {
-                auto [a_up,b_up]=interval_rotating(up);
+                auto [a_up,b_up]=range(Part::rotating,up);
                 update.append(arma::regspace<arma::uvec>(a_up,b_up-1),
                               givens_reflect(givens,b-a));
             }
@@ -195,12 +182,12 @@ struct Fb_mps
 
     OrbitalUpdate<T> plan_natural_orbitals(arma::Mat<T> const& cc_source) const
     {
-        OrbitalUpdate<T> update(p1,p2);
-        auto [a_dw,b_dw]=interval_rotating(dw);
+        OrbitalUpdate<T> update(active.a,active.b);
+        auto [a_dw,b_dw]=range(Part::rotating,dw);
         if (layout!=spin_block && a_dw>=b_dw) return update;   // nothing to rotate
 
         auto sector=[&](Spin s) {
-            auto [a,b]=interval_rotating(s);
+            auto [a,b]=range(Part::rotating,s);
             if (a>=b) return;
             bool flipped = (s==up && layout==spin_block);
 
@@ -218,7 +205,7 @@ struct Fb_mps
                                 : givens_for_rot_right(rotation);
             update.append(arma::regspace<arma::uvec>(a,b-1),givens_transpose(givens));
             if (s==dw && layout==spin_symmetric) {
-                auto [a_up,b_up]=interval_rotating(up);
+                auto [a_up,b_up]=range(Part::rotating,up);
                 update.append(arma::regspace<arma::uvec>(a_up,b_up-1),
                               givens_transpose(givens_reflect(givens,b-a)));
             }
@@ -233,26 +220,26 @@ struct Fb_mps
 
         // the window keeps the orbitals that are neither empty nor full
         if (layout==spin_block) {
-            auto [a_up,b_up]=interval_rotating(up);
+            auto [a_up,b_up]=range(Part::rotating,up);
             if (a_up<b_up) {
                 arma::uvec act=active_orbitals(rotated_cc,a_up,b_up);
-                update.active.first=act.empty() ? std::max(b_up-2,a_up)
+                update.active.a=act.empty() ? std::max(b_up-2,a_up)
                                                 : a_up+(int)act.front();
             }
             if (a_dw<b_dw) {
                 arma::uvec act=active_orbitals(rotated_cc,a_dw,b_dw);
-                update.active.second=act.empty() ? std::min(a_dw+2,b_dw)
+                update.active.b=act.empty() ? std::min(a_dw+2,b_dw)
                                                  : a_dw+(int)act.back()+1;
             }
         }
         else if (layout==spin_symmetric) {
             arma::uvec act=active_orbitals(rotated_cc,a_dw,b_dw);
             int active_end=act.empty() ? a_dw+2 : a_dw+(int)act.back()+1;
-            update.active={p1-(active_end-p2),active_end};   // grow symmetrically
+            update.active={active.a-(active_end-active.b),active_end};   // grow symmetrically
         }
         else {  // leading: the window grows only to the right
             arma::uvec act=active_orbitals(rotated_cc,a_dw,rotated_cc.n_rows);
-            update.active={p1, act.empty() ? a_dw+1 : a_dw+(int)act.back()+1};
+            update.active={active.a, act.empty() ? a_dw+1 : a_dw+(int)act.back()+1};
         }
         return update;
     }
@@ -274,8 +261,8 @@ struct Fb_mps
                 swap_slater_orbitals(gate.a,gate.b);
             }
             else {
-                bool a_active=gate.a>=p1 && gate.a<p2;
-                bool b_active=gate.b>=p1 && gate.b<p2;
+                bool a_active=gate.a>=active.a && gate.a<active.b;
+                bool b_active=gate.b>=active.a && gate.b<active.b;
                 if (a_active!=b_active)
                     throw std::logic_error("orbital rotation crosses the active boundary");
                 if (a_active) {
@@ -289,15 +276,14 @@ struct Fb_mps
         }
         flush_circuit();
         ensure_symmetry(cc);
-        p1=update.active.first;
-        p2=update.active.second;
+        active=update.active;
     }
 
     /// update the cc in the active sector using the psi
     void update_cc()
     {
         for (auto s : {up,dw}) {
-            auto [a,b]=interval_active(s);
+            auto [a,b]=range(Part::active,s);
             if (a>=b) continue;
             if constexpr (std::is_same<T,double>::value) {
                 auto ccz=correlationMatrix(psi, sites,"Cdag","C",itensor::range1(a+1,b));
@@ -319,7 +305,7 @@ struct Fb_mps
     {
         double energy=0;
         for(auto s : {up,dw}) {
-            auto [a,b]=interval_slater(s);
+            auto [a,b]=range(Part::slater,s);
             for(auto i=a; i<b; i++)
                 energy += std::real(cc(i,i)*K(i,i));
         }
@@ -339,7 +325,7 @@ struct Fb_mps
 
     /// Apply the single-site operator op to the (real-space) site i of the mps, where op
     /// is one of {"C", "Cdag", "N"} as in itensor. Only valid on the non-rotating impurity
-    /// orbitals (interval_impurity_full): there site i maps exactly onto a single MPS site,
+    /// orbitals (range(Part::impurity)): there site i maps exactly onto a single MPS site,
     /// so the operator is a genuine single-site operator.
     void apply_local_op(std::string op, int i)
     {
@@ -350,7 +336,7 @@ struct Fb_mps
 
         arma::Mat<T> Qinv=rot.st();
         int i0=(int)arma::abs(Qinv.col(i)).index_max();
-        auto [a_imp,b_imp] = interval_impurity_full();
+        auto [a_imp,b_imp] = range(Part::impurity);
         if (i0 < a_imp || i0 >= b_imp)
             throw invalid_argument("Fb_mps::apply_local_op: site i is not a non-rotating impurity site");
 
@@ -448,14 +434,14 @@ private:
                                     bool use_active,Spin s) const
     {
         SectorPlan plan;
-        auto [a_slater,b_slater]=interval_slater(s);
+        auto [a_slater,b_slater]=range(Part::slater,s);
         if (a_slater>=b_slater) return plan;
 
         arma::vec ni=occupations_ni().rows(a_slater,b_slater-1);
         plan.positions=arma::find(arma::abs(ni-nRef)<0.5).eval()+a_slater;
         if (plan.positions.empty()) return plan;
 
-        auto [a_source,b_source]=use_active ? interval_active(s) : interval_impurity(s);
+        auto [a_source,b_source]=use_active ? range(Part::active,s) : range(Part::impurity,s);
         if (a_source>=b_source) return plan;
 
         auto k12=K.rows(a_source,b_source-1).eval().cols(plan.positions).eval();
@@ -489,7 +475,7 @@ private:
     void swap_slater_orbitals(int i,int j)
     {
         if (i==j) return;
-        auto [a,b]=interval_active_full();
+        auto [a,b]=range(Part::active);
         if (i>=a && i<b) throw std::invalid_argument("SlaterSwap for active orbital i");
         if (j>=a && j<b) throw std::invalid_argument("SlaterSwap for active orbital j");
         T ni=cc(i,i), nj=cc(j,j);
@@ -515,8 +501,8 @@ inline Fb_mps<cmpx> Fb_mps<double>::to_complex() const
     fb.rot = rot * cmpx(1,0);
     fb.cc = cc * cmpx(1,0);
     fb.imp_size = imp_size;
-    fb.p1 = p1;
-    fb.p2 = p2;
+    fb.active.a = active.a;
+    fb.active.b = active.b;
     fb.layout = layout;
     fb.tol = tol;
     fb.n_sv = n_sv;

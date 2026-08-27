@@ -45,7 +45,7 @@ struct Fbr_gs {
 
     void do_dmrg(DmrgParam args={})
     {
-        auto [a,b]=fb.interval_active_full();
+        auto [a,b]=fb.range(Part::active);
         auto mpo=full_hamiltonian(a,b);
         auto sweeps = itensor::Sweeps(1);
         sweeps.maxdim() = args.max_bond_dim;

@@ -52,8 +52,8 @@ void saveFbMps(std::string const &fname, fbr::Fb_mps<T> const &fb)
     itensor::write(s, fb.sites);
     itensor::write(s, fb.psi);
     itensor::write(s, fb.imp_size);
-    itensor::write(s, fb.p1);
-    itensor::write(s, fb.p2);
+    itensor::write(s, fb.active.a);
+    itensor::write(s, fb.active.b);
     itensor::write(s, static_cast<int>(fb.layout));
     itensor::write(s, 0);   // legacy slot: the removed Fb_mps::spin flag. Kept so
                             // the committed output/*.dat caches stay readable.
@@ -74,8 +74,8 @@ fbr::Fb_mps<T> loadFbMps(std::string const &fname)
     itensor::read(s, fb.sites);
     itensor::read(s, fb.psi);
     itensor::read(s, fb.imp_size);
-    itensor::read(s, fb.p1);
-    itensor::read(s, fb.p2);
+    itensor::read(s, fb.active.a);
+    itensor::read(s, fb.active.b);
     itensor::read(s, layout);
     itensor::read(s, legacy_spin);   // see saveFbMps
     itensor::read(s, fb.tol);

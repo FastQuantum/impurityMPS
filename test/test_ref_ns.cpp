@@ -110,7 +110,7 @@ TEST_CASE("multi-state solver with one state matches single-state solver", "[mul
     fb.tol=1e-12;
 
     auto incompatible=fb;
-    incompatible.cc(fb.p2,fb.p2)=1.0-incompatible.cc(fb.p2,fb.p2);
+    incompatible.cc(fb.active.b,fb.active.b)=1.0-incompatible.cc(fb.active.b,fb.active.b);
     REQUIRE_THROWS_AS(Fbr_dyn_shared(model,std::vector{fb,incompatible},dt),std::invalid_argument);
 
     auto old_solver=Fbr_dyn(model,fb,dt);

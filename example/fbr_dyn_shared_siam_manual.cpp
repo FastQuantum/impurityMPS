@@ -105,7 +105,7 @@ int main()
     itensor::cpu_time t0;
     for(auto i=0; i*dt<L; i++){
         // arma::real(solver.K*1).eval().clean(1e-11).print("K");
-        // auto [a,b]=solver.fb.interval_active_full();
+        // auto [a,b]=solver.fb.range(Part::active);
         // solver.fb.occupations_ni().as_row().eval().cols(a,b-1).eval().print("ni");
 
         solver.iterate({.max_bond_dim=2048, .epsilon_M=1e-4});

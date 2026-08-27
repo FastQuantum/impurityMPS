@@ -56,14 +56,14 @@ int main()
     itensor::cpu_time t0;
     for(auto i=0; i*dt<L; i++){
         // arma::real(solver.K*1).eval().clean(1e-11).print("K");
-        // auto [a,b]=solver.fb.interval_active_full();
+        // auto [a,b]=solver.fb.range(Part::active);
         // solver.fb.occupations_ni().as_row().eval().cols(a,b-1).eval().print("ni");
 
         solver.iterate({.epsilon_M=0e-8});
         // double n0 = solver.fb.correlator(1,1).real();
         double n0= solver.fb.occupations_ni()(L/2);
         double n1= solver.fb.occupations_ni()(L/2+1);
-        cout<<(i+1)*solver.dt<<" "<<maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<n1<<" "<<solver.fb.p2-solver.fb.p1
+        cout<<(i+1)*solver.dt<<" "<<maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<n1<<" "<<solver.fb.active.b-solver.fb.active.a
              <<" "<<t0.sincemark().wall<<endl;
         t0.mark();
     }

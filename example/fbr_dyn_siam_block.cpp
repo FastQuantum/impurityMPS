@@ -45,7 +45,7 @@ int main()
         double n0= solver.fb.occupations_ni()(L/2);
         double n1= solver.fb.occupations_ni()(L/2+1);
         cout<<(i+1)*solver.dt<<" "<<maxLinkDim(solver.fb.psi)<<" "
-            <<n0<<" "<<n1<<" "<<solver.fb.p2-solver.fb.p1<<endl;
+            <<n0<<" "<<n1<<" "<<solver.fb.active.b-solver.fb.active.a<<endl;
         t0.mark();
     }
     return 0;

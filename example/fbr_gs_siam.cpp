@@ -38,15 +38,15 @@ int main()
     itensor::cpu_time t0;
     double n0 = solver.fb.correlator(0,0);
     double cd=2*solver.fb.correlator(0,1);
-    cout<<0<<" "<<itensor::maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<cd<<" "<<solver.fb.p2-solver.fb.p1<<" "<<solver.energy<<" "<<t0.sincemark().wall<<endl;
+    cout<<0<<" "<<itensor::maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<cd<<" "<<solver.fb.active.b-solver.fb.active.a<<" "<<solver.energy<<" "<<t0.sincemark().wall<<endl;
 
     for(auto i=0;i<100;i++){
-        auto [a,b]=solver.fb.interval_active_full();
+        auto [a,b]=solver.fb.range(Part::active);
         solver.fb.occupations_ni().as_row().eval().cols(a,b-1).eval().print("ni");
         solver.iterate(/*{.max_bond_dim=128}*/);
         double n0 = solver.fb.correlator(0,0);
         double cd=2*solver.fb.correlator(0,1);
-        cout<<i+1<<" "<<itensor::maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<cd<<" "<<solver.fb.p2-solver.fb.p1<<" "<<solver.energy<<" "<<t0.sincemark().wall<<endl;
+        cout<<i+1<<" "<<itensor::maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<cd<<" "<<solver.fb.active.b-solver.fb.active.a<<" "<<solver.energy<<" "<<t0.sincemark().wall<<endl;
         t0.mark();
     }
     return 0;

@@ -29,39 +29,39 @@ Fb_mps<double> make_fb(int L=8, int imp_size=2, int n_part=4) {
 }
 } // namespace
 
-TEST_CASE("interval_impurity and interval_bath", "[fb_mps_spin]") {
+TEST_CASE("range: impurity and bath", "[fb_mps_spin]") {
     auto fb = make_fb();
-    REQUIRE(fb.interval_impurity_full() == std::make_pair(3, 5));
-    REQUIRE(fb.interval_impurity(up)    == std::make_pair(3, 4));
-    REQUIRE(fb.interval_impurity(dw)    == std::make_pair(4, 5));
-    REQUIRE(fb.interval_bath(up)        == std::make_pair(0, 3));
-    REQUIRE(fb.interval_bath(dw)        == std::make_pair(5, 8));
+    REQUIRE(fb.range(Part::impurity) == Range{3, 5});
+    REQUIRE(fb.range(Part::impurity,up)    == Range{3, 4});
+    REQUIRE(fb.range(Part::impurity,dw)    == Range{4, 5});
+    REQUIRE(fb.range(Part::bath,up)        == Range{0, 3});
+    REQUIRE(fb.range(Part::bath,dw)        == Range{5, 8});
 }
 
-TEST_CASE("interval_active and interval_slater: initial window equals impurity", "[fb_mps_spin]") {
+TEST_CASE("range: the initial active window is exactly the impurity", "[fb_mps_spin]") {
     auto fb = make_fb();
-    REQUIRE(fb.interval_active_full() == std::make_pair(3, 5));
-    REQUIRE(fb.interval_active(up)    == std::make_pair(3, 4));
-    REQUIRE(fb.interval_active(dw)    == std::make_pair(4, 5));
-    REQUIRE(fb.interval_slater(up)    == std::make_pair(0, 3));
-    REQUIRE(fb.interval_slater(dw)    == std::make_pair(5, 8));
+    REQUIRE(fb.range(Part::active) == Range{3, 5});
+    REQUIRE(fb.range(Part::active,up)    == Range{3, 4});
+    REQUIRE(fb.range(Part::active,dw)    == Range{4, 5});
+    REQUIRE(fb.range(Part::slater,up)    == Range{0, 3});
+    REQUIRE(fb.range(Part::slater,dw)    == Range{5, 8});
     // rotating region is empty when active window == impurity
-    auto [au, bu] = fb.interval_rotating(up);
-    auto [ad, bd] = fb.interval_rotating(dw);
+    auto [au, bu] = fb.range(Part::rotating,up);
+    auto [ad, bd] = fb.range(Part::rotating,dw);
     REQUIRE(au == bu);
     REQUIRE(ad == bd);
 }
 
-TEST_CASE("interval_active, interval_slater and interval_rotating: extended window", "[fb_mps_spin]") {
+TEST_CASE("range: active, slater and rotating on an extended window", "[fb_mps_spin]") {
     auto fb = make_fb();
-    fb.p1 = 1; fb.p2 = 7;
-    REQUIRE(fb.interval_active_full() == std::make_pair(1, 7));
-    REQUIRE(fb.interval_active(up)    == std::make_pair(1, 4));
-    REQUIRE(fb.interval_active(dw)    == std::make_pair(4, 7));
-    REQUIRE(fb.interval_slater(up)    == std::make_pair(0, 1));
-    REQUIRE(fb.interval_slater(dw)    == std::make_pair(7, 8));
-    REQUIRE(fb.interval_rotating(up)  == std::make_pair(1, 3));
-    REQUIRE(fb.interval_rotating(dw)  == std::make_pair(5, 7));
+    fb.active.a = 1; fb.active.b = 7;
+    REQUIRE(fb.range(Part::active) == Range{1, 7});
+    REQUIRE(fb.range(Part::active,up)    == Range{1, 4});
+    REQUIRE(fb.range(Part::active,dw)    == Range{4, 7});
+    REQUIRE(fb.range(Part::slater,up)    == Range{0, 1});
+    REQUIRE(fb.range(Part::slater,dw)    == Range{7, 8});
+    REQUIRE(fb.range(Part::rotating,up)  == Range{1, 3});
+    REQUIRE(fb.range(Part::rotating,dw)  == Range{5, 7});
 }
 
 // ---- representative planning ----
@@ -209,7 +209,7 @@ TEST_CASE("Fb_mps Slater swap includes the fermionic string", "[fb_mps][orbital_
                                         {"Cutoff",fb.tol,"Normalize",false});
         expected.noPrime();
 
-        OrbitalUpdate<double> update(fb.p1,fb.p2);
+        OrbitalUpdate<double> update(fb.active.a,fb.active.b);
         update.gates.emplace_back(i,j);
         fb.apply(update);
 
@@ -279,8 +279,8 @@ TEST_CASE("Fb_mps_spin_block: representative plans match spin on symmetric K", "
     INFO("After plan_representative(1): norm(Ksp-Kbl)=" << norm(Ksp-Kbl)
          << " norm(rot diff)=" << norm(fb_sp.rot-fb_bl.rot)
          << " norm(cc diff)=" << norm(fb_sp.cc-fb_bl.cc));
-    REQUIRE(fb_bl.p1 == fb_sp.p1);
-    REQUIRE(fb_bl.p2 == fb_sp.p2);
+    REQUIRE(fb_bl.active.a == fb_sp.active.a);
+    REQUIRE(fb_bl.active.b == fb_sp.active.b);
     REQUIRE(norm(Ksp - Kbl) < 1e-10);
     REQUIRE(norm(fb_sp.rot - fb_bl.rot) < 1e-10);
     REQUIRE(norm(fb_sp.cc  - fb_bl.cc)  < 1e-10);
@@ -317,16 +317,16 @@ TEST_CASE("Fb_mps_spin_block: natural-orbital plans match spin on symmetric K", 
     auto fb_bl = Fb_mps<double>::from_slater(mat(L, L, fill::eye), linspace(-1.0,1.0,L), 6, imp_size, spin_block);
     fb_sp.cc = cc_template;
     fb_bl.cc = cc_template;
-    fb_sp.p1 = 2;  fb_sp.p2 = L-2;
-    fb_bl.p1 = 2;  fb_bl.p2 = L-2;
+    fb_sp.active.a = 2;  fb_sp.active.b = L-2;
+    fb_bl.active.a = 2;  fb_bl.active.b = L-2;
 
     fb_sp.apply(fb_sp.plan_natural_orbitals(fb_sp.cc));
     fb_bl.apply(fb_bl.plan_natural_orbitals(fb_bl.cc));
     INFO("plan_natural_orbitals: norm(rot diff)=" << norm(fb_sp.rot-fb_bl.rot)
          << " norm(cc diff)=" << norm(fb_sp.cc-fb_bl.cc));
 
-    REQUIRE(fb_bl.p1 == fb_sp.p1);
-    REQUIRE(fb_bl.p2 == fb_sp.p2);
+    REQUIRE(fb_bl.active.a == fb_sp.active.a);
+    REQUIRE(fb_bl.active.b == fb_sp.active.b);
     REQUIRE(norm(fb_sp.rot - fb_bl.rot) < 1e-10);
     REQUIRE(norm(fb_sp.cc  - fb_bl.cc)  < 1e-10);
 }
@@ -519,7 +519,7 @@ TEST_CASE("Fb_mps_spin apply_local_op: N/Cdag and active-window guard", "[fb_mps
     vec ek = {2, 1, -3, -2, 5, -1, 0.5, 3};
     auto fb = Fb_mps<double>::from_slater(mat(L, L, fill::eye), ek, n_part, imp_size, spin_symmetric);
 
-    REQUIRE(fb.interval_active_full() == std::make_pair(3, 5));
+    REQUIRE(fb.range(Part::active) == Range{3, 5});
     REQUIRE(fb.occupations_ni()(3) == Approx(1.0));
     REQUIRE(fb.occupations_ni()(4) == Approx(0.0).margin(1e-12));
 

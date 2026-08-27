@@ -35,8 +35,8 @@ inline int coupling_rank(Fb_mps<cmpx> const& fb, arma::mat const& Kmat)
 {
     int rank=0;
     for (Spin s : {up,dw}) {
-        auto [a_imp,b_imp]=fb.interval_impurity(s);
-        auto [a_sla,b_sla]=fb.interval_slater(s);
+        auto [a_imp,b_imp]=fb.range(Part::impurity,s);
+        auto [a_sla,b_sla]=fb.range(Part::slater,s);
         if (a_imp>=b_imp || a_sla>=b_sla) continue;
         rank=std::max(rank,sv_rank(Kmat.submat(a_imp,a_sla,b_imp-1,b_sla-1),fb.tol));
     }
@@ -78,7 +78,7 @@ struct DynCommon {
 
         // The state layout must put its impurity where the model does: this is
         // what tells a centered layout apart from a leading one.
-        auto [a_imp,b_imp]=first.interval_impurity_full();
+        auto [a_imp,b_imp]=first.range(Part::impurity);
         if (imp_pos.empty() || b_imp-a_imp!=param.n_imp()
             || (int)imp_pos.min()!=a_imp || (int)imp_pos.max()!=b_imp-1)
             throw std::invalid_argument("Fbr_dyn: the state layout does not match the impurity positions of the model");
@@ -200,7 +200,7 @@ struct DynCommon {
 
         // Sites beyond the active window are Slater orbitals with no
         // Hamiltonian support in the interaction picture: skip them.
-        auto [a,b]=fb.interval_active_full();
+        auto [a,b]=fb.range(Part::active);
         double energy = itensor::tdvp(fb.psi,mpo, -imag_1*dt, sweeps,
                                       {"MaxSite",b,
                                        "Truncate", true,
@@ -300,7 +300,7 @@ struct Fbr_dyn : detail::DynCommon {
 
     void do_tdvp(TdvpParam args={})
     {
-        auto [a,b]=fb.interval_active_full();
+        auto [a,b]=fb.range(Part::active);
         auto mpo=Common::full_hamiltonian(fb,a,b);
         energy=this->evolve_one(fb,mpo,args);
     }
@@ -360,7 +360,7 @@ struct Fbr_dyn_shared : detail::DynCommon {
 
     void do_tdvp(TdvpParam args={})
     {
-        auto [a,b]=states.front().interval_active_full();
+        auto [a,b]=states.front().range(Part::active);
         auto mpo=Common::full_hamiltonian(states.front(),a,b);
         for (std::size_t n=0; n<states.size(); ++n)
             energies[n]=this->evolve_one(states[n],mpo,args);
@@ -390,10 +390,10 @@ private:
         if (first.sites.length()!=L)
             throw std::invalid_argument("Fbr_dyn_shared: state length does not match the model");
 
-        auto [a,b]=first.interval_active_full();
+        Range window=first.range(Part::active);
         for (std::size_t n=1; n<states.size(); ++n) {
             auto const& state=states[n];
-            if (state.sites.length()!=L || state.interval_active_full()!=std::pair{a,b}
+            if (state.sites.length()!=L || state.range(Part::active)!=window
                 || state.imp_size!=first.imp_size)
                 throw std::invalid_argument("Fbr_dyn_shared: states do not share the same orbital layout");
             if (arma::norm(state.rot-first.rot,"fro")>10*first.tol)
@@ -405,14 +405,14 @@ private:
 
         double tolerance=slater_tol();
         for (int i=0; i<L; ++i) {
-            if (i>=a && i<b) continue;
+            if (window.contains(i)) continue;
             double occupation=std::real(first.cc(i,i))>0.5 ? 1.0 : 0.0;
             for (auto const& state : states)
                 if (std::abs(state.cc(i,i)-occupation)>tolerance)
                     throw std::invalid_argument("Fbr_dyn_shared: states do not share the same Slater state");
             for (std::size_t n=1; n<states.size(); ++n)
                 for (int j=0; j<L; ++j) {
-                    if (j>=a && j<b) continue;
+                    if (window.contains(j)) continue;
                     if (std::abs(states[n].cc(i,j)-first.cc(i,j))>tolerance)
                         throw std::invalid_argument("Fbr_dyn_shared: states do not share the same Slater correlator");
                 }

@@ -53,8 +53,8 @@ All library types live in `namespace fbr`. Include as `#include "fbr/<header>.h"
 
 | Header | Purpose |
 |---|---|
-| `fb_mps.h` | `Fb_mps<T>` — few-body MPS state with rotation matrix `rot`, correlation matrix `cc` and active window `[p1,p2)`. One class for the three orbital layouts, chosen by the `Layout` of the model (`ImpurityParam::layout`), or passed directly to `from_slater`: `leading` (spinless), `spin_symmetric`, `spin_block` |
-| `layout.h` | `Spin` and `Layout` — the chain geometry vocabulary shared by the model and the state |
+| `fb_mps.h` | `Fb_mps<T>` — few-body MPS state with rotation matrix `rot`, correlation matrix `cc` and active window `active`. One class for the three orbital layouts, chosen by the `Layout` of the model (`ImpurityParam::layout`), or passed directly to `from_slater`: `leading` (spinless), `spin_symmetric`, `spin_block` |
+| `layout.h` | `Spin`, `Layout`, `Part` and `Range` — the chain geometry vocabulary shared by the model and the state. `fb.range(Part::active)` or `fb.range(Part::slater,dw)` names any part of the chain |
 | `impurity_param.h` | `ImpurityParam` — kinetic matrix `Kmat`, interaction `Umat`, impurity positions and the chain `layout`; `to_star()` transforms to star geometry (leading or centered, per `layout`), and the solvers `validate()` whatever they are handed |
 | `initial_state.h` | `slater<T>(model,ek)` — the Slater state a model starts from, in its own frame, filling and layout (`ek` defaults to `Kmat.diag()`) |
 | `fbr_gs.h` | `Fbr_gs` — ground state solver: DMRG loop + orbital rotation, for all three layouts |

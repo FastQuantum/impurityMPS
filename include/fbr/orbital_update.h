@@ -1,6 +1,7 @@
 #ifndef FBR_ORBITAL_UPDATE_H
 #define FBR_ORBITAL_UPDATE_H
 
+#include "layout.h"
 #include "givens_rotation.h"
 
 #include <complex>
@@ -104,7 +105,7 @@ private:
 template<class T>
 struct OrbitalUpdate {
     std::vector<OrbitalGate<T>> gates;
-    std::pair<int,int> active;
+    Range active;
 
     OrbitalUpdate(int a,int b) : active{a,b} {}
 
