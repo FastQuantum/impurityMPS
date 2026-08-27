@@ -1,4 +1,4 @@
-#include "fbr/fbr_gs_spin.h"
+#include "fbr/fbr_gs.h"
 #include <iostream>
 #include <iomanip>
 
@@ -31,7 +31,7 @@ int main()
     auto fb=slater<double>(model, ek);
     fb.tol=1e-10;
 
-    auto solver=Fbr_gs_spin(model,fb);
+    auto solver=Fbr_gs(model,fb);
 
     cout<<"iteration m n_active energy time\n"<<setprecision(12);
     itensor::cpu_time t0;

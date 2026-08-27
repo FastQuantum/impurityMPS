@@ -8,6 +8,10 @@
 
 namespace fbr {
 
+/// Ground state of an impurity model: a DMRG sweep on the active window,
+/// then the orbital rotations that move the window's edges. One solver for the
+/// three layouts -- the window [a,b) is [0,n_active) for `leading`, and
+/// ensure_symmetry only does anything under `spin_symmetric`.
 struct Fbr_gs {
     ImpurityParam param;
 
@@ -33,38 +37,44 @@ struct Fbr_gs {
     void apply_plan(OrbitalUpdate<double> const& update)
     {
         update.apply_as_basis(K);
+        fb.ensure_symmetry(K);
         fb.apply(update);
     }
 
     void do_dmrg(DmrgParam args={})
     {
-        int nA=fb.n_active();
-        auto mpo=full_hamiltonian(K.submat(0,0,nA-1,nA-1));
+        auto [a,b]=fb.interval_active_full();
+        auto mpo=full_hamiltonian(a,b);
         auto sweeps = itensor::Sweeps(1);
         sweeps.maxdim() = args.max_bond_dim;
         sweeps.cutoff() = fb.tol;
         sweeps.niter() = args.n_iter_diag;
         sweeps.noise() = args.noise;
-        energy=itensor::dmrg(fb.psi,mpo,sweeps, {"MaxSite",nA,"Quiet", true, "Silent", true});
+        fb.psi.position(a+1);
+        energy=itensor::dmrg(fb.psi,mpo,sweeps, {"Minb",a+1,"MaxSite",b,"Quiet", true, "Silent", true});
         energy += fb.slater_energy(K);
         fb.update_cc();
     }
 
-    itensor::MPO full_hamiltonian(arma::mat const& kin) const
+    /// the MPO of the interacting Hamiltonian: the full Umat plus the kinetic
+    /// block [a,b) of the current K
+    itensor::MPO full_hamiltonian(int a,int b) const
     {
         itensor::AutoMPO h(fb.sites);
-        int L=param.length();
-        for (int i=0; i<L; i++)
-            for (int j=0; j<L; j++)
-                if (std::abs(param.Umat(i,j))>1e-15)
-                    h += param.Umat(i,j),"N",i+1,"N",j+1;
-        for (int i=0; i<(int)kin.n_rows; i++)
-            for (int j=0; j<(int)kin.n_cols; j++)
-                if (std::abs(kin(i,j))>fb.tol)
-                    h += kin(i,j),"Cdag",i+1,"C",j+1;
+        int L = param.length();
+        for (int i = 0; i < L; i++)
+            for (int j = 0; j < L; j++)
+                if (std::abs(param.Umat(i,j)) > 1e-15)
+                    h += param.Umat(i,j), "N", i+1, "N", j+1;
+
+        for(auto i=a; i<b; i++)
+            for(auto j=a; j<b; j++)
+                if (std::abs(K(i,j))>fb.tol)
+                    h += K(i,j),"Cdag",i+1,"C",j+1;
         return itensor::toMPO(h);
     }
 };
+
 
 } // namespace fbr
 

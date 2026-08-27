@@ -131,13 +131,13 @@ For models with spin you describe the impurities by listing them from the outerm
 The layout is part of the model: `ImpurityParam::layout` selects the chain geometry `to_star()` produces, and `slater<T>(model)` builds a matching initial state. The spinless case is `leading`, the default.
 
 ```c++
-#include "fbr/fbr_gs_spin.h"
+#include "fbr/fbr_gs.h"
 // SIAM: U between the up impurity (site 0) and dw impurity (site 1)
 arma::mat Umat(L,L,arma::fill::zeros);  Umat(0,1)=U;
 auto model = Impurity {{.Kmat=K, .Umat=Umat, .imp_pos={0,1}, .layout=spin_symmetric}};
 
 auto fb=slater<double>(model, ek);   // ek defaults to param.Kmat.diag()
-auto solver=Fbr_gs_spin(model,fb);
+auto solver=Fbr_gs(model,fb);
 for(auto i=0;i<100;i++) solver.iterate();
 double n0 = solver.fb.correlator(0,0);     // impurity occupation
 ```
