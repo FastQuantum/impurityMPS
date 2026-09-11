@@ -202,9 +202,14 @@ TEST_CASE("Fb_mps Slater swap includes the fermionic string", "[fb_mps][orbital_
         double ni=std::real(fb.cc(i,i));
         double nj=std::real(fb.cc(j,j));
 
+        // The relabeling swap is the SYMMETRIC hopping c†_i c_j + c†_j c_i (with
+        // the Jordan-Wigner string): it matches the sign-free frame swap and so
+        // preserves the many-body global phase. The anti-symmetric combination
+        // would flip that phase -- invisible to occupations but fatal to the
+        // cross-state Green function (see swap_slater_orbitals, green_overlap.h).
         itensor::AutoMPO ampo(fb.sites);
         ampo+=1.0,"Cdag",i+1,"C",j+1;
-        ampo+=-1.0,"Cdag",j+1,"C",i+1;
+        ampo+=1.0,"Cdag",j+1,"C",i+1;
         auto expected=itensor::applyMPO(itensor::toMPO(ampo),fb.psi,
                                         {"Cutoff",fb.tol,"Normalize",false});
         expected.noPrime();

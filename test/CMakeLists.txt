@@ -5,6 +5,7 @@ add_executable(${PROJECT_NAME}_test
     test_graph.cpp
     test_fb_mps.cpp
     test_impurity_param.cpp
+    test_green_overlap.cpp
 )
 
 target_include_directories(${PROJECT_NAME}_test INTERFACE Catch2::Catch2)
@@ -18,7 +19,7 @@ endif()
 # Each FBR dynamics variant needs its own executable: the TDVP headers define
 # non-inline functions, so two TUs including a dyn header in one link target
 # would produce multiple-definition errors.
-foreach(variant fbr block ns green)
+foreach(variant fbr block ns green green_sep)
     add_executable(${PROJECT_NAME}_test_${variant}
         test_main.cpp
         test_ref_${variant}.cpp
@@ -39,3 +40,4 @@ catch_discover_tests(${PROJECT_NAME}_test_fbr)
 catch_discover_tests(${PROJECT_NAME}_test_block)
 catch_discover_tests(${PROJECT_NAME}_test_ns)
 catch_discover_tests(${PROJECT_NAME}_test_green)
+catch_discover_tests(${PROJECT_NAME}_test_green_sep)

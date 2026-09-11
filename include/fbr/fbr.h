@@ -22,6 +22,8 @@
 ///   Fbr_gs          ground state, iterate(DmrgParam)
 ///   Fbr_dyn         real-time evolution, iterate(TdvpParam)
 ///   Fbr_dyn_shared  several states evolving in one common orbital basis
+///   overlap / c_element   <A|B> and <A|c_i|B> between states in DIFFERENT
+///                   frames (Green functions from separately evolved states)
 ///
 /// and on any solver, energy and correlator() / correlator(i,j) /
 /// correlator_row(i) / correlator_col(j).
@@ -41,5 +43,6 @@
 #include "initial_state.h"
 #include "fbr_gs.h"
 #include "fbr_dyn.h"
+#include "green_overlap.h"
 
 #endif // FBR_H
