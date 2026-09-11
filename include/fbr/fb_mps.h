@@ -470,8 +470,17 @@ private:
         return plan;
     }
 
-    /// Swap two sites inside the Slater part via a hopping MPO c†_i c_j - c†_j c_i.
+    /// Relabel two sites of the Slater part via the hopping MPO c†_i c_j + c†_j c_i.
     /// AutoMPO supplies the Jordan-Wigner string between non-adjacent orbitals.
+    ///
+    /// The two orbitals have definite, opposite occupation (asserted below), so on
+    /// that single-particle subspace this hopping is exactly the fermionic
+    /// relabeling swap that matches the sign-free rot.swap_cols / cc row-col swap
+    /// of the frame bookkeeping. The anti-symmetric combination c†_i c_j - c†_j c_i
+    /// would move the particle with an extra minus in one direction: harmless to
+    /// any single-state observable (a global phase), but it flips the many-body
+    /// phase and so corrupts cross-state matrix elements such as the Green function
+    /// <A|c_i|B> when A and B are evolved in separate frames (green_overlap.h).
     void swap_slater_orbitals(int i,int j)
     {
         if (i==j) return;
@@ -484,7 +493,7 @@ private:
 
         itensor::AutoMPO ampo(sites);
         ampo+=1.0,"Cdag",i+1,"C",j+1;
-        ampo+=-1.0,"Cdag",j+1,"C",i+1;
+        ampo+=1.0,"Cdag",j+1,"C",i+1;
         auto H=itensor::toMPO(ampo);
         psi=itensor::applyMPO(H,psi,{"Cutoff",tol,"Normalize",false});
         psi.noPrime();
