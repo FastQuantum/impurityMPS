@@ -24,6 +24,14 @@ cx_mat imp_frame(int L, int seed)   // identity on the impurity site 0
     return F;
 }
 
+// Identity except for a random unitary mixing the orbitals listed in `S`.
+cx_mat mix(int L, uvec const& S, int seed)
+{
+    cx_mat W(L,L,fill::eye);
+    W.submat(S,S) = random_unitary((int)S.n_elem, seed);
+    return W;
+}
+
 // A product (Slater) state on the SAME ITensor sites as `proto`, in frame `rot`,
 // occupying the columns listed in `occ`.
 Fb_mps<cmpx> slater_like(Fb_mps<cmpx> const& proto, cx_mat const& rot, uvec const& occ)
@@ -111,6 +119,68 @@ TEST_CASE("c_element in different frames == common-frame contraction", "[green_o
         auto Aw=A0; align_to_frame(Aw, imp_frame(L,71+trial));
         auto Bw=B0; align_to_frame(Bw, imp_frame(L,91+trial));
         REQUIRE(std::abs(c_element(Aw,Bw,0) - ref) < 1e-9);
+    }
+}
+
+// The band path. Two frames R and R*W that differ on two blocks, {2,3} next to
+// the active window and {8,9} deep in the Slater part, with agreeing columns 4..7
+// between them -- what the representative rotations of two separate runs leave
+// behind. The band must be the hull [2,10): stopping at the first agreeing column
+// leaves {8,9} out, and the band block of A.rot^dag B.rot is then not unitary.
+TEST_CASE("the band covers a mismatch with a gap: overlap", "[green_overlap]")
+{
+    const int L=12;
+    auto proto = proto_state(L);
+    for (int trial=0; trial<4; ++trial) {
+        cx_mat R = imp_frame(L, 7+trial);
+        cx_mat RW = R * mix(L, uvec{2,3,8,9}, 27+trial);
+        uvec occA{1,2,8}, occB{1,3,9};
+        auto A = slater_like(proto, R,  occA);
+        auto B = slater_like(proto, RW, occB);
+        A.active = B.active = {0,4};                // small windows, as in a run
+        cmpx ref = det_overlap(R, occA, RW, occB);
+
+        CHECK(mismatch_band(A,B,1e-10) == Range{2,10});
+        REQUIRE(std::abs(overlap(A,B) - ref) < 1e-10);
+        REQUIRE(std::abs(overlap(A,B,-1,true) - ref) < 1e-10);
+
+        // a band that is not closed falls back to the whole chain
+        auto Bc = B;
+        align_to_frame(Bc, A.rot, -1, Range{0,4});
+        REQUIRE(norm(Bc.rot - A.rot, "inf") < 1e-10);
+        REQUIRE(std::abs(itensor::innerC(A.psi, Bc.psi) - ref) < 1e-10);
+
+        // equal frames: an empty band, nothing to align
+        REQUIRE(mismatch_band(A,A,1e-10).empty());
+        REQUIRE(std::abs(overlap(A,A) - cmpx(1,0)) < 1e-10);
+    }
+}
+
+TEST_CASE("the band covers a mismatch with a gap: c_element", "[green_overlap]")
+{
+    // As above, with entangled MPS: A comes from a Slater state in R*U, B from one
+    // in an unrelated frame, each then rotated into its own working frame.
+    const int L=12;
+    auto proto = proto_state(L);
+    for (int trial=0; trial<4; ++trial) {
+        cx_mat R = imp_frame(L, 7+trial);
+        cx_mat RW = R * mix(L, uvec{2,3,8,9}, 27+trial);
+        auto A = slater_like(proto, R*mix(L, uvec{1,2,3}, 47+trial), uvec{1,2,8});
+        auto B = slater_like(proto, imp_frame(L, 67+trial), uvec{0,2,3,9});
+        align_to_frame(A, R);
+        align_to_frame(B, RW);
+        A.active = B.active = {0,4};
+        CHECK(mismatch_band(A,B,1e-10) == Range{2,10});
+
+        cx_mat C = imp_frame(L, 87+trial);
+        auto Ac=A; align_to_frame(Ac,C);
+        auto Bc=B; align_to_frame(Bc,C);
+        auto Ai=Ac; Ai.apply_local_op("Cdag",0);
+        cmpx ref = itensor::innerC(Ai.psi, Bc.psi);
+        REQUIRE(std::abs(ref) > 1e-3);              // a non-trivial element
+
+        REQUIRE(std::abs(c_element(A,B,0) - ref) < 1e-9);
+        REQUIRE(std::abs(c_element(A,B,0,-1,true) - ref) < 1e-9);
     }
 }
 
