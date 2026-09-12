@@ -66,41 +66,61 @@ inline void apply_site_phase(itensor::MPS& psi, itensor::Fermion const& sites,
 
 } // namespace overlap_detail
 
+/// The contiguous band of orbitals [a,b) where two frames differ. Outside it the
+/// two states share the frame column for column -- the deep bath is never rotated,
+/// so the states are identical there and only the band needs aligning. Found by
+/// growing out from the union active window while the boundary columns still
+/// differ, which costs O(band * L), not O(L^2). It assumes the mismatch is
+/// contiguous with the active window: true for the leading and centered layouts,
+/// whose window sits in one block and whose demoted orbitals pile up at its edges.
+template<class T>
+Range mismatch_band(Fb_mps<T> const& A, Fb_mps<T> const& B, double tol)
+{
+    int L = A.length();
+    int lo = std::min(A.active.a, B.active.a);
+    int hi = std::max(A.active.b, B.active.b);
+    auto differ = [&](int k){ return arma::norm(A.rot.col(k) - B.rot.col(k)) > tol; };
+    while (lo > 0 && differ(lo - 1)) --lo;
+    while (hi < L && differ(hi))     ++hi;
+    return {lo, hi};
+}
+
 /// Rotate `fb` into the orbital frame `target` (an L x L unitary in the same
 /// original basis as fb.rot), leaving the physical state unchanged. After the
 /// call fb.rot == target (to `cutoff`), fb.cc and fb.psi are transformed to
 /// match, so the MPS may be contracted against another state written in `target`.
 ///
-/// `cutoff` sets the accuracy/cost trade-off of the circuit and is threaded to
-/// three places: the reduction drops any Givens whose entry is below it (so the
-/// two frames are treated as already aligned there), gateTEvol truncates the MPS
-/// to it, and a residual column phase closer to 1 than it is left alone. Passing
-/// cutoff<0 uses fb.tol (an exact frame change). For a Green-function overlap the
-/// rotated MPS is a throwaway -- only the scalar <A|c_i|B> is kept -- so a loose
-/// cutoff (1e-4) keeps the bond dimension small at no cost to the measurement.
+/// `band` restricts the work to orbitals [band.a, band.b): the caller guarantees
+/// fb.rot already equals target outside it (e.g. via mismatch_band), so the
+/// relative rotation, its circuit and the phase clean-up all live in the band and
+/// the cost is O(band^2 * L) instead of the O(L^3) of a full-frame alignment.
+/// band = {-1,-1} (the default) means the whole chain.
 ///
-/// The tensor work scales with the region where `fb.rot` and `target` differ
-/// (above `cutoff`) -- the active windows plus whatever Slater orbitals the two
-/// frames disagree on -- not with L.
+/// `cutoff` sets the accuracy/cost trade-off: the reduction drops any Givens whose
+/// entry is below it, gateTEvol truncates the MPS to it, and a residual phase
+/// closer to 1 than it is left alone. cutoff<0 uses fb.tol. For a Green-function
+/// overlap the rotated MPS is a throwaway, so a loose cutoff (1e-3) is plenty.
 template<class T>
-void align_to_frame(Fb_mps<T>& fb, arma::Mat<T> const& target, double cutoff=-1)
+void align_to_frame(Fb_mps<T>& fb, arma::Mat<T> const& target, double cutoff=-1,
+                    Range band={-1,-1})
 {
     if (target.n_rows!=(arma::uword)fb.length())
         throw std::invalid_argument("align_to_frame: target size mismatch");
     if (cutoff<0) cutoff=fb.tol;
+    int a = band.a<0 ? 0 : band.a;
+    int b = band.b<0 ? fb.length() : band.b;
 
-    // Frame multiplier that carries fb.rot onto target: fb.rot * G = target.
-    arma::Mat<T> G = fb.rot.t() * target;
+    // Relative rotation on the band only: fb.rot[:,a:b] * G = target[:,a:b]. The
+    // band is closed under the mismatch (identical frames outside), so G is the
+    // full band x band unitary and no weight leaks out.
+    arma::Mat<T> G = fb.rot.cols(a,b-1).t() * target.cols(a,b-1);
 
     // givens_dagger(givens_align_left(G)) is a nearest-neighbour circuit whose
-    // matrot equals G up to a diagonal column phase D (the residual phase of the
-    // complex Givens reduction). Applying it as a frame change gives
-    // fb.rot -> fb.rot*G*D = target*D; the leftover D is removed below by
-    // single-site phases. The cutoff-guarded reduction only emits gates where the
-    // two frames differ, so the MPS work scales with n_active, not L.
+    // matrot equals G up to a diagonal column phase D; applying it as a frame
+    // change gives fb.rot[:,a:b] -> target[:,a:b]*D, and D is cleaned up below.
     auto givens = givens_dagger(overlap_detail::givens_align_left(G, cutoff));
     OrbitalUpdate<T> update(fb.active.a, fb.active.b);
-    update.append(arma::regspace<arma::uvec>(0, fb.length()-1), givens);
+    update.append(arma::regspace<arma::uvec>(a, b-1), givens);
 
     std::vector<GivensRot<T>> circuit;
     for (auto const& gate : update.gates) {
@@ -114,12 +134,8 @@ void align_to_frame(Fb_mps<T>& fb, arma::Mat<T> const& target, double cutoff=-1)
         itensor::gateTEvol(gates,1,1,fb.psi,
                            {"Cutoff",cutoff,"Quiet",true,"Normalize",false,"ShowPercent",false});
 
-    // Remove the residual column phase D = diag(target^dag fb.rot). The current
-    // frame column k is target.col(k)*D_kk, i.e. the working mode d^F_k = D_kk d^T_k
-    // of the phase-free target orbital. A basis state's amplitude in the target
-    // orbitals is its amplitude here times prod_k D_kk^{n_k}, so the |1> amplitude
-    // of site k is multiplied by D_kk; the frame and correlator relabel by conj.
-    for (int k=0; k<fb.length(); ++k) {
+    // Remove the residual column phase D = diag(target^dag fb.rot) on the band.
+    for (int k=a; k<b; ++k) {
         T d = arma::cdot(target.col(k), fb.rot.col(k));   // (target^dag fb.rot)_kk
         if (std::abs(d-T(1)) > cutoff) {
             d /= std::abs(d);                              // unit phase
@@ -133,13 +149,15 @@ void align_to_frame(Fb_mps<T>& fb, arma::Mat<T> const& target, double cutoff=-1)
 }
 
 /// <A|B>, with A and B in possibly different frames (shared sites, star frame and
-/// time step). B is rotated into A's frame and the two MPS are contracted; see
-/// align_to_frame for `cutoff`.
+/// time step). B is rotated into A's frame -- only within the band where the two
+/// frames differ -- and the two MPS are contracted; see align_to_frame for
+/// `cutoff`. Pass full=true to align the whole chain (the reference path).
 template<class T>
-cmpx overlap(Fb_mps<T> const& A, Fb_mps<T> const& B, double cutoff=-1)
+cmpx overlap(Fb_mps<T> const& A, Fb_mps<T> const& B, double cutoff=-1, bool full=false)
 {
     auto Bc = B;
-    align_to_frame(Bc, A.rot, cutoff);
+    double tol = cutoff<0 ? A.tol : cutoff;
+    align_to_frame(Bc, A.rot, cutoff, full ? Range{-1,-1} : mismatch_band(A, B, tol));
     return itensor::innerC(A.psi, Bc.psi);
 }
 
@@ -148,15 +166,16 @@ cmpx overlap(Fb_mps<T> const& A, Fb_mps<T> const& B, double cutoff=-1)
 ///     G(i,j,t) = -i <psi0| c_i(t) c_j^dag |psi0> = -i <A(t)| c_i |B(t)>,
 /// A=psi0, B=c_j^dag psi0, evolved in separate frames.
 ///
-/// B is rotated into A's frame by a Givens circuit that is contracted against the
-/// MPS and then discarded -- the state is never reused -- so `cutoff` may be
-/// loose (1e-4 is plenty for a Green function) to keep the bond dimension small.
-/// cutoff<0 uses A.tol (an exact contraction).
+/// B is rotated into A's frame by a Givens circuit -- restricted to the band where
+/// the two frames actually differ (see mismatch_band) -- then contracted and
+/// discarded. `cutoff` may be loose (1e-3 is plenty). cutoff<0 uses A.tol; full=true
+/// aligns the whole chain (the O(L^3) reference path, for validation).
 template<class T>
-cmpx c_element(Fb_mps<T> const& A, Fb_mps<T> const& B, int i, double cutoff=-1)
+cmpx c_element(Fb_mps<T> const& A, Fb_mps<T> const& B, int i, double cutoff=-1, bool full=false)
 {
     auto Bc = B;
-    align_to_frame(Bc, A.rot, cutoff);  // B now in A's frame
+    double tol = cutoff<0 ? A.tol : cutoff;
+    align_to_frame(Bc, A.rot, cutoff, full ? Range{-1,-1} : mismatch_band(A, B, tol));
     auto Ai = A;
     Ai.apply_local_op("Cdag", i);       // |c_i^dag A>
     return itensor::innerC(Ai.psi, Bc.psi);

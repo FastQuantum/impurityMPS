@@ -5,6 +5,9 @@ list(APPEND ref_SRC
     fbr_green_irlm_L1000.cpp
     fbr_green_gs.cpp
     fbr_green_sep_irlm.cpp
+    fbr_green_shared_irlm.cpp
+    bench_green_cost.cpp
+    bench_green_cost_siam.cpp
     star_dyn_siam.cpp
     star_dyn_siam_center.cpp
     star_dyn_siam_spin.cpp
