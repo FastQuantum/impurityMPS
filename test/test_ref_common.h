@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <fstream>
 #include <map>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -36,6 +37,25 @@ inline fbr::ImpurityParam makeIrlmModel(int L, double U, double V)
     mat Umat(L, L, fill::zeros);
     Umat(0, 1) = U;
     fbr::ImpurityParam model{.Kmat = K, .Umat = Umat, .imp_pos = {0, 1}};
+    model.to_star();
+    return model;
+}
+
+// The spinful SIAM the Green function references use (test/ref/chain_green_siam.cpp
+// in the chain geometry): two interleaved spin chains (stride 2) of hopping 0.5,
+// the up and down impurity orbitals on sites 0 and 1, hybridization V to sites 2
+// and 3, e_imp = -U/2 and U between the two impurity orbitals; spin-symmetric
+// layout, and the non-rotating cluster is just the two impurity orbitals.
+inline fbr::ImpurityParam makeSiamModel(int L, double U, double V)
+{
+    mat K(L, L, fill::zeros);
+    for (int i = 0; i < L - 2; i++) K(i, i + 2) = K(i + 2, i) = 0.5;
+    K(0, 0) = K(1, 1) = -U / 2;
+    K(0, 2) = K(2, 0) = K(1, 3) = K(3, 1) = V;
+    mat Umat(L, L, fill::zeros);
+    Umat(0, 1) = U;
+    fbr::ImpurityParam model{.Kmat = K, .Umat = Umat, .imp_pos = {0, 1},
+                             .layout = fbr::spin_symmetric};
     model.to_star();
     return model;
 }
@@ -199,6 +219,28 @@ inline std::vector<GreenSample> loadGreenReference(std::string const &name)
         r.G01 = cmpx(re1, im1);
         rows.push_back(r);
     }
+    return rows;
+}
+
+// Parse test/ref/output/chain_green_siam_L<L>_U<U>.dat: '#' comment lines, then
+// one row per time step, "t bond_dim wall_s ReG00 ImG00 n0 ReC0n ImC0n". The SIAM
+// has one impurity Green function (spin up, site 0), so G01 is left at zero.
+inline std::vector<GreenSample> loadSiamGreenReference(std::string const &name)
+{
+    std::ifstream in(findRef(name));
+    std::vector<GreenSample> rows;
+    std::string line;
+    while (std::getline(in, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        std::istringstream row(line);
+        GreenSample r{};
+        double wall = 0, re0 = 0, im0 = 0;
+        row >> r.t >> r.m >> wall >> re0 >> im0;
+        if (!row) throw std::runtime_error("bad row in SIAM Green reference " + name);
+        r.G00 = cmpx(re0, im0);
+        rows.push_back(r);
+    }
+    if (rows.size() < 2) throw std::runtime_error("empty SIAM Green reference " + name);
     return rows;
 }
 

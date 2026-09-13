@@ -41,6 +41,7 @@
 //   defaults: L=100, tmax=L/2, U=0.1, dt=0.1
 
 #include "fbr/fbr.h"
+#include "../test/test_ref_common.h"   // makeSiamModel, shared with the tests
 
 #include <fstream>
 #include <iomanip>
@@ -52,30 +53,6 @@ using namespace arma;
 using namespace fbr;
 
 namespace {
-
-/// The SIAM in the repo's standard star-ready form: two interleaved spin chains
-/// (stride 2), nearest-neighbour bath hopping 0.5, impurity-bath hybridization V,
-/// Hubbard U between the up (site 0) and down (site 1) impurity orbitals. The
-/// non-rotating impurity cluster is just the two physical impurity orbitals, so
-/// n_imp=2 and imp_pos = {imp_up, imp_dw} = {0, 1} (no buffers -- the fastest,
-/// smallest window). Sites 2 and 3 are the impurity's first bath neighbours.
-ImpurityParam siam_model(int L, double U, double V)
-{
-    mat K(L, L, fill::zeros);
-    for (int i = 0; i < L - 2; i++)
-        K(i, i + 2) = K(i + 2, i) = 0.5;
-    K(0, 0) = -U / 2;
-    K(1, 1) = -U / 2;
-    K(0, 2) = K(2, 0) = K(1, 3) = K(3, 1) = V;
-
-    mat Umat(L, L, fill::zeros);
-    Umat(0, 1) = U;
-
-    auto model = ImpurityParam{.Kmat = K, .Umat = Umat,
-                               .imp_pos = {0, 1}, .layout = spin_symmetric};
-    model.to_star();
-    return model;
-}
 
 /// c_j^dag|psi0>, normalized, together with the norm it had before normalizing.
 /// The two states of one Fbr_dyn_shared share their Slater determinant, so the
@@ -109,7 +86,7 @@ int main(int argc, char** argv)
     double dt   = argc > 4 ? std::stod(argv[4]) : 0.1;
     double V    = 0.1;
 
-    auto model = siam_model(L, U, V);
+    auto model = fbrtest::makeSiamModel(L, U, V);
 
     // ---- ground state (spin-symmetric) -------------------------------------
     auto gs = slater<double>(model);
