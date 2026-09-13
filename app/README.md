@@ -44,6 +44,8 @@ Findings so far:
   (bond 38, 127 s) with the excitation as master vs 23 (bond 26, 22 s) with the average
   of the two correlation matrices. For the SIAM (U=0.1) both fill the chain (n_active=100)
   by t≈3. The library keeps master-slave because the basis is then simple to reason about.
+  In the committed `fbr_green_shared_irlm` runs (master-slave, to t=20) the IRLM window fills
+  the whole chain (n_active=100) by t=5 (U=0.1) and t=10 (U=0.2).
 - **Provenance of the SIAM data (going by file dates):** the U=0.025 `fbr_green_siam` data
   was produced with the master-slave `Fbr_dyn_shared` that the library now uses (basis from
   the first state, the excitation). The U=0.1 data predates it and used the average of the
