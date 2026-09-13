@@ -316,10 +316,15 @@ struct Fbr_dyn : detail::DynCommon {
 
 /// Few-body real-time evolution of several states in one common orbital basis.
 ///
-/// The orbital transformations are found once from the collection of states
-/// (natural orbitals come from their averaged correlation matrix) and applied
-/// identically to every MPS. Each state is nevertheless evolved by its own
-/// TDVP call, since the TDVP projection and truncation are state-dependent.
+/// The states follow a master-slave convention: the FIRST state is the master
+/// and its natural orbitals define the shared basis; the others are slaves that
+/// live in it. Make the master the state whose evolution is hardest to
+/// represent -- for a Green function that is the excitation c^dag|psi0>, not the
+/// stationary ground state |psi0>. The orbital basis is found once per step from
+/// the master and applied identically to every MPS (widen_to_all_states then
+/// grows the window to hold every orbital where a slave differs, so no slave's
+/// support is dropped). Each state is nevertheless evolved by its own TDVP call,
+/// since the TDVP projection and truncation are state-dependent.
 struct Fbr_dyn_shared : detail::DynCommon {
     using Common = detail::DynCommon;
     using State = typename Common::State;
@@ -348,7 +353,7 @@ struct Fbr_dyn_shared : detail::DynCommon {
         apply_plan(states.front().plan_representative(this->K,1));
         apply_plan(states.front().plan_active_representative(this->K));
         do_tdvp(args);
-        apply_plan(widen_to_all_states(states.front().plan_natural_orbitals(combined_cc())));
+        apply_plan(widen_to_all_states(states.front().plan_natural_orbitals(master_cc())));
     }
 
     void apply_plan(OrbitalUpdate<cmpx> const& update)
@@ -475,15 +480,14 @@ private:
         return update;
     }
 
-    /// Natural orbitals are found from the states' average correlation matrix.
-    arma::cx_mat combined_cc() const
-    {
-        arma::cx_mat cc(states.front().cc.n_rows,states.front().cc.n_cols,arma::fill::zeros);
-        for (auto const& state : states)
-            cc+=state.cc;
-        cc/=static_cast<double>(states.size());
-        return cc;
-    }
+    /// Natural orbitals are chosen from the MASTER state (the first one), whose
+    /// evolution is the hardest to represent -- for a Green function that is the
+    /// excitation c^dag|psi0>, not the stationary |psi0>. The slaves follow the
+    /// master's basis; widen_to_all_states then grows the window to hold every
+    /// orbital where a slave differs, so their support is never dropped.
+    /// (Averaging the states' correlation matrices instead diluted the master's
+    /// orbitals into a basis tuned to none of them.)
+    arma::cx_mat const& master_cc() const { return states.front().cc; }
 };
 
 } // namespace fbr

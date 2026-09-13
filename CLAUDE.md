@@ -63,7 +63,7 @@ All library types live in `namespace fbr`. Single-file programs include `#includ
 | `impurity_param.h` | `ImpurityParam` — kinetic matrix `Kmat`, interaction `Umat`, impurity positions and the chain `layout`; `to_star()` transforms to star geometry (leading or centered, per `layout`), and the solvers `validate()` whatever they are handed |
 | `initial_state.h` | `slater<T>(model,ek)` — the Slater state a model starts from, in its own frame, filling and layout (`ek` defaults to `Kmat.diag()`) |
 | `fbr_gs.h` | `Fbr_gs` — ground state solver: DMRG loop + orbital rotation, for all three layouts |
-| `fbr_dyn.h` | `Fbr_dyn` — dynamics: TDVP loop + orbital rotation: `Fbr_dyn(model,fb,dt)`. `Fbr_dyn_shared` evolves several states in one common orbital basis: `Fbr_dyn_shared(model,states,dt)` |
+| `fbr_dyn.h` | `Fbr_dyn` — dynamics: TDVP loop + orbital rotation: `Fbr_dyn(model,fb,dt)`. `Fbr_dyn_shared` evolves several states in one common orbital basis: `Fbr_dyn_shared(model,states,dt)`. The basis follows the first state (the master; for a Green function, the excitation `c†|psi0>`), and the window is widened to hold the others |
 | `green_overlap.h` | `overlap(A,B)` and `c_element(A,B,i)` between states in *different* orbital frames (Green functions from separately evolved states); `align_to_frame` |
 | `fbr_dyn_frame.h` | `Fbr_dyn_frame` — co-moving-frame dynamics. **Negative result**, kept for the record and not included by `fbr.h`; used only by `app/gs_frame_vs_ip_siam.cpp` |
 | `graph.h` | Index/set utilities (`iota`, `regspace`, `set_diff`) and `fbr::graph::find_islands` for connected-component detection |

@@ -1,9 +1,11 @@
-// Green functions of the spinless IRLM the STAR way: the three states psi0,
-// c_0^dag psi0, c_1^dag psi0 share one common orbital basis (Fbr_dyn_shared),
-// whose active window has to hold the union of all three states' natural
-// orbitals. Same model/grid/ground state as fbr_green_sep_irlm.cpp, so the two
-// output files can be compared directly -- this is the "star" baseline the
-// separate-frame method is measured against, on cost (n_active, bond dim).
+// Green functions of the spinless IRLM the STAR way: each element is one
+// Fbr_dyn_shared run of two states, {c_j^dag psi0, psi0}, in one common orbital
+// basis whose active window has to hold the union of both states' natural
+// orbitals. The excitation is the master (it drives the shared basis; psi0 rides
+// along as slave), as in test_ref_green.cpp. Same model/grid/ground state as
+// fbr_green_sep_irlm.cpp, so the two output files can be compared directly --
+// this is the "star" baseline the separate-frame method is measured against, on
+// cost (n_active, bond dim, the maximum over both runs).
 //
 // Usage: fbr_green_shared_irlm [U]       (0.1 or 0.2; default 0.2)
 // Env:   GREEN_NSTEP (default 200)
@@ -72,7 +74,9 @@ int main(int argc, char **argv)
     auto [B1, nrm1] = addParticle(psi0, 1);
     B0.tol = B1.tol = 1e-12;
 
-    auto solver = Fbr_dyn_shared(model, std::vector{psi0, B0, B1}, dt);
+    // one two-state run per Green element, excitation as master
+    auto solver0 = Fbr_dyn_shared(model, std::vector{B0, psi0}, dt);
+    auto solver1 = Fbr_dyn_shared(model, std::vector{B1, psi0}, dt);
 
     string name = "fbr_green_shared_irlm_L" + to_string(L) + "_U" + us + ".dat";
     ostringstream rows;
@@ -82,14 +86,15 @@ int main(int argc, char **argv)
 
     for (int step = 0; step <= nStep; step++) {
         double t = step * dt;
-        cmpx G00 = -imag_1 * nrm0 * cElement(solver.states[0], solver.states[1], 0);
-        cmpx G01 = -imag_1 * nrm1 * cElement(solver.states[0], solver.states[2], 0);
+        cmpx G00 = -imag_1 * nrm0 * cElement(solver0.states[1], solver0.states[0], 0);
+        cmpx G01 = -imag_1 * nrm1 * cElement(solver1.states[1], solver1.states[0], 0);
         if (step < (int)ref.size())
             devMax = std::max(devMax, std::max(std::abs(G00 - ref[step].G00),
                                                std::abs(G01 - ref[step].G01)));
         int m = 0;
-        for (auto const &s : solver.states) m = std::max(m, itensor::maxLinkDim(s.psi));
-        int na = solver.states[0].n_active();
+        for (auto const *s : {&solver0, &solver1})
+            for (auto const &st : s->states) m = std::max(m, itensor::maxLinkDim(st.psi));
+        int na = std::max(solver0.states[0].n_active(), solver1.states[0].n_active());
 
         rows << t << " " << G00.real() << " " << G00.imag() << " "
              << G01.real() << " " << G01.imag() << " " << m << " " << na << "\n";
@@ -105,7 +110,7 @@ int main(int argc, char **argv)
         if (step % 5 == 0)
             cerr << "# t=" << t << " m=" << m << " n_active=" << na
                  << " max|dG|=" << devMax << "  " << clk.sincemark().wall << " s\n";
-        if (step < nStep) solver.iterate({.epsilon_M = 0});
+        if (step < nStep) { solver0.iterate({.epsilon_M = 0}); solver1.iterate({.epsilon_M = 0}); }
     }
     cerr << "# wrote " << name << " ; max deviation from chain reference = " << devMax << "\n";
     return 0;
