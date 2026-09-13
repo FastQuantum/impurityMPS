@@ -29,11 +29,16 @@ Findings so far:
 - **SIAM, shared frame:** G00 agrees with the chain baseline to 2e-5 at L=100 (the star baseline only to 3e-4).
   But the shared window grows to the whole chain (n_active reaches L), so the method does
   not scale.
-- **IRLM, L=100:** the shared frame agrees with the chain to 7e-5 up to t=20. The committed
-  separate-frame data (cutoff 1e-4) is off by 7–9e-3.
-- **The separate-frame data here predates the band fix in `green_overlap.h` (f14cd59).**
-  The band left out mismatched columns, so the `|dG|` column of `bench_green_cost_siam_*`
-  exceeds 1 by t≈0.3 and the few-body overlap timings are for a band that was too small.
+- **IRLM, L=100:** separate frames (measurement cutoff 1e-4) agree with the chain to 1e-4
+  up to t=20, the same as the shared frame (7e-5). The loose cutoff only skips Givens gates;
+  the aligned MPS is truncated at cutoff² (f14cd59). Before that fix the separate-frame
+  error was 7–9e-3.
+- **The separate-frame overlap is not O(n_active).** The band where the two frames differ
+  covers the whole chain by t≈1, so each measurement aligns all L orbitals. For the SIAM
+  (U=0.025, to t=L/2, cutoff 1e-3), few-body vs star: 4.1× faster at L=40 and L=80 but only
+  1.4× at L=160, where the overlap takes 1293 s of the few-body's 1437 s. max|dG| vs the star
+  is 6e-4 / 2e-3 / 5e-3 at L=40 / 80 / 160. The short IRLM benchmark (t≤2) still shows
+  5× (L=20) to 23× (L=160). Wall times depend on the machine and its load.
 - **Provenance of the SIAM data (going by file dates):** the U=0.025 `fbr_green_siam` data
   was produced with a master-slave `Fbr_dyn_shared` (basis from the first state only), which
   is not in the library yet. The U=0.1 data predates that change and used the averaged
