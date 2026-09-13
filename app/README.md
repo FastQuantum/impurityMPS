@@ -39,10 +39,15 @@ Findings so far:
   1.4× at L=160, where the overlap takes 1293 s of the few-body's 1437 s. max|dG| vs the star
   is 6e-4 / 2e-3 / 5e-3 at L=40 / 80 / 160. The short IRLM benchmark (t≤2) still shows
   5× (L=20) to 23× (L=160). Wall times depend on the machine and its load.
+- **Master-slave vs the average, measured on two-state runs, L=100, t≤5:** same
+  accuracy (IRLM U=0.2: 7.0e-5 from the chain either way). The IRLM window is 82 orbitals
+  (bond 38, 127 s) with the excitation as master vs 23 (bond 26, 22 s) with the average
+  of the two correlation matrices. For the SIAM (U=0.1) both fill the chain (n_active=100)
+  by t≈3. The library keeps master-slave because the basis is then simple to reason about.
 - **Provenance of the SIAM data (going by file dates):** the U=0.025 `fbr_green_siam` data
-  was produced with a master-slave `Fbr_dyn_shared` (basis from the first state only), which
-  is not in the library yet. The U=0.1 data predates that change and used the averaged
-  correlation matrix that is in the library now.
+  was produced with the master-slave `Fbr_dyn_shared` that the library now uses (basis from
+  the first state, the excitation). The U=0.1 data predates it and used the average of the
+  states' correlation matrices.
 
 ## Cost of one evolution
 

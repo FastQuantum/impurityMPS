@@ -96,10 +96,12 @@ GreenError const &resultFor(std::string const &us)
                                           + "_U" + us + ".dat")).to_complex();
     auto [B0, nrm0] = addParticle(psi0, 0);
     auto [B1, nrm1] = addParticle(psi0, 1);
-    // the three states share one active window, which has to hold every orbital
-    // where they differ; a tight tolerance keeps it wide enough
+    // One two-state run per element, excitation as master (see the master-slave
+    // convention in Fbr_dyn_shared); a tight tolerance keeps the window wide
+    // enough to hold the orbital where psi0 and the excitation differ.
     psi0.tol = B0.tol = B1.tol = 1e-12;
-    auto solver = Fbr_dyn_shared(model, std::vector{psi0, B0, B1}, dt);
+    auto solver0 = Fbr_dyn_shared(model, std::vector{B0, psi0}, dt);
+    auto solver1 = Fbr_dyn_shared(model, std::vector{B1, psi0}, dt);
 
     std::size_t nStep = ref.size();
 #ifndef FBR_ENABLE_LONG_TEST
@@ -111,8 +113,8 @@ GreenError const &resultFor(std::string const &us)
 
     GreenError err;
     for (std::size_t step = 0; step < nStep; step++) {
-        cmpx G00 = -imag_1 * nrm0 * cElement(solver.states[0], solver.states[1], 0);
-        cmpx G01 = -imag_1 * nrm1 * cElement(solver.states[0], solver.states[2], 0);
+        cmpx G00 = -imag_1 * nrm0 * cElement(solver0.states[1], solver0.states[0], 0);
+        cmpx G01 = -imag_1 * nrm1 * cElement(solver1.states[1], solver1.states[0], 0);
         double d = std::max(std::abs(G00 - ref[step].G00), std::abs(G01 - ref[step].G01));
         for (auto const &bucket : greenTol())
             if (ref[step].t <= bucket.t + 1e-9) {
@@ -122,7 +124,7 @@ GreenError const &resultFor(std::string const &us)
             }
         if (step == 0) err.atZero = d;
         err.tMax = ref[step].t;
-        if (step + 1 < nStep) solver.iterate({.epsilon_M = 0});
+        if (step + 1 < nStep) { solver0.iterate({.epsilon_M = 0}); solver1.iterate({.epsilon_M = 0}); }
     }
     return cache.emplace(us, err).first->second;
 }

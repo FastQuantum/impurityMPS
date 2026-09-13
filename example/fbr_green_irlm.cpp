@@ -121,10 +121,12 @@ int main(int argc, char** argv)
     // tolerance keeps the orbitals the extra particle leaks into inside it.
     auto psi0=gs_solver.fb.to_complex();
     psi0.tol=1e-12;
+    // Master-slave: the first state drives the shared orbital basis, so it is the
+    // excitation B=c_j^dag|psi0> (the hard evolution); psi0 rides along as slave.
     auto pair_for=[&](int j) {
         auto [B,nrm]=add_particle(psi0,j);
         B.tol=psi0.tol;
-        return std::make_pair(Fbr_dyn_shared(model,std::vector{psi0,B},dt),nrm);
+        return std::make_pair(Fbr_dyn_shared(model,std::vector{B,psi0},dt),nrm);
     };
     auto [solver0,nrm0]=pair_for(0);
     auto [solver1,nrm1]=pair_for(1);
@@ -141,8 +143,9 @@ int main(int argc, char** argv)
     double err=0;
     for(auto step=0; step<=nStep; step++) {
         double t=step*dt;
-        cmpx G00=-imag_1*nrm0*c_element(solver0.states[0],solver0.states[1],0);
-        cmpx G01=-imag_1*nrm1*c_element(solver1.states[0],solver1.states[1],0);
+        // states = {B (master), psi0 (slave)}: G = -i <c_i^dag psi0 | B>
+        cmpx G00=-imag_1*nrm0*c_element(solver0.states[1],solver0.states[0],0);
+        cmpx G01=-imag_1*nrm1*c_element(solver1.states[1],solver1.states[0],0);
         cmpx G00e=G_exact(0,0,t), G01e=G_exact(0,1,t);
         err=std::max({err,std::abs(G00-G00e),std::abs(G01-G01e)});
 
