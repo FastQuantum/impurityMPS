@@ -37,7 +37,7 @@ ctest
 
 Set `OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1` for every test binary; running several of them at once on separate cores is fine.
 
-Tests use Catch2 v2, in six executables. `fbr_test` holds the fast unit tests (`test_givens`, `test_graph`, `test_fb_mps`, `test_green_overlap`, ...). The other five need their own executable, because the TDVP headers define non-inline functions. Four compare a solver against a committed reference: `fbr_test_fbr` (spin-symmetric), `fbr_test_block` (generic spin), `fbr_test_ns` (spinless) and `fbr_test_green` (Green functions). The fifth, `fbr_test_green_sep`, checks the separate-frame Green function against the exact U=0 result. The reference runs stop at t=5 by default; configure with `-DFBR_ENABLE_LONG_TEST=ON` for the full trajectories.
+Tests use Catch2 v2, in six executables. `fbr_test` holds the fast unit tests (`test_givens`, `test_graph`, `test_fb_mps`, `test_green_overlap`, ...). The other five need their own executable, because the TDVP headers define non-inline functions. Four compare a solver against a committed reference: `fbr_test_fbr` (spin-symmetric), `fbr_test_block` (generic spin), `fbr_test_ns` (spinless) and `fbr_test_green` (Green functions of the SIAM and the IRLM against their chain baselines, L=100, U=0.1 and 0.2). The fifth, `fbr_test_green_sep`, checks the separate-frame Green function against the exact U=0 result. The reference runs stop early by default (t=5 for the correlators, t=2 for the Green functions); configure with `-DFBR_ENABLE_LONG_TEST=ON` to go to t=20.
 
 ## Where programs and data go
 
