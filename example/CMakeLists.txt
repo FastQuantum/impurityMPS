@@ -11,7 +11,6 @@ list(APPEND test_SRC
     fbr_dyn_siam_center.cpp
     fbr_dyn_shared_siam_manual.cpp
     fbr_dyn_siam_block.cpp
-    bench_buildK.cpp
 )
 
 foreach (test ${test_SRC})

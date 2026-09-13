@@ -7,7 +7,7 @@ Prints per-snapshot max|dni| and max|dcc| for every snapshot present in both.
 import os, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "output")
+OUT = os.path.join(HERE, "..", "..", "test", "ref", "output")
 LABELS = ["initial", "t=0.1", "t=5.0", "t=10.0", "t=20.0"]
 
 
