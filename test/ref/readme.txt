@@ -48,30 +48,6 @@ Programs
     the analytic free-fermion Green function: it agrees to 4.3e-8, which is what
     says the baseline is right. Used by test/test_ref_green.cpp.
 
-- fbr_green_irlm_L1000.cpp
-    The SAME Green functions at L=1000, but computed by the FBR itself. This is
-    NOT a trusted baseline: at L=1000 there is nothing to check it against, since
-    a real-space chain TDVP of three states on 1000 sites is out of reach -- that
-    is the point of the active-window method. What it records is the solver's own
-    trajectory, so a later change of behaviour at a size the L=100 tests never
-    reach shows up as a difference.
-
-    Two things make it usable as a baseline. The reference state is a Slater
-    determinant with BOTH impurity orbitals empty (from_slater, not Fbr_gs), so
-    the run is deterministic: two runs give byte-identical files. An Fbr_gs
-    ground state does not -- two identical runs of it gave bond dimensions 126
-    and 144 and Im G(0,0) differing by 5e-4, the DMRG choosing between
-    near-degenerate orbital sets. And both impurity orbitals have to be empty for
-    c_j^dag|psi> to be non-zero at all on a determinant.
-
-    So these are the Green functions of that quench, not equilibrium ones. Rows
-    carry the largest bond dimension over the three states and the width of the
-    active window; the replay in test_ref_green.cpp checks the Green functions
-    and asks only that those two stay in the same ballpark, so that a different
-    truncation path is fine but a runaway window is not. Writes
-        output/fbr_green_irlm_L1000_U<U>.txt
-    Note the name: fbr_ marks a self-reference, chain_ a trusted baseline.
-
 - fbr_green_gs.cpp
     The FBR ground states test_ref_green.cpp starts from (L=100, U=0.1 and 0.2),
     saved once as output/fbr_green_gs_L100_U<U>.dat because computing them is the
@@ -124,10 +100,6 @@ chain_dyn_siam_center_ref_v1) hold ni + correlation-matrix snapshots.
 
 - test/test_ref_{fbr,block,ns}.cpp compare each FBR variant against the CHAIN
   baseline only (the trusted standard), at every snapshot present in the file.
-- output/fbr_green_irlm_L1000_U<U>.txt (format tag fbr_green_irlm_ref_v1) holds
-  "t ReG00 ImG00 ReG01 ImG01 maxBondDim n_active" per step. test_ref_green.cpp
-  replays the first 20 steps: Green functions to 1e-6, bond dimension and window
-  width to within a quarter (or 3).
 - output/chain_green_irlm_U<U>_ref.txt (format tag chain_green_irlm_ref_v1) is a
   different, denser format: one row per time step, "t ReG00 ImG00 ReG01 ImG01 m".
   test/test_ref_green.cpp compares the FBR Green functions against it at every

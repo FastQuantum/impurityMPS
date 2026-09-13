@@ -5,7 +5,6 @@ list(APPEND ref_SRC
     star_dyn_siam_center.cpp
     star_green_siam.cpp
     fbr_green_gs.cpp
-    fbr_green_irlm_L1000.cpp
 )
 
 foreach (src ${ref_SRC})
