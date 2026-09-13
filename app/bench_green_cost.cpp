@@ -108,8 +108,8 @@ int main(int argc, char **argv)
     auto sB0 = sPsi; applyCdag(sites, sB0, 0); sB0.normalize(); sB0 *= cmpx(1, 0);
     auto sB1 = sPsi; applyCdag(sites, sB1, 1); sB1.normalize(); sB1 *= cmpx(1, 0);
 
-    string name = "bench_green_cost_L" + to_string(L) + "_U" + us + ".txt";
-    ofstream out("test/ref/output/" + name); if (!out) out.open(name);
+    string name = "bench_green_cost_L" + to_string(L) + "_U" + us + ".dat";
+    ofstream out("app/output/" + name); if (!out) out.open(name);
     out << "bench_green_cost_v1 L " << L << " U " << U << " dt " << dt << "\n"
         << "# t  fewbody_sweep_s fb_nactive fb_bond   star_sweep_s star_bond\n" << setprecision(6);
     cerr << fixed << setprecision(3);

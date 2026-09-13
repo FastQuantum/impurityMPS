@@ -124,8 +124,8 @@ int main(int argc, char **argv)
 
     double cutoff = getenv("GREEN_CUTOFF") ? std::stod(getenv("GREEN_CUTOFF")) : 1e-4;
 
-    string name = "bench_green_cost_siam_L" + to_string(L) + "_U" + us + ".txt";
-    ofstream out("test/ref/output/" + name); if (!out) out.open(name);
+    string name = "bench_green_cost_siam_L" + to_string(L) + "_U" + us + ".dat";
+    ofstream out("app/output/" + name); if (!out) out.open(name);
     out << "bench_green_cost_siam_v2 L " << L << " U " << U << " dt " << dt
         << " nStep " << nStep << " cutoff " << cutoff << "\n"
         << "# t  fb_evolve_s fb_measure_s fb_nactive fb_bond   star_evolve_s star_measure_s star_bond   |dG|\n"

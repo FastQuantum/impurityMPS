@@ -1,16 +1,9 @@
-list(APPEND ref_SRC
-    chain_dyn_siam_center.cpp
-    chain_green_irlm.cpp
-    chain_green_siam.cpp
-    star_dyn_siam_center.cpp
-    star_green_siam.cpp
-    fbr_green_gs.cpp
-    fbr_green_irlm_L1000.cpp
-)
+# Numerical experiments. Each .cpp is its own executable and, like the examples,
+# a single TU (the TDVP headers define addBasis non-inline).
+file(GLOB app_SRC CONFIGURE_DEPENDS "*.cpp")
 
-foreach (src ${ref_SRC})
+foreach (src ${app_SRC})
     get_filename_component(TName ${src} NAME_WE)
-
     add_executable(${TName} ${src})
     target_compile_features(${TName} PUBLIC cxx_std_17)
     target_link_libraries(${TName} PRIVATE ${PROJECT_NAME})

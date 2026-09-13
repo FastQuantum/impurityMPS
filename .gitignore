@@ -4,3 +4,9 @@ Makefile
 notebook/data/
 .ipynb_checkpoints/
 .claude/
+# app/: only the data is versioned; logs, scratch output and plots are regenerated
+app/output/*
+!app/output/*.dat
+app/plot/figures/
+app/plot/report.html
+__pycache__/

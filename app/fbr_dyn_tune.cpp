@@ -6,7 +6,7 @@
 //
 // Usage: fbr_dyn_tune <U> <err_goal> <n_iter_diag> <maxSteps>
 #include "fbr/fbr_dyn.h"
-#include "../../test/test_ref_common.h"
+#include "../test/test_ref_common.h"
 
 #include <iostream>
 #include <iomanip>

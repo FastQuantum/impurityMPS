@@ -18,11 +18,13 @@ endif()
 
 # Each FBR dynamics variant needs its own executable: the TDVP headers define
 # non-inline functions, so two TUs including a dyn header in one link target
-# would produce multiple-definition errors.
-foreach(variant fbr block ns green green_sep)
+# would produce multiple-definition errors. test_ref_* compare against a file in
+# test/ref/output; test_green_sep checks against the exact U=0 result.
+foreach(src test_ref_fbr test_ref_block test_ref_ns test_ref_green test_green_sep)
+    string(REGEX REPLACE "^test_(ref_)?" "" variant ${src})    # target fbr_test_<variant>
     add_executable(${PROJECT_NAME}_test_${variant}
         test_main.cpp
-        test_ref_${variant}.cpp
+        ${src}.cpp
     )
     target_include_directories(${PROJECT_NAME}_test_${variant} INTERFACE Catch2::Catch2)
     target_link_libraries(${PROJECT_NAME}_test_${variant} PRIVATE ${PROJECT_NAME})

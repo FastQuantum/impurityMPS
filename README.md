@@ -153,10 +153,16 @@ All example sources live in [`example/`](example/) and build to one binary each 
 | `fbr_gs_siam` | Ground state, SIAM (spin-flip symmetric) |
 | `fbr_dyn_irlm` | Dynamics, spinless IRLM (complex MPS) |
 | `fbr_green_irlm` | Green function G(0,0), G(0,1) vs the exact non-interacting result |
+| `fbr_green_irlm_separate` | The same Green function, each state evolved in its own frame (`green_overlap.h`) |
 | `fbr_dyn_siam` | Dynamics, SIAM (spin-flip symmetric) |
 | `fbr_dyn_siam_block` | Dynamics, SIAM (generic spin / block) |
 | `fbr_dyn_siam_center` | Dynamics, SIAM with impurity kept at the chain center |
 | `fbr_dyn_ns_siam`, `fbr_dyn_shared_siam_manual` | Dynamics, SIAM variants |
+
+Besides the examples, the repository keeps two kinds of standalone programs:
+
+- [`test/ref/`](test/ref/) — **reference data**: the trusted baselines (real-space chain, full-length star) and the few FBR runs the tests replay. Everything new is measured against these. Build with `-DFBR_EXAMPLE_REF=ON`; see [`test/ref/readme.txt`](test/ref/readme.txt).
+- [`app/`](app/) — **numerical experiments**: method comparisons, benchmarks and tuning drivers, with their data in `app/output/` and the plotting/report scripts in `app/plot/`. Build with `-DFBR_APP=ON`; see [`app/README.md`](app/README.md).
 
 ## Dependencies
 - [ITensor](https://github.com/ITensor/ITensor) for MPS manipulation
