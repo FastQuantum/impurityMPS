@@ -7,9 +7,9 @@
 // to 1e-6. Fbr_gs itself stays covered by the [frame] test in test_ref_ns.cpp,
 // which runs it at L=12 for pennies.
 //
-// Writes, for U = 0.1 and 0.2,
-//     irlm: fbr_green_gs_L<L>_U<U>.dat        (makeIrlmModel)
-//     siam: fbr_green_gs_siam_L<L>_U<U>.dat   (makeSiamModel, spin-symmetric)
+// Writes, for every U the Green function tests use,
+//     irlm: fbr_green_gs_L<L>_U<U>.dat        (makeIrlmModel; U = 0.1, 0.2, -0.2)
+//     siam: fbr_green_gs_siam_L<L>_U<U>.dat   (makeSiamModel, spin-symmetric; U = 0.1, 0.2)
 // into the working directory. Fbr_gs is not bit-reproducible, so regenerate one
 // model only, and only after changing that model or Fbr_gs.
 //
@@ -20,6 +20,8 @@
 
 #include <iomanip>
 #include <iostream>
+#include <string>
+#include <vector>
 
 using namespace std;
 using namespace fbr;
@@ -36,7 +38,9 @@ int main(int argc, char **argv)
     constexpr double V = 0.1;
     constexpr int n_iter = 80;
 
-    for (auto us : {string("0.1"), string("0.2")}) {
+    auto uList = which == "irlm" ? vector<string>{"0.1", "0.2", "-0.2"}
+                                 : vector<string>{"0.1", "0.2"};
+    for (auto const &us : uList) {
         double U = std::stod(us);
         auto model = which == "irlm" ? makeIrlmModel(L, U, V) : makeSiamModel(L, U, V);
 

@@ -13,10 +13,12 @@ using namespace fbrtest;
 
 // Impurity Green functions computed with the FBR (active-window, star geometry,
 // interaction picture) and compared against the trusted chain baselines of
-// test/ref/, at the usual L=100, V=0.1 and U=0.1, 0.2:
+// test/ref/, at the usual L=100 and V=0.1:
 //
-//   SIAM  G00 against output/chain_green_siam_L100_U<U>.dat (chain_green_siam.cpp)
-//   IRLM  G00, G01 against output/chain_green_irlm_U<U>_ref.txt (chain_green_irlm.cpp)
+//   SIAM  G00 against output/chain_green_siam_L100_U<U>.dat (chain_green_siam.cpp),
+//         U=0.1 and 0.2
+//   IRLM  G00, G01 against output/chain_green_irlm_U<U>_ref.txt (chain_green_irlm.cpp),
+//         U=0.1, 0.2 and the attractive -0.2 as an extra check
 //
 //     G(i,j,t) = -i <psi0| c_i(t) c_j^dag(0) |psi0> = -i <c_i^dag psi0(t) | B_j(t)>
 //
@@ -59,6 +61,8 @@ struct GreenTol { double t; double tol; };
 // the last window is the smallest because both Green functions have decayed by
 // then (|G01| falls from 0.29 to ~0.12), so the absolute difference shrinks with
 // the signal. At t=0 they agree to 5e-8, which the separate bound below covers.
+// The attractive U=-0.2 is the mildest of the three, not the hardest:
+// 2.6e-5 / 2.6e-5 / 1.7e-5 per window, and 1.2e-8 at t=0.
 std::vector<GreenTol> irlmTol()
 {
     return {{5.0, 1.5e-4}, {10.0, 1.5e-4}, {20.0, 6e-5}};
@@ -220,4 +224,11 @@ TEST_CASE("fbr green IRLM vs chain reference U=0.2", "[fb_ref_green][irlm]") {
 }
 TEST_CASE("fbr green IRLM vs chain reference U=0.1", "[fb_ref_green][irlm]") {
     checkGreen(irlmResult("0.1"), irlmTol());
+}
+// Attractive U. The sign flips both terms of the impurity: the interaction
+// binds the two impurity electrons instead of repelling them, and the level
+// e_imp = -U/2 moves above the band centre instead of below it, so the
+// occupations the window tracks come out on the other side of half filling.
+TEST_CASE("fbr green IRLM vs chain reference U=-0.2", "[fb_ref_green][irlm]") {
+    checkGreen(irlmResult("-0.2"), irlmTol());
 }
