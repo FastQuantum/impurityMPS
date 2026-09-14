@@ -3,8 +3,11 @@
 #include "fbr/fbr_dyn.h"
 #include "test_ref_common.h"
 
+#include <fstream>
 #include <map>
+#include <stdexcept>
 #include <string>
+#include <vector>
 
 using namespace arma;
 using namespace fbr;
@@ -106,6 +109,72 @@ void checkChain(TrajResult const &res, std::map<std::string, Tol> const &tol)
     }
 }
 
+// ---- L=1000 quench coverage (ported from the retired `unify` branch) ----
+//
+// The reference files test/ref/output/fbr_dyn_siam_L1000_U*.txt hold one compact
+// row per time step of the SIAM impurity quench (impurity forced to |1100>, then
+// evolved). Reading only the first few steps keeps this a smoke test that the
+// solver still scales to L=1000; the full trajectories are kept for manual and
+// longer comparisons. Regenerate with example/fbr_dyn_siam.cpp.
+
+struct LargeLReferenceRow {
+    double time;
+    int maxBondDim;
+    double n0;
+    double n1;
+    int nActive;
+};
+
+std::vector<LargeLReferenceRow> loadLargeLReference(std::string const &name, int nSteps)
+{
+    std::ifstream in(findRef(name));
+    std::string header;
+    std::getline(in, header);
+    if (header != "time m <n0> <n1>  nActive time(s)")
+        throw std::runtime_error("invalid L=1000 reference header in " + name);
+
+    std::vector<LargeLReferenceRow> rows;
+    rows.reserve(nSteps);
+    for (int step = 0; step < nSteps; ++step) {
+        LargeLReferenceRow row;
+        double wallTime = 0;
+        if (!(in >> row.time >> row.maxBondDim >> row.n0 >> row.n1 >> row.nActive
+                 >> wallTime))
+            throw std::runtime_error("not enough rows in L=1000 reference " + name);
+        rows.push_back(row);
+    }
+    return rows;
+}
+
+void checkLargeL(double U, std::string const &us)
+{
+    // Five steps for each U make the two L=1000 cases together take roughly as
+    // long as the existing default L=100 reference group.
+    constexpr int L = 1000;
+    constexpr int nSteps = 5;
+    constexpr double dt = 0.1;
+    auto ref = loadLargeLReference("fbr_dyn_siam_L1000_U" + us + ".txt", nSteps);
+    auto fbr = makeFbrRun(L, dt, U);
+    fbr.fb.tol = 1e-10; // Match the default tol used to produce the reference files.
+
+    for (int step = 0; step < nSteps; ++step) {
+        fbr.iterate({.epsilon_M = 0});
+        auto const &expected = ref[step];
+        auto ni = fbr.fb.occupations_ni();
+        double n0 = ni[L / 2];
+        double n1 = ni[L / 2 + 1];
+        int m = itensor::maxLinkDim(fbr.fb.psi);
+
+        CAPTURE(U, step, n0, n1, expected.n0, expected.n1, m, expected.maxBondDim,
+                fbr.fb.n_active(), expected.nActive);
+        REQUIRE(expected.time == Approx((step + 1) * dt).margin(1e-12));
+        REQUIRE(n0 == Approx(expected.n0).margin(1e-9));
+        REQUIRE(n1 == Approx(expected.n1).margin(1e-9));
+        REQUIRE(m == expected.maxBondDim);
+        REQUIRE(fbr.fb.n_active() == expected.nActive);
+    }
+}
+
 } // namespace
 
 TEST_CASE("build_K O(L^2) matches O(L^3) reference", "[fb_ref_fbr][build_K]") {
@@ -135,6 +204,13 @@ TEST_CASE("fbr vs chain center reference U=0.2", "[fb_ref_fbr]") {
 }
 TEST_CASE("fbr vs chain center reference U=0.1", "[fb_ref_fbr]") {
     checkChain(resultFor(0.1, "0.1"), chainTol());
+}
+
+TEST_CASE("fbr L=1000 quench reference U=0.2", "[fb_ref_fbr][large_l]") {
+    checkLargeL(0.2, "0.2");
+}
+TEST_CASE("fbr L=1000 quench reference U=0.1", "[fb_ref_fbr][large_l]") {
+    checkLargeL(0.1, "0.1");
 }
 
 TEST_CASE("multi-state solver with one state matches single-state solver", "[multi_state]") {
