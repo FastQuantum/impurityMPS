@@ -15,6 +15,12 @@ in app/output/ (see app/README.md).
 The dynamics programs take U as an optional first argument, e.g.
 ./chain_dyn_siam_center 0.1
 
+The parameters the tests cover: L=100, V=0.1, with U = 0.1 and 0.2 for the SIAM
+(correlators and Green function), and U = 0.1, 0.2 and -0.2 for the IRLM Green
+functions -- the attractive case flips the sign of both impurity terms (the
+interaction and the level e_imp = -U/2), so it exercises the window on the
+other side of half filling.
+
 
 Programs
 --------
@@ -46,10 +52,11 @@ Programs
     rewriting the file every step, and stops early if the bond dimension of any
     of the three states reaches 1024. At U=0 the run also compares itself with
     the analytic free-fermion Green function: it agrees to 4.3e-8, which is what
-    says the baseline is right. Used by test/test_ref_green.cpp.
+    says the baseline is right. Used by test/test_ref_green.cpp. Generated for
+    U = 0.1, 0.2 and -0.2.
 
 - fbr_green_gs.cpp
-    The FBR ground states test_ref_green.cpp starts from (L=100, U=0.1 and 0.2),
+    The FBR ground states test_ref_green.cpp starts from (L=100, the U values above),
     saved once because computing them is the slow part of the test:
         fbr_green_gs irlm  ->  output/fbr_green_gs_L100_U<U>.dat
         fbr_green_gs siam  ->  output/fbr_green_gs_siam_L100_U<U>.dat
