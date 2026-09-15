@@ -69,7 +69,8 @@ std::vector<GreenTol> irlmTol()
 }
 
 // SIAM, the same way: ~2x above the worse of U=0.1 and U=0.2 per window, which
-// is 1.8e-5 for t<=5, 1.8e-5 for 5<t<=10 and 1.6e-5 for 10<t<=20. At t=0 the
+// is 1.8e-5 for t<=5, 1.8e-5 for 5<t<=10 and 1.5e-5 for 10<t<=20 (spin_block;
+// 1.6e-5 in the last window under the former spin_symmetric run). At t=0 the
 // cached ground state agrees with the chain DMRG one to 5e-11 (U=0.1) and 2e-9
 // (U=0.2).
 std::vector<GreenTol> siamTol()
@@ -158,8 +159,10 @@ GreenError const &irlmResult(std::string const &us)
     return cache.emplace(us, err).first->second;
 }
 
-// The SIAM of app/fbr_green_siam.cpp: spin-symmetric layout, the up impurity
-// orbital on site 0. Its ground state also comes off disk.
+// The SIAM of app/fbr_green_siam.cpp, the up impurity orbital on site 0. Its
+// ground state also comes off disk, computed under spin_symmetric. B is not
+// spin-flip symmetric (one more up electron), so the dynamics runs under
+// spin_block, in the same star frame -- the frame the cached state is in.
 GreenError const &siamResult(std::string const &us)
 {
     static std::map<std::string, GreenError> cache;
@@ -175,9 +178,11 @@ GreenError const &siamResult(std::string const &us)
                                       + "_U" + us + ".dat");
     requireGrid(ref, dt);
     auto model = makeSiamModel(L, U, V);
+    model.layout = spin_block;
 
     auto psi0 = loadFbMps<double>(findRef("fbr_green_gs_siam_L" + std::to_string(L)
                                           + "_U" + us + ".dat")).to_complex();
+    psi0.layout = spin_block;
     auto [B, nrm] = addParticle(psi0, 0);
     psi0.tol = B.tol = 1e-12;
     auto solver = Fbr_dyn_shared(model, std::vector{B, psi0}, dt);
