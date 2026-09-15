@@ -199,6 +199,34 @@ TEST_CASE("build_K O(L^2) matches O(L^3) reference", "[fb_ref_fbr][build_K]") {
     }
 }
 
+TEST_CASE("O(L^2) correlator elements, rows and columns match the full correlator",
+          "[fb_ref_fbr][correlator]") {
+    constexpr int L = 40;
+    constexpr double dt = 0.1;
+    auto fbr = makeFbrRun(L, dt, 0.2);
+
+    // Algebraic identities, valid for any frame and any cc: a random unitary
+    // fb.rot and a random (not even Hermitian) cc.
+    arma::arma_rng::set_seed(4321);
+    cx_mat G = cx_mat(L, L, fill::randn) + imag_1 * cx_mat(L, L, fill::randn);
+    cx_mat Q, R;
+    qr(Q, R, G);
+    fbr.fb.rot = Q;
+    fbr.fb.cc = cx_mat(L, L, fill::randn) + imag_1 * cx_mat(L, L, fill::randn);
+
+    for (int n : {0, 1, 5, 37}) {
+        fbr.n_iter = n;
+        cx_mat full = fbr.correlator();   // through the dense effective_rot
+        for (int i : {0, 1, 2, L / 2, L - 1}) {
+            INFO("n_iter = " << n << ", i = " << i);
+            REQUIRE(norm(fbr.correlator_col(i) - full.col(i), "inf") < 1e-10);
+            REQUIRE(norm(fbr.correlator_row(i) - full.row(i).st(), "inf") < 1e-10);
+            for (int j : {0, 3, L - 2})
+                REQUIRE(std::abs(fbr.correlator(i, j) - full(i, j)) < 1e-10);
+        }
+    }
+}
+
 TEST_CASE("fbr vs chain center reference U=0.2", "[fb_ref_fbr]") {
     checkChain(resultFor(0.2, "0.2"), chainTol());
 }
