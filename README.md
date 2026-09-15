@@ -168,7 +168,10 @@ Besides the examples, the repository keeps two kinds of standalone programs:
 - [ITensor](https://github.com/ITensor/ITensor) for MPS manipulation
 - [TDVP](https://github.com/ITensor/TDVP) for bechmarking our code
 - [armadillo](http://arma.sourceforge.net/) for linear algebra. Armadillo depends on **blas**, **lapack**.
+- [nlohmann/json](https://github.com/nlohmann/json) for reading the `param.json` input of some examples.
 - [Catch2](https://github.com/catchorg/Catch2) for testing
+
+Armadillo, nlohmann/json and Catch2 are fetched automatically by CMake (see `external/external.cmake`); ITensor and TDVP must be installed manually as described below.
 
 ## Compiling
 1) Install your favorite `blas`/`lapack` library (for instance [mkl](https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl-download.html), which is faster) including their `-dev` versions.
@@ -207,7 +210,7 @@ export OPENBLAS_NUM_THREADS=1
 export MKL_THREADING_LAYER=sequential
 ```
 ## Adding your application
-Now you can add your own application in the folder `impurityMPS/example` and recompile
+Now you can add your own application in the folder `example`: drop a `.cpp` file there, add its name to the `test_SRC` list in [`example/CMakeLists.txt`](example/CMakeLists.txt), and recompile
 ```bash
 cd build
 cmake ..
