@@ -261,3 +261,32 @@ TEST_CASE("multi-state solver with one state matches single-state solver", "[mul
         REQUIRE(std::abs(new_solver.energies.front()-old_solver.energy)<1e-8);
     }
 }
+
+// spin_symmetric evolves only the dw sector and mirrors it onto up, so a state
+// that is not its own mirror image would silently get the dw correlators. Both
+// solvers must refuse it, and spin_block must take it.
+TEST_CASE("spin_symmetric refuses a spin-polarized state", "[spin_guard]") {
+    constexpr int L=8;
+    constexpr double dt=0.1;
+    constexpr double U=0.2;
+
+    auto model=makeSiamModel(L,U,0.1);
+    int m=L/2;                      // impurity orbitals at m-1 (up) and m (dw)
+    auto ek=vec{model.Kmat.diag()};
+    ek[m-1]=ek[m]=-10;
+    auto symmetric=slater<cmpx>(model,ek);
+    ek[m-1]=10;                     // up impurity empty, dw full
+    auto polarized=slater<cmpx>(model,ek);
+
+    REQUIRE_NOTHROW(Fbr_dyn(model,symmetric,dt));
+    REQUIRE_THROWS_AS(Fbr_dyn(model,polarized,dt),std::invalid_argument);
+    REQUIRE_THROWS_AS(Fbr_dyn_shared(model,std::vector{polarized},dt),std::invalid_argument);
+    // a slave is mirrored as well as the master
+    auto polarized_slave=symmetric;
+    polarized_slave.cc(m-1,m-1)=0;
+    REQUIRE_THROWS_AS(Fbr_dyn_shared(model,std::vector{symmetric,polarized_slave},dt),
+                      std::invalid_argument);
+
+    model.layout=polarized.layout=spin_block;
+    REQUIRE_NOTHROW(Fbr_dyn(model,polarized,dt));
+}

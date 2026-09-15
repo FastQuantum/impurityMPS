@@ -12,8 +12,8 @@
 //
 //   star     two-site TDVP of the whole L-site MPS in the star geometry
 //   fbr      Fbr_dyn, spin_block layout (each spin sector gets its own orbitals;
-//            the excitation breaks the spin-flip symmetry)
-//   fbr_sym  Fbr_dyn, spin_symmetric layout (the up rotations mirror the down ones)
+//            the excitation breaks the spin-flip symmetry, so spin_symmetric,
+//            which evolves only the dw sector and mirrors it, cannot take it)
 //
 //   star_gs  the same full star TDVP applied to |gs> itself (a stationary state:
 //            any bond growth there is the cost of the TDVP, not of the physics)
@@ -44,7 +44,7 @@ using namespace fbr;
 
 namespace {
 
-ImpurityParam siam_model(int L, double U, double V, Layout layout)
+ImpurityParam siam_model(int L, double U, double V)
 {
     mat K(L, L, fill::zeros);
     for (int i = 0; i < L - 2; i++) K(i, i + 2) = K(i + 2, i) = 0.5;
@@ -52,7 +52,7 @@ ImpurityParam siam_model(int L, double U, double V, Layout layout)
     K(0, 2) = K(2, 0) = K(1, 3) = K(3, 1) = V;
     mat Umat(L, L, fill::zeros);
     Umat(0, 1) = U;
-    auto model = ImpurityParam{.Kmat = K, .Umat = Umat, .imp_pos = {0, 1}, .layout = layout};
+    auto model = ImpurityParam{.Kmat = K, .Umat = Umat, .imp_pos = {0, 1}, .layout = spin_block};
     model.to_star();
     return model;
 }
@@ -91,11 +91,11 @@ int main(int argc, char** argv)
     int nStep     = (int)std::llround(tmax / dt);
 
     bool star = method == "star" || method == "star_gs";
-    if (!star && method != "fbr" && method != "fbr_sym")
-        throw invalid_argument("method must be star, star_gs, fbr or fbr_sym");
+    if (!star && method != "fbr")
+        throw invalid_argument("method must be star, star_gs or fbr");
     if (L % 4) throw invalid_argument("L must be a multiple of 4");
 
-    auto model = siam_model(L, U, V, method == "fbr_sym" ? spin_symmetric : spin_block);
+    auto model = siam_model(L, U, V);
     // star positions of the real-space impurity sites 0 (up) and 1 (dw)
     int i_up = (int)arma::abs(model.rot.row(0)).index_max();
     int i_dw = (int)arma::abs(model.rot.row(1)).index_max();

@@ -17,6 +17,8 @@
 ///
 ///   ImpurityParam   Kmat, Umat, imp_pos, filling, layout, and to_star()
 ///   Layout          leading (spinless), spin_symmetric, spin_block
+///                   (spin_symmetric needs a spin-flip symmetric state as well as
+///                   model: a spin-polarized one such as c_up^dag|gs> needs spin_block)
 ///   slater<T>       the Slater state a model starts from
 ///   Fb_mps<T>       that state: rot, cc, active, and range(Part[,Spin])
 ///   Fbr_gs          ground state, iterate(DmrgParam)

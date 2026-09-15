@@ -11,6 +11,7 @@
 #include "basisextension.h"
 
 #include <stdexcept>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -41,6 +42,28 @@ inline int coupling_rank(Fb_mps<cmpx> const& fb, arma::mat const& Kmat)
         rank=std::max(rank,sv_rank(Kmat.submat(a_imp,a_sla,b_imp-1,b_sla-1),fb.tol));
     }
     return rank;
+}
+
+/// spin_symmetric evolves only the dw sector: its orbital plans are reflected
+/// onto up, and Fb_mps::apply overwrites the up block of cc with the mirrored dw
+/// block. That is exact only for a state that is itself spin-flip symmetric, so
+/// refuse any other one. A spin-polarized state (c^dag_up|gs>, say) would
+/// otherwise run silently, reporting the dw occupations for the up ones and
+/// cutting the up sector's window to the dw one. The model conserves the
+/// symmetry, so checking the initial state is enough. The threshold is loose
+/// on purpose: a symmetric state computed under spin_block is a mirror image
+/// only to DMRG accuracy, while a polarized one misses by O(1).
+inline void require_spin_symmetric_state(Fb_mps<cmpx> const& fb)
+{
+    if (fb.layout!=spin_symmetric) return;
+    constexpr double threshold=1e-6;
+    arma::cx_mat mirrored=fb.cc;
+    fb.ensure_symmetry(mirrored);
+    double mismatch=arma::abs(mirrored-fb.cc).max();
+    if (mismatch>threshold)
+        throw std::invalid_argument("Fbr_dyn: spin_symmetric needs a spin-flip symmetric state, "
+                                    "but the up and dw blocks of cc differ by "+std::to_string(mismatch)
+                                    +" (threshold "+std::to_string(threshold)+"); use spin_block");
 }
 
 /// Machinery shared by the single-state (Fbr_dyn) and multi-state (Fbr_dyn_shared)
@@ -82,6 +105,7 @@ struct DynCommon {
         if (imp_pos.empty() || b_imp-a_imp!=param.n_imp()
             || (int)imp_pos.min()!=a_imp || (int)imp_pos.max()!=b_imp-1)
             throw std::invalid_argument("Fbr_dyn: the state layout does not match the impurity positions of the model");
+        require_spin_symmetric_state(first);
 
         arma::mat Kstar=param.Kmat;
         if (!bath_pos.empty()) {
@@ -338,6 +362,8 @@ struct Fbr_dyn_shared : detail::DynCommon {
         , states(std::move(states_))
     {
         check_common_orbitals();
+        for (auto const& state : states)   // apply() mirrors every state's cc, not just the master's
+            detail::require_spin_symmetric_state(state);
         energies.assign(states.size(),-1000.0);
         for (auto& state : states) state.n_sv=this->n_sv;
         this->K=Common::build_K(states.front());

@@ -105,10 +105,13 @@ Findings (2026-09-14):
   | 200 | 0.4 | 24 → 93 | 29 → 119 | 36 | 1640 / 1342 | 2.4e-4 |
 
   (Wall time is the evolution only, one core each, 16–20 runs sharing the machine.)
-- **spin_symmetric is wrong for the excitation's correlators:** `Fb_mps::apply` mirrors the down
-  block of `cc` onto the up block, so n0↑ reads n0↓ after one step (0.651 instead of 0.996).
-  The MPS only receives exact unitaries, which is why overlap-based G00 tests still pass. Use
-  `spin_block` for spin-polarized states (`excitation_bond_siam fbr_sym` shows the defect).
+- **spin_symmetric is wrong for the excitation:** `Fb_mps::apply` mirrors the down block of `cc`
+  onto the up block, so n0↑ reads n0↓ after one step (0.651 instead of 0.996). The MPS drifts
+  too: the window and the rotations come from the down sector only, so the window stays at 12
+  instead of 14–15 (L=40, U=0.1) and the up electron's spread is cut off. n0↑ read straight
+  from the MPS is off by 3e-4 at t=3, ten times the spin_block–star agreement. `Fbr_dyn` and
+  `Fbr_dyn_shared` now throw on a state that is not its own mirror image under
+  `spin_symmetric`; use `spin_block` for spin-polarized states.
 
 ## Tuning and exploration
 
