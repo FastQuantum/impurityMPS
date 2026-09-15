@@ -76,7 +76,7 @@ Input is a generic kinetic matrix `Kmat`. `to_star()` transforms it to star geom
 
 ### Spin variants
 
-The `spin_symmetric` layout supports spin up/down having equivalent properties (spin flip commute with the Hamiltonian): only the down sector is computed and the up one is its mirror image. Use it with `ImpurityParam{.layout=spin_symmetric}`. The impurity is represented as -----spin-up-----xx XX------spin-down------- whre xx and XX are the non-rotating orbitals with spin up and down, respectively. `spin_block` is the generic-spin variant (no spin-flip symmetry assumed), and `leading` is the spinless one, |imp|active|slater|, which is the same chain with an empty up sector (`mid()==0`).
+The `spin_symmetric` layout supports spin up/down having equivalent properties (spin flip commute with the Hamiltonian): only the down sector is computed and the up one is its mirror image. Use it with `ImpurityParam{.layout=spin_symmetric}`. The impurity is represented as -----spin-up-----xx XX------spin-down------- whre xx and XX are the non-rotating orbitals with spin up and down, respectively. The state must be spin-flip symmetric too, not just the model: a spin-polarized state such as the Green-function excitation c₀↑†|gs> needs `spin_block`, and `Fbr_dyn`/`Fbr_dyn_shared` throw if handed one under `spin_symmetric`. `spin_block` is the generic-spin variant (no spin-flip symmetry assumed), and `leading` is the spinless one, |imp|active|slater|, which is the same chain with an empty up sector (`mid()==0`).
 
 ### Examples (`example/`)
 
