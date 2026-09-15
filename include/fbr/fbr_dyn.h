@@ -241,7 +241,10 @@ struct DynCommon {
     /// Effective MPS->real rotation in the Schrödinger picture.
     /// The MPS lives in the interaction picture of H_bath, so fb.rot tracks only the
     /// natural-orbital basis change. To recover real-space Schrödinger-picture
-    /// correlators, we dress the bath block with exp(-i Kbath * t).
+    /// correlators, we dress the bath block with exp(-i Kbath * t):
+    ///   Q = rot_star * diag(ip_phase) * rot_star^dag * fb.rot.
+    /// O(L^3) (two dense L x L products): the single elements, rows and columns
+    /// below never form it.
     arma::cx_mat effective_rot(State const& fb) const
     {
         arma::cx_mat M = rot_star.t() * fb.rot;
@@ -249,35 +252,52 @@ struct DynCommon {
         return rot_star * M;
     }
 
-    /// The whole Schrödinger-picture real-space <c_i^dag c_j> matrix.
+    /// Row k of effective_rot, as a column: Q.row(k)^T = fb.rot^T conj(rot_star) (d % rot_star.row(k)^T),
+    /// d=ip_phase. Written with conjugated vectors so that every product is a
+    /// plain or ^dag matrix-vector product: O(L^2), no L x L temporary.
+    arma::cx_vec effective_rot_row(State const& fb, int k) const
+    {
+        arma::cx_vec x = arma::conj(rot_star.row(k).st() % ip_phase(n_iter));
+        return arma::conj(fb.rot.t() * (rot_star * x));
+    }
+
+    /// Q * w, with Q = effective_rot, from right to left: O(L^2).
+    arma::cx_vec effective_rot_times(State const& fb, arma::cx_vec const& w) const
+    {
+        arma::cx_vec y = rot_star.t() * (fb.rot * w);
+        y %= ip_phase(n_iter);
+        return rot_star * y;
+    }
+
+    /// The whole Schrödinger-picture real-space <c_i^dag c_j> matrix. O(L^3).
     arma::cx_mat correlator(State const& fb) const
     {
         arma::cx_mat Q = effective_rot(fb);
         return arma::conj(Q) * fb.cc * Q.st();
     }
 
-    /// Schrödinger-picture real-space <c_i^dag c_j>.
+    /// Schrödinger-picture real-space <c_i^dag c_j> = sum_ab conj(Q(i,a)) cc(a,b) Q(j,b).
+    /// Only rows i and j of Q are needed: O(L^2).
     cmpx correlator(State const& fb, int i, int j) const
     {
-        arma::cx_mat Q = effective_rot(fb);
-        arma::cx_vec ccQj = fb.cc * Q.row(j).st();
-        return arma::cdot(Q.row(i).st(), ccQj);
+        arma::cx_vec ccQj = fb.cc * effective_rot_row(fb,j);
+        return arma::cdot(effective_rot_row(fb,i), ccQj);
     }
 
     /// Column j of the Schrödinger-picture correlator: <c_i^dag c_j> for fixed j, all i.
+    /// conj(Q) * v = conj(Q * conj(v)): O(L^2).
     arma::cx_vec correlator_col(State const& fb, int j) const
     {
-        arma::cx_mat Q = effective_rot(fb);
-        arma::cx_vec ccQj = fb.cc * Q.row(j).st();
-        return arma::conj(Q) * ccQj;
+        arma::cx_vec ccQj = fb.cc * effective_rot_row(fb,j);
+        return arma::conj(effective_rot_times(fb,arma::conj(ccQj)));
     }
 
     /// Row i of the Schrödinger-picture correlator: <c_i^dag c_j> for fixed i, all j.
+    /// Q * (conj(Q.row(i)) * cc)^T: O(L^2).
     arma::cx_vec correlator_row(State const& fb, int i) const
     {
-        arma::cx_mat Q = effective_rot(fb);
-        arma::cx_rowvec v = arma::conj(Q.row(i)) * fb.cc;
-        return Q * v.st();
+        arma::cx_rowvec v = effective_rot_row(fb,i).t() * fb.cc;
+        return effective_rot_times(fb,v.st());
     }
 };
 
