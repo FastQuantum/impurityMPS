@@ -12,6 +12,7 @@ import subprocess
 import traceback
 
 import bench_green_cost
+import bond_dynamics
 import green_irlm
 import green_siam
 import quench_vs_excitation
@@ -22,6 +23,7 @@ SECTIONS = [
     ("SIAM Green function: FBR vs star vs chain", green_siam),
     ("Green function cost: few-body vs full star", bench_green_cost),
     ("Cost of one evolution, by protocol", quench_vs_excitation),
+    ("Bond dimension in time: few-body vs full MPS", bond_dynamics),
 ]
 
 STYLE = """
