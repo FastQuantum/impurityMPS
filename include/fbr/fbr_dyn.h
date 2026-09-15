@@ -11,6 +11,7 @@
 #include "basisextension.h"
 
 #include <stdexcept>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -41,6 +42,28 @@ inline int coupling_rank(Fb_mps<cmpx> const& fb, arma::mat const& Kmat)
         rank=std::max(rank,sv_rank(Kmat.submat(a_imp,a_sla,b_imp-1,b_sla-1),fb.tol));
     }
     return rank;
+}
+
+/// spin_symmetric evolves only the dw sector: its orbital plans are reflected
+/// onto up, and Fb_mps::apply overwrites the up block of cc with the mirrored dw
+/// block. That is exact only for a state that is itself spin-flip symmetric, so
+/// refuse any other one. A spin-polarized state (c^dag_up|gs>, say) would
+/// otherwise run silently, reporting the dw occupations for the up ones and
+/// cutting the up sector's window to the dw one. The model conserves the
+/// symmetry, so checking the initial state is enough. The threshold is loose
+/// on purpose: a symmetric state computed under spin_block is a mirror image
+/// only to DMRG accuracy, while a polarized one misses by O(1).
+inline void require_spin_symmetric_state(Fb_mps<cmpx> const& fb)
+{
+    if (fb.layout!=spin_symmetric) return;
+    constexpr double threshold=1e-6;
+    arma::cx_mat mirrored=fb.cc;
+    fb.ensure_symmetry(mirrored);
+    double mismatch=arma::abs(mirrored-fb.cc).max();
+    if (mismatch>threshold)
+        throw std::invalid_argument("Fbr_dyn: spin_symmetric needs a spin-flip symmetric state, "
+                                    "but the up and dw blocks of cc differ by "+std::to_string(mismatch)
+                                    +" (threshold "+std::to_string(threshold)+"); use spin_block");
 }
 
 /// Machinery shared by the single-state (Fbr_dyn) and multi-state (Fbr_dyn_shared)
@@ -82,6 +105,7 @@ struct DynCommon {
         if (imp_pos.empty() || b_imp-a_imp!=param.n_imp()
             || (int)imp_pos.min()!=a_imp || (int)imp_pos.max()!=b_imp-1)
             throw std::invalid_argument("Fbr_dyn: the state layout does not match the impurity positions of the model");
+        require_spin_symmetric_state(first);
 
         arma::mat Kstar=param.Kmat;
         if (!bath_pos.empty()) {
@@ -217,7 +241,10 @@ struct DynCommon {
     /// Effective MPS->real rotation in the Schrödinger picture.
     /// The MPS lives in the interaction picture of H_bath, so fb.rot tracks only the
     /// natural-orbital basis change. To recover real-space Schrödinger-picture
-    /// correlators, we dress the bath block with exp(-i Kbath * t).
+    /// correlators, we dress the bath block with exp(-i Kbath * t):
+    ///   Q = rot_star * diag(ip_phase) * rot_star^dag * fb.rot.
+    /// O(L^3) (two dense L x L products): the single elements, rows and columns
+    /// below never form it.
     arma::cx_mat effective_rot(State const& fb) const
     {
         arma::cx_mat M = rot_star.t() * fb.rot;
@@ -225,35 +252,52 @@ struct DynCommon {
         return rot_star * M;
     }
 
-    /// The whole Schrödinger-picture real-space <c_i^dag c_j> matrix.
+    /// Row k of effective_rot, as a column: Q.row(k)^T = fb.rot^T conj(rot_star) (d % rot_star.row(k)^T),
+    /// d=ip_phase. Written with conjugated vectors so that every product is a
+    /// plain or ^dag matrix-vector product: O(L^2), no L x L temporary.
+    arma::cx_vec effective_rot_row(State const& fb, int k) const
+    {
+        arma::cx_vec x = arma::conj(rot_star.row(k).st() % ip_phase(n_iter));
+        return arma::conj(fb.rot.t() * (rot_star * x));
+    }
+
+    /// Q * w, with Q = effective_rot, from right to left: O(L^2).
+    arma::cx_vec effective_rot_times(State const& fb, arma::cx_vec const& w) const
+    {
+        arma::cx_vec y = rot_star.t() * (fb.rot * w);
+        y %= ip_phase(n_iter);
+        return rot_star * y;
+    }
+
+    /// The whole Schrödinger-picture real-space <c_i^dag c_j> matrix. O(L^3).
     arma::cx_mat correlator(State const& fb) const
     {
         arma::cx_mat Q = effective_rot(fb);
         return arma::conj(Q) * fb.cc * Q.st();
     }
 
-    /// Schrödinger-picture real-space <c_i^dag c_j>.
+    /// Schrödinger-picture real-space <c_i^dag c_j> = sum_ab conj(Q(i,a)) cc(a,b) Q(j,b).
+    /// Only rows i and j of Q are needed: O(L^2).
     cmpx correlator(State const& fb, int i, int j) const
     {
-        arma::cx_mat Q = effective_rot(fb);
-        arma::cx_vec ccQj = fb.cc * Q.row(j).st();
-        return arma::cdot(Q.row(i).st(), ccQj);
+        arma::cx_vec ccQj = fb.cc * effective_rot_row(fb,j);
+        return arma::cdot(effective_rot_row(fb,i), ccQj);
     }
 
     /// Column j of the Schrödinger-picture correlator: <c_i^dag c_j> for fixed j, all i.
+    /// conj(Q) * v = conj(Q * conj(v)): O(L^2).
     arma::cx_vec correlator_col(State const& fb, int j) const
     {
-        arma::cx_mat Q = effective_rot(fb);
-        arma::cx_vec ccQj = fb.cc * Q.row(j).st();
-        return arma::conj(Q) * ccQj;
+        arma::cx_vec ccQj = fb.cc * effective_rot_row(fb,j);
+        return arma::conj(effective_rot_times(fb,arma::conj(ccQj)));
     }
 
     /// Row i of the Schrödinger-picture correlator: <c_i^dag c_j> for fixed i, all j.
+    /// Q * (conj(Q.row(i)) * cc)^T: O(L^2).
     arma::cx_vec correlator_row(State const& fb, int i) const
     {
-        arma::cx_mat Q = effective_rot(fb);
-        arma::cx_rowvec v = arma::conj(Q.row(i)) * fb.cc;
-        return Q * v.st();
+        arma::cx_rowvec v = effective_rot_row(fb,i).t() * fb.cc;
+        return effective_rot_times(fb,v.st());
     }
 };
 
@@ -316,10 +360,15 @@ struct Fbr_dyn : detail::DynCommon {
 
 /// Few-body real-time evolution of several states in one common orbital basis.
 ///
-/// The orbital transformations are found once from the collection of states
-/// (natural orbitals come from their averaged correlation matrix) and applied
-/// identically to every MPS. Each state is nevertheless evolved by its own
-/// TDVP call, since the TDVP projection and truncation are state-dependent.
+/// The states follow a master-slave convention: the FIRST state is the master
+/// and its natural orbitals define the shared basis; the others are slaves that
+/// live in it. Make the master the state whose evolution is hardest to
+/// represent -- for a Green function that is the excitation c^dag|psi0>, not the
+/// stationary ground state |psi0>. The orbital basis is found once per step from
+/// the master and applied identically to every MPS (widen_to_all_states then
+/// grows the window to hold every orbital where a slave differs, so no slave's
+/// support is dropped). Each state is nevertheless evolved by its own TDVP call,
+/// since the TDVP projection and truncation are state-dependent.
 struct Fbr_dyn_shared : detail::DynCommon {
     using Common = detail::DynCommon;
     using State = typename Common::State;
@@ -333,6 +382,8 @@ struct Fbr_dyn_shared : detail::DynCommon {
         , states(std::move(states_))
     {
         check_common_orbitals();
+        for (auto const& state : states)   // apply() mirrors every state's cc, not just the master's
+            detail::require_spin_symmetric_state(state);
         energies.assign(states.size(),-1000.0);
         for (auto& state : states) state.n_sv=this->n_sv;
         this->K=Common::build_K(states.front());
@@ -348,7 +399,7 @@ struct Fbr_dyn_shared : detail::DynCommon {
         apply_plan(states.front().plan_representative(this->K,1));
         apply_plan(states.front().plan_active_representative(this->K));
         do_tdvp(args);
-        apply_plan(widen_to_all_states(states.front().plan_natural_orbitals(combined_cc())));
+        apply_plan(widen_to_all_states(states.front().plan_natural_orbitals(master_cc())));
     }
 
     void apply_plan(OrbitalUpdate<cmpx> const& update)
@@ -475,15 +526,14 @@ private:
         return update;
     }
 
-    /// Natural orbitals are found from the states' average correlation matrix.
-    arma::cx_mat combined_cc() const
-    {
-        arma::cx_mat cc(states.front().cc.n_rows,states.front().cc.n_cols,arma::fill::zeros);
-        for (auto const& state : states)
-            cc+=state.cc;
-        cc/=static_cast<double>(states.size());
-        return cc;
-    }
+    /// Natural orbitals are chosen from the MASTER state (the first one), whose
+    /// evolution is the hardest to represent -- for a Green function that is the
+    /// excitation c^dag|psi0>, not the stationary |psi0>. The slaves follow the
+    /// master's basis; widen_to_all_states then grows the window to hold every
+    /// orbital where a slave differs, so their support is never dropped.
+    /// (Averaging the states' correlation matrices instead diluted the master's
+    /// orbitals into a basis tuned to none of them.)
+    arma::cx_mat const& master_cc() const { return states.front().cc; }
 };
 
 } // namespace fbr

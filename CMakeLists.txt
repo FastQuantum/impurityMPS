@@ -36,6 +36,14 @@ add_subdirectory(example)
 # because each one is a full DMRG/TDVP run, not something a normal build needs.
 option(FBR_EXAMPLE_REF "Build the reference star/chain programs" OFF)
 
+##------------ apps (numerical experiments) ----------
+
+# app/ holds the experiments, benchmarks and tuning drivers, data in app/output.
+option(FBR_APP "Build the numerical-experiment programs in app/" OFF)
+if(FBR_APP)
+    add_subdirectory(app)
+endif()
+
 #----------- tests -----------------
 
 # enable_testing() must run in the top-level list file so CMake writes the root

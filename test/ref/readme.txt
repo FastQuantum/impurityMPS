@@ -1,17 +1,29 @@
 Reference programs
 ==================
 
-These standalone executables produce *trusted* baselines for the SIAM dynamics,
-used to validate the few-body (active-window) FBR solvers in ../../test/. They are
-built only when CMake is configured with -DFBR_EXAMPLE_REF=ON.
+These standalone executables produce the *reference data* in output/: the
+baselines that new code and new numerical experiments are measured against.
+They are built only when CMake is configured with -DFBR_EXAMPLE_REF=ON.
 
-The model is the same throughout: spinful SIAM, L=100, n_imp=4, hybridization
-V=0.1, Hubbard U (default 0.2). The dynamics programs take U as an optional first
-argument, e.g.  ./chain_dyn_siam_center 0.1
+What belongs here, by prefix:
+  chain_  trusted baseline: full MPS in the real-space chain (the ground truth)
+  star_   full MPS in the star geometry (whole chain active, no window)
+  fbr_    the FBR's own trajectory or state, only when a test replays it
+Experiments, benchmarks and tuning drivers go to app/ instead, with their data
+in app/output/ (see app/README.md).
+
+The dynamics programs take U as an optional first argument, e.g.
+./chain_dyn_siam_center 0.1
+
+The parameters the tests cover: L=100, V=0.1, with U = 0.1 and 0.2 for the SIAM
+(correlators and Green function), and U = 0.1, 0.2 and -0.2 for the IRLM Green
+functions -- the attractive case flips the sign of both impurity terms (the
+interaction and the level e_imp = -U/2), so it exercises the window on the
+other side of half filling.
 
 
-Pure-ITensor programs (raw itensor::MPS, no few-body state classes)
-------------------------------------------------------------------
+Programs
+--------
 - chain_dyn_siam_center.cpp
     Full two-site TDVP in the CHAIN (real-space) geometry: spin-up and spin-down
     are two nearest-neighbour chains and the impurity cluster sits contiguously at
@@ -40,31 +52,17 @@ Pure-ITensor programs (raw itensor::MPS, no few-body state classes)
     rewriting the file every step, and stops early if the bond dimension of any
     of the three states reaches 1024. At U=0 the run also compares itself with
     the analytic free-fermion Green function: it agrees to 4.3e-8, which is what
-    says the baseline is right. Used by test/test_ref_green.cpp.
+    says the baseline is right. Used by test/test_ref_green.cpp. Generated for
+    U = 0.1, 0.2 and -0.2.
 
-- fbr_green_irlm_L1000.cpp
-    The SAME Green functions at L=1000, but computed by the FBR itself. This is
-    NOT a trusted baseline: at L=1000 there is nothing to check it against, since
-    a real-space chain TDVP of three states on 1000 sites is out of reach -- that
-    is the point of the active-window method. What it records is the solver's own
-    trajectory, so a later change of behaviour at a size the L=100 tests never
-    reach shows up as a difference.
-
-    Two things make it usable as a baseline. The reference state is a Slater
-    determinant with BOTH impurity orbitals empty (from_slater, not Fbr_gs), so
-    the run is deterministic: two runs give byte-identical files. An Fbr_gs
-    ground state does not -- two identical runs of it gave bond dimensions 126
-    and 144 and Im G(0,0) differing by 5e-4, the DMRG choosing between
-    near-degenerate orbital sets. And both impurity orbitals have to be empty for
-    c_j^dag|psi> to be non-zero at all on a determinant.
-
-    So these are the Green functions of that quench, not equilibrium ones. Rows
-    carry the largest bond dimension over the three states and the width of the
-    active window; the replay in test_ref_green.cpp checks the Green functions
-    and asks only that those two stay in the same ballpark, so that a different
-    truncation path is fine but a runaway window is not. Writes
-        output/fbr_green_irlm_L1000_U<U>.txt
-    Note the name: fbr_ marks a self-reference, chain_ a trusted baseline.
+- fbr_green_gs.cpp
+    The FBR ground states test_ref_green.cpp starts from (L=100, the U values above),
+    saved once because computing them is the slow part of the test:
+        fbr_green_gs irlm  ->  output/fbr_green_gs_L100_U<U>.dat
+        fbr_green_gs siam  ->  output/fbr_green_gs_siam_L100_U<U>.dat
+    (written to the working directory; copy them into output/). The test still
+    checks what it loads, against the chain baseline at t=0. Fbr_gs is not
+    bit-reproducible, so regenerate only the model you changed.
 
 - star_dyn_siam_center.cpp
     Full TDVP in the STAR geometry (each spin's bath is diagonalised into energy
@@ -73,7 +71,7 @@ Pure-ITensor programs (raw itensor::MPS, no few-body state classes)
         output/star_dyn_siam_center_U<U>_ref.txt
     in the same format and at the same times as the chain program. The impurity
     couples to all bath eigenmodes (long-range), so the subspace expansion must be
-    resolved well. TDVP params were tuned (star_dyn_tune.cpp) to match the earlier
+    resolved well. TDVP params were tuned (app/star_dyn_tune.cpp) to match the earlier
     overkill run (n_krylov=15, err_goal=1e-8, epsilon_M=1e-7, epsilon_K=1e-8) at
     minimum cost. Findings, at U=0.2:
       - n_krylov is the cheap knob: 15 -> 2 cuts runtime ~4x, leaves t=20 unchanged
@@ -83,34 +81,26 @@ Pure-ITensor programs (raw itensor::MPS, no few-body state classes)
         ~3x loosening (6.7e-5) but 10x breaks (8.8e-4).
     The program now uses the tuned set n_krylov=2, err_goal=1e-7, epsilon_M=3e-7,
     epsilon_K=3e-8, which tracks the chain baseline as well as the overkill run.
+    (The tuning drivers star_dyn_tune.cpp / fbr_dyn_tune.cpp are in app/.)
     Kept as a record only, not used in the tests. (Much coarser expansion cutoffs
     give a ~1e-2 agreement.)
 
-- star_dyn_siam_center_ip.cpp
-    Star geometry in the interaction picture of the bath: the bath phases are
-    advanced analytically (expBath) and only the interaction-picture Hamiltonian
-    Kip_n is applied to the MPS via TDVP.
-
-- star_dyn_siam_center_ipc.cpp
-    Star geometry, interaction picture with an accumulated bath unitary Ubath and
-    a Trotter split (exp(-iH dt) = exp(-iH_bath dt) exp(-iH^(2) dt) + O(dt^3)):
-    exp(-iH_bath dt) is tracked in Ubath and never touches the MPS. Structured so
-    an intra-bath rotation R can be inserted between steps (Ubath <- R Ubath).
-
-
-Programs bridging to the few-body state classes (Fb_mps / Impurity[Spin])
--------------------------------------------------------------------------
-- star_gs_siam.cpp
-    Ground state (DMRG), spinless: Impurity + Fb_mps<double>.
-
-- star_dyn_siam.cpp
-    Dynamics, spinless: Impurity + Fb_mps<cmpx>. Interleaved up/down layout with
-    the impurity at sites 0..3.
-
-- star_dyn_siam_spin.cpp
-    Dynamics, spinful: Impurity (spin_symmetric layout) + Fb_mps<cmpx>. Block layout, constructing
-    the star model directly (bypassing to_star) to check that building the state
-    through the library types reproduces the raw-ITensor result.
+- chain_green_siam.cpp, star_green_siam.cpp
+    The impurity Green function G00(t) = -i <c_0^dag A(t)|B(t)> of the SPINFUL
+    SIAM (impurity coupled by V=0.1 to a bath of hopping 0.5, Hubbard U), the
+    model of app/fbr_green_siam.cpp. Both keep the whole L-site MPS (DMRG + two-
+    site TDVP, no orbital rotation): the chain in the MPS-friendly centre layout
+    of chain_dyn_siam_center, the star with each spin's bath diagonalised (the
+    basis the FBR evolves in; its bond dimension climbs fast, which is the cost
+    the active window removes). Both stop when a bond dimension reaches 1024.
+    Usage: chain_green_siam [L] [tmax] [U] [dt]  (defaults 100, L/2, 0.1, 0.1).
+    Run from the repository root; they write
+        output/{chain,star}_green_siam_L<L>_U<U>.dat
+    with columns "t bond_dim wall_s ReG00 ImG00 n0 ReC0n ImC0n" (n0 the impurity
+    occupation, C0n the impurity-to-first-bath-site correlator). Committed: chain
+    at L=100 for U=0.1 (to t=50) and U=0.2 (to t=20), which test_ref_green.cpp
+    compares the FBR G00 against; star at L=100,200,500(,1000) for U=0.1 and
+    0.025, up to t=L/2 or the bond-dimension stop, for the record.
 
 
 Output reference files
@@ -120,15 +110,13 @@ chain_dyn_siam_center_ref_v1) hold ni + correlation-matrix snapshots.
 
 - test/test_ref_{fbr,block,ns}.cpp compare each FBR variant against the CHAIN
   baseline only (the trusted standard), at every snapshot present in the file.
-- output/fbr_green_irlm_L1000_U<U>.txt (format tag fbr_green_irlm_ref_v1) holds
-  "t ReG00 ImG00 ReG01 ImG01 maxBondDim n_active" per step. test_ref_green.cpp
-  replays the first 20 steps: Green functions to 1e-6, bond dimension and window
-  width to within a quarter (or 3).
 - output/chain_green_irlm_U<U>_ref.txt (format tag chain_green_irlm_ref_v1) is a
   different, denser format: one row per time step, "t ReG00 ImG00 ReG01 ImG01 m".
   test/test_ref_green.cpp compares the FBR Green functions against it at every
-  step in the file (up to t=5 by default, the whole file with
-  -DFBR_ENABLE_LONG_TEST=ON).
+  step (up to t=2 by default, t=20 with -DFBR_ENABLE_LONG_TEST=ON).
 - The star baseline is kept for the record but is NOT used in the tests. Its
   agreement with the chain baseline is documented, once, in
   output/star_vs_chain.txt, regenerated by compare_star_vs_chain.py.
+- output/chain_green_siam_L100_U<U>.dat is a plain table ('#' comment lines, then
+  "t bond_dim wall_s ReG00 ImG00 n0 ReC0n ImC0n"). test/test_ref_green.cpp
+  compares the FBR SIAM G00 against it the same way (t<=2, or t<=20 long).

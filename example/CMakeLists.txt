@@ -4,13 +4,13 @@ list(APPEND test_SRC
     fbr_gs_irlm.cpp
     fbr_dyn_irlm.cpp
     fbr_green_irlm.cpp
+    fbr_green_irlm_separate.cpp
     fbr_gs_siam.cpp
     fbr_dyn_siam.cpp
     fbr_dyn_ns_siam.cpp
     fbr_dyn_siam_center.cpp
     fbr_dyn_shared_siam_manual.cpp
     fbr_dyn_siam_block.cpp
-    bench_buildK.cpp
 )
 
 foreach (test ${test_SRC})

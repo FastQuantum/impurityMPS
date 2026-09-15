@@ -153,7 +153,7 @@ int main(int argc, char** argv)
     args.n_krylov  = argc>2 ? std::stoi(argv[2]) : 15;
     args.epsilon_K = argc>4 ? std::stod(argv[4]) : 1e-8;
     int maxSteps  = argc>6 ? std::stoi(argv[6]) : 200;
-    string out    = argc>7 ? argv[7] : "output/tune_star_ref.txt";
+    string out    = argc>7 ? argv[7] : "app/output/tune_star.txt";
 
     int maxBondDim = 1024;
 

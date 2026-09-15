@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <fstream>
 #include <map>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -36,6 +37,25 @@ inline fbr::ImpurityParam makeIrlmModel(int L, double U, double V)
     mat Umat(L, L, fill::zeros);
     Umat(0, 1) = U;
     fbr::ImpurityParam model{.Kmat = K, .Umat = Umat, .imp_pos = {0, 1}};
+    model.to_star();
+    return model;
+}
+
+// The spinful SIAM the Green function references use (test/ref/chain_green_siam.cpp
+// in the chain geometry): two interleaved spin chains (stride 2) of hopping 0.5,
+// the up and down impurity orbitals on sites 0 and 1, hybridization V to sites 2
+// and 3, e_imp = -U/2 and U between the two impurity orbitals; spin-symmetric
+// layout, and the non-rotating cluster is just the two impurity orbitals.
+inline fbr::ImpurityParam makeSiamModel(int L, double U, double V)
+{
+    mat K(L, L, fill::zeros);
+    for (int i = 0; i < L - 2; i++) K(i, i + 2) = K(i + 2, i) = 0.5;
+    K(0, 0) = K(1, 1) = -U / 2;
+    K(0, 2) = K(2, 0) = K(1, 3) = K(3, 1) = V;
+    mat Umat(L, L, fill::zeros);
+    Umat(0, 1) = U;
+    fbr::ImpurityParam model{.Kmat = K, .Umat = Umat, .imp_pos = {0, 1},
+                             .layout = fbr::spin_symmetric};
     model.to_star();
     return model;
 }
@@ -202,6 +222,28 @@ inline std::vector<GreenSample> loadGreenReference(std::string const &name)
     return rows;
 }
 
+// Parse test/ref/output/chain_green_siam_L<L>_U<U>.dat: '#' comment lines, then
+// one row per time step, "t bond_dim wall_s ReG00 ImG00 n0 ReC0n ImC0n". The SIAM
+// has one impurity Green function (spin up, site 0), so G01 is left at zero.
+inline std::vector<GreenSample> loadSiamGreenReference(std::string const &name)
+{
+    std::ifstream in(findRef(name));
+    std::vector<GreenSample> rows;
+    std::string line;
+    while (std::getline(in, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        std::istringstream row(line);
+        GreenSample r{};
+        double wall = 0, re0 = 0, im0 = 0;
+        row >> r.t >> r.m >> wall >> re0 >> im0;
+        if (!row) throw std::runtime_error("bad row in SIAM Green reference " + name);
+        r.G00 = cmpx(re0, im0);
+        rows.push_back(r);
+    }
+    if (rows.size() < 2) throw std::runtime_error("empty SIAM Green reference " + name);
+    return rows;
+}
+
 // Reorder a correlator from FBR site order to chain-reference site order. The
 // permutation `p` is variant-specific (the spinful and spinless layouts differ),
 // so each test .cpp supplies its own fbrIndexToChainIndex.
@@ -219,46 +261,6 @@ inline Metrics compare(cx_mat const &fbrCcChain, SnapshotData const &ref)
     cx_mat dcc = fbrCcChain - ref.cc;
     vec dni = real(fbrCcChain.diag()) - ref.ni;
     return {abs(dni).max(), abs(dcc).max()};
-}
-
-// One row of an FBR self-reference at large L (format tag
-// fbr_green_irlm_ref_v1): the solver's own Green functions plus the two
-// integers that describe the state of the active-window machinery.
-struct LargeLGreenSample {
-    double t = 0;
-    cmpx G00, G01;
-    int maxBondDim = 0;
-    int n_active = 0;
-};
-
-// Parse an fbr_green_irlm_ref_v1 file, at most nSteps rows.
-inline std::vector<LargeLGreenSample> loadLargeLGreenReference(std::string const &name,
-                                                               int nSteps)
-{
-    std::ifstream in(findRef(name));
-    std::string magic, token;
-    int L = 0, steps = 0;
-    double U = 0, V = 0, dt = 0;
-    in >> magic >> token >> L >> token >> U >> token >> V >> token >> dt >> token >> steps;
-    if (magic != "fbr_green_irlm_ref_v1" || L <= 0 || steps <= 0)
-        throw std::runtime_error("invalid large-L Green reference header in " + name);
-    if (steps < nSteps)
-        throw std::runtime_error("large-L Green reference " + name + " is too short");
-    std::getline(in, token);
-    std::getline(in, token);   // the "# t ReG00 ..." comment line
-
-    std::vector<LargeLGreenSample> rows;
-    rows.reserve(nSteps);
-    for (int s = 0; s < nSteps; ++s) {
-        LargeLGreenSample r;
-        double re0 = 0, im0 = 0, re1 = 0, im1 = 0;
-        in >> r.t >> re0 >> im0 >> re1 >> im1 >> r.maxBondDim >> r.n_active;
-        if (!in) throw std::runtime_error("truncated large-L Green reference " + name);
-        r.G00 = cmpx(re0, im0);
-        r.G01 = cmpx(re1, im1);
-        rows.push_back(r);
-    }
-    return rows;
 }
 
 // Per-snapshot tolerances (niMax, ccMax) shared by all three FBR variants.

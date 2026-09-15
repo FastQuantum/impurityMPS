@@ -3,8 +3,11 @@
 #include "fbr/fbr_dyn.h"
 #include "test_ref_common.h"
 
+#include <fstream>
 #include <map>
+#include <stdexcept>
 #include <string>
+#include <vector>
 
 using namespace arma;
 using namespace fbr;
@@ -106,6 +109,72 @@ void checkChain(TrajResult const &res, std::map<std::string, Tol> const &tol)
     }
 }
 
+// ---- L=1000 quench coverage (ported from the retired `unify` branch) ----
+//
+// The reference files test/ref/output/fbr_dyn_siam_L1000_U*.txt hold one compact
+// row per time step of the SIAM impurity quench (impurity forced to |1100>, then
+// evolved). Reading only the first few steps keeps this a smoke test that the
+// solver still scales to L=1000; the full trajectories are kept for manual and
+// longer comparisons. Regenerate with example/fbr_dyn_siam.cpp.
+
+struct LargeLReferenceRow {
+    double time;
+    int maxBondDim;
+    double n0;
+    double n1;
+    int nActive;
+};
+
+std::vector<LargeLReferenceRow> loadLargeLReference(std::string const &name, int nSteps)
+{
+    std::ifstream in(findRef(name));
+    std::string header;
+    std::getline(in, header);
+    if (header != "time m <n0> <n1>  nActive time(s)")
+        throw std::runtime_error("invalid L=1000 reference header in " + name);
+
+    std::vector<LargeLReferenceRow> rows;
+    rows.reserve(nSteps);
+    for (int step = 0; step < nSteps; ++step) {
+        LargeLReferenceRow row;
+        double wallTime = 0;
+        if (!(in >> row.time >> row.maxBondDim >> row.n0 >> row.n1 >> row.nActive
+                 >> wallTime))
+            throw std::runtime_error("not enough rows in L=1000 reference " + name);
+        rows.push_back(row);
+    }
+    return rows;
+}
+
+void checkLargeL(double U, std::string const &us)
+{
+    // Five steps for each U make the two L=1000 cases together take roughly as
+    // long as the existing default L=100 reference group.
+    constexpr int L = 1000;
+    constexpr int nSteps = 5;
+    constexpr double dt = 0.1;
+    auto ref = loadLargeLReference("fbr_dyn_siam_L1000_U" + us + ".txt", nSteps);
+    auto fbr = makeFbrRun(L, dt, U);
+    fbr.fb.tol = 1e-10; // Match the default tol used to produce the reference files.
+
+    for (int step = 0; step < nSteps; ++step) {
+        fbr.iterate({.epsilon_M = 0});
+        auto const &expected = ref[step];
+        auto ni = fbr.fb.occupations_ni();
+        double n0 = ni[L / 2];
+        double n1 = ni[L / 2 + 1];
+        int m = itensor::maxLinkDim(fbr.fb.psi);
+
+        CAPTURE(U, step, n0, n1, expected.n0, expected.n1, m, expected.maxBondDim,
+                fbr.fb.n_active(), expected.nActive);
+        REQUIRE(expected.time == Approx((step + 1) * dt).margin(1e-12));
+        REQUIRE(n0 == Approx(expected.n0).margin(1e-9));
+        REQUIRE(n1 == Approx(expected.n1).margin(1e-9));
+        REQUIRE(m == expected.maxBondDim);
+        REQUIRE(fbr.fb.n_active() == expected.nActive);
+    }
+}
+
 } // namespace
 
 TEST_CASE("build_K O(L^2) matches O(L^3) reference", "[fb_ref_fbr][build_K]") {
@@ -130,11 +199,46 @@ TEST_CASE("build_K O(L^2) matches O(L^3) reference", "[fb_ref_fbr][build_K]") {
     }
 }
 
+TEST_CASE("O(L^2) correlator elements, rows and columns match the full correlator",
+          "[fb_ref_fbr][correlator]") {
+    constexpr int L = 40;
+    constexpr double dt = 0.1;
+    auto fbr = makeFbrRun(L, dt, 0.2);
+
+    // Algebraic identities, valid for any frame and any cc: a random unitary
+    // fb.rot and a random (not even Hermitian) cc.
+    arma::arma_rng::set_seed(4321);
+    cx_mat G = cx_mat(L, L, fill::randn) + imag_1 * cx_mat(L, L, fill::randn);
+    cx_mat Q, R;
+    qr(Q, R, G);
+    fbr.fb.rot = Q;
+    fbr.fb.cc = cx_mat(L, L, fill::randn) + imag_1 * cx_mat(L, L, fill::randn);
+
+    for (int n : {0, 1, 5, 37}) {
+        fbr.n_iter = n;
+        cx_mat full = fbr.correlator();   // through the dense effective_rot
+        for (int i : {0, 1, 2, L / 2, L - 1}) {
+            INFO("n_iter = " << n << ", i = " << i);
+            REQUIRE(norm(fbr.correlator_col(i) - full.col(i), "inf") < 1e-10);
+            REQUIRE(norm(fbr.correlator_row(i) - full.row(i).st(), "inf") < 1e-10);
+            for (int j : {0, 3, L - 2})
+                REQUIRE(std::abs(fbr.correlator(i, j) - full(i, j)) < 1e-10);
+        }
+    }
+}
+
 TEST_CASE("fbr vs chain center reference U=0.2", "[fb_ref_fbr]") {
     checkChain(resultFor(0.2, "0.2"), chainTol());
 }
 TEST_CASE("fbr vs chain center reference U=0.1", "[fb_ref_fbr]") {
     checkChain(resultFor(0.1, "0.1"), chainTol());
+}
+
+TEST_CASE("fbr L=1000 quench reference U=0.2", "[fb_ref_fbr][large_l]") {
+    checkLargeL(0.2, "0.2");
+}
+TEST_CASE("fbr L=1000 quench reference U=0.1", "[fb_ref_fbr][large_l]") {
+    checkLargeL(0.1, "0.1");
 }
 
 TEST_CASE("multi-state solver with one state matches single-state solver", "[multi_state]") {
@@ -184,4 +288,33 @@ TEST_CASE("multi-state solver with one state matches single-state solver", "[mul
         REQUIRE(arma::abs(new_solver.correlator()-old_solver.correlator()).max()<1e-8);
         REQUIRE(std::abs(new_solver.energies.front()-old_solver.energy)<1e-8);
     }
+}
+
+// spin_symmetric evolves only the dw sector and mirrors it onto up, so a state
+// that is not its own mirror image would silently get the dw correlators. Both
+// solvers must refuse it, and spin_block must take it.
+TEST_CASE("spin_symmetric refuses a spin-polarized state", "[spin_guard]") {
+    constexpr int L=8;
+    constexpr double dt=0.1;
+    constexpr double U=0.2;
+
+    auto model=makeSiamModel(L,U,0.1);
+    int m=L/2;                      // impurity orbitals at m-1 (up) and m (dw)
+    auto ek=vec{model.Kmat.diag()};
+    ek[m-1]=ek[m]=-10;
+    auto symmetric=slater<cmpx>(model,ek);
+    ek[m-1]=10;                     // up impurity empty, dw full
+    auto polarized=slater<cmpx>(model,ek);
+
+    REQUIRE_NOTHROW(Fbr_dyn(model,symmetric,dt));
+    REQUIRE_THROWS_AS(Fbr_dyn(model,polarized,dt),std::invalid_argument);
+    REQUIRE_THROWS_AS(Fbr_dyn_shared(model,std::vector{polarized},dt),std::invalid_argument);
+    // a slave is mirrored as well as the master
+    auto polarized_slave=symmetric;
+    polarized_slave.cc(m-1,m-1)=0;
+    REQUIRE_THROWS_AS(Fbr_dyn_shared(model,std::vector{symmetric,polarized_slave},dt),
+                      std::invalid_argument);
+
+    model.layout=polarized.layout=spin_block;
+    REQUIRE_NOTHROW(Fbr_dyn(model,polarized,dt));
 }

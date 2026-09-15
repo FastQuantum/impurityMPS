@@ -1,16 +1,10 @@
 list(APPEND ref_SRC
     chain_dyn_siam_center.cpp
     chain_green_irlm.cpp
-    star_gs_siam.cpp
-    fbr_green_irlm_L1000.cpp
-    fbr_green_gs.cpp
-    star_dyn_siam.cpp
+    chain_green_siam.cpp
     star_dyn_siam_center.cpp
-    star_dyn_siam_spin.cpp
-    star_dyn_siam_center_ip.cpp
-    star_dyn_siam_center_ipc.cpp
-    star_dyn_tune.cpp
-    fbr_dyn_tune.cpp
+    star_green_siam.cpp
+    fbr_green_gs.cpp
 )
 
 foreach (src ${ref_SRC})
