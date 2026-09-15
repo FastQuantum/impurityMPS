@@ -55,7 +55,7 @@ Findings so far:
 
 | Program | Question | Data | Plot |
 |---|---|---|---|
-| `quench_vs_excitation_siam` | Window and time of one `Fbr_dyn` for the paper's quench, the excitation c₀†\|gs⟩, and \|gs⟩ itself | `{quench,excitation,gs}_siam_L{100,500}_U0.025` | `quench_vs_excitation.py` |
+| `quench_vs_excitation_siam` | Window and time of one `Fbr_dyn` for the paper's quench, the excitation c₀†\|gs⟩ (`spin_block`), and \|gs⟩ itself | `{quench,excitation,gs}_siam_L{100,500}_U0.025` | `quench_vs_excitation.py` |
 | `gs_frame_vs_ip_siam` | Does a co-moving frame (`fbr_dyn_frame.h`) keep the \|gs⟩ window smaller than the interaction picture? | `gs_{ip,frame}_siam_L{20,40}_U0` | `quench_vs_excitation.py` |
 | `bench_buildK` | Per-step wall time against L of the spin dynamics (the O(L²) orbital bookkeeping) | prints | — |
 

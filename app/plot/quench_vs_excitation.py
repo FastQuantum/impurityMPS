@@ -1,5 +1,6 @@
-"""What one FBR evolution costs, by protocol (SIAM, spin-symmetric): the quench of
-the paper, the Green-function excitation c_0^dag|gs>, and the ground state itself;
+"""What one FBR evolution costs, by protocol (SIAM): the quench of the paper and the
+ground state itself (spin_symmetric), and the Green-function excitation c_0^dag|gs>
+(spin_block, since it is spin-polarized);
 plus the co-moving-frame negative result (Fbr_dyn_frame against Fbr_dyn on |gs>).
 
 Data: app/output/{quench,excitation,gs}_siam_L<L>_U0.025.dat  (app/quench_vs_excitation_siam.cpp)

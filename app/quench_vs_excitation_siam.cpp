@@ -1,4 +1,4 @@
-// Cost comparison of two FBR real-time protocols for the SIAM (spin-symmetric):
+// Cost comparison of FBR real-time protocols for the SIAM:
 //
 //   1. QUENCH (the protocol of the paper): start from a Slater determinant with
 //      the impurity forced doubly occupied and let it relax under the full H.
@@ -18,11 +18,17 @@
 //
 //   t  n_active  bond_dim  wall_s  n0  energy
 //
-// where n0 = <c_0^dag c_0> is the impurity (spin-up) occupation. Written to
+// where n0 = <c_0^dag c_0> is the impurity (spin-up) occupation. The quench and
+// |gs> are spin-flip symmetric and run under spin_symmetric, as in the paper. The
+// excitation has one more up electron than down ones, so it runs under
+// spin_block: spin_symmetric would evolve only its dw sector and mirror it onto
+// the up one (Fbr_dyn refuses such a state). Written to
 //   app/output/quench_siam_L<L>_U<U>.dat
 //   app/output/excitation_siam_L<L>_U<U>.dat
+//   app/output/gs_siam_L<L>_U<U>.dat
 //
-// Usage: quench_vs_excitation_siam [L] [tmax] [U] [dt]   (100, L/2, 0.025, 0.1)
+// Usage: quench_vs_excitation_siam [L] [tmax] [U] [dt] [which]
+//        (100, L/2, 0.025, 0.1, all); which = all, quench, excitation or gs
 
 #include "fbr/fbr.h"
 
@@ -60,7 +66,8 @@ void run(ImpurityParam const& model, Fb_mps<cmpx> fb, double dt, int nStep,
     auto solver = Fbr_dyn(model, fb, dt);
     ofstream out(name);
     out << setprecision(12);
-    out << "# SIAM " << what << " evolution, spin-symmetric FBR\n"
+    out << "# SIAM " << what << " evolution, "
+        << (fb.layout == spin_symmetric ? "spin_symmetric" : "spin_block") << " FBR\n"
         << "# n0(t=0)=" << std::real(solver.correlator(0, 0))
         << "  E_gs(ref)=" << e_ref << "\n"
         << "# t  n_active  bond_dim  wall_s  n0  energy\n";
@@ -90,8 +97,12 @@ int main(int argc, char** argv)
     string us   = argc > 3 ? argv[3] : "0.025";   // U as typed, names the output
     double U    = std::stod(us);
     double dt   = argc > 4 ? std::stod(argv[4]) : 0.1;
+    string which = argc > 5 ? argv[5] : "all";
     double V    = 0.1;
     int nStep   = (int)std::llround(tmax / dt);
+    if (which != "all" && which != "quench" && which != "excitation" && which != "gs")
+        throw invalid_argument("which must be all, quench, excitation or gs");
+    auto wanted = [&](string const& p) { return which == "all" || which == p; };
 
     auto model = siam_model(L, U, V);
 
@@ -107,7 +118,7 @@ int main(int argc, char** argv)
          << "  ground state E=" << e_gs << " in " << clk.sincemark().wall << " s" << endl;
 
     // ---- protocol 1: quench (impurity forced doubly occupied) ----
-    {
+    if (wanted("quench")) {
         auto ek = vec{model.Kmat.diag()};
         int m = L / 2;                 // impurity orbitals sit at m-1 (up) and m (dw)
         ek[m - 1] = ek[m] = -1e3;      // fill both impurity spins
@@ -118,18 +129,25 @@ int main(int argc, char** argv)
     }
 
     // ---- protocol 2: excitation c_0^dag|gs> ----
-    {
+    // The ground state is symmetric and is found under spin_symmetric; the
+    // excitation is not, so it is evolved under spin_block. The star frame stays
+    // the symmetric one: its reflected up bath is a valid star for spin_block too,
+    // and it is the frame the ground state is in.
+    if (wanted("excitation")) {
+        auto model_block = model;
+        model_block.layout = spin_block;
         auto fb = gs_solver.fb.to_complex();
+        fb.layout = spin_block;
         fb.tol = 1e-10;
         fb.apply_local_op("Cdag", 0);
         fb.psi.normalize();
         fb.update_cc();
-        run(model, fb, dt, nStep,
+        run(model_block, fb, dt, nStep,
             "app/output/excitation_siam_L" + to_string(L) + "_U" + us + ".dat", "excitation", e_gs);
     }
 
     // ---- protocol 3: ground state alone (isolates (a), the IP evolution) ----
-    {
+    if (wanted("gs")) {
         auto fb = gs_solver.fb.to_complex();
         fb.tol = 1e-10;
         run(model, fb, dt, nStep,

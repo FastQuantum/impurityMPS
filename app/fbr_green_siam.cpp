@@ -1,4 +1,4 @@
-// Impurity Green function of the SIAM, spin-symmetric layout, via Fbr_dyn_shared.
+// Impurity Green function of the SIAM via Fbr_dyn_shared.
 //
 // The greater Green function on the impurity (real-space site 0, spin up) is
 //
@@ -8,21 +8,22 @@
 //     G00(t) = -i <psi0| e^{iHt} c_0 e^{-iHt} c_0^dag |psi0> = -i <c_0^dag A(t) | B(t)>,
 // a matrix element between two states that must share the SAME orbital basis at
 // every time. Fbr_dyn_shared gives exactly that: the orbital rotations are found
-// once (from psi0 and the averaged correlation matrix) and applied to both MPS.
+// once per step from the master B and applied to both MPS.
 //
 // The impurity orbitals are never rotated, so the real-space impurity site is a
 // single MPS orbital and c_0 is local there: <A| c_0 |B> = <c_0^dag A | B> is a
 // plain MPS overlap (an MPO for c_0 would carry one unit of Nf flux, which
 // ITensor's particle-number-conserving AutoMPO cannot build).
 //
-// The state B = c_0^dag|psi0> has N_up = N_dw + 1, so it does not by itself have
-// the up/down mirror symmetry the spin_symmetric layout assumes. That symmetry
-// is only used as a heuristic for which orbitals to rotate into the active
-// window (the plan is taken from psi0 and mirrored); the wavefunction itself is
-// a full MPS over both spin sectors, evolved by the full-Hamiltonian TDVP, so
-// the physics is exact up to truncation. Fbr_dyn_shared::widen_to_all_states
-// grows the (centered) window to hold every orbital where B differs from psi0,
-// which is what keeps the extra up-electron's support inside the window.
+// The ground state psi0 is spin-flip symmetric, so it is found under the cheaper
+// spin_symmetric layout. B = c_0^dag|psi0> has N_up = N_dw + 1 and is not:
+// spin_symmetric evolves only the dw sector and mirrors it onto the up one, which
+// would give B the dw sector's correlators and cut the up electron's spread out
+// of the window (Fbr_dyn_shared refuses it). The dynamics therefore runs under
+// spin_block, in the same star frame -- the reflected up bath of the symmetric
+// to_star is a valid star for spin_block too, and it is the frame psi0 is in.
+// Fbr_dyn_shared::widen_to_all_states grows the window to hold every orbital
+// where psi0 differs from B.
 //
 // This is the spin analogue of example/fbr_green_irlm.cpp (spinless IRLM).
 //
@@ -88,7 +89,7 @@ int main(int argc, char** argv)
 
     auto model = fbrtest::makeSiamModel(L, U, V);
 
-    // ---- ground state (spin-symmetric) -------------------------------------
+    // ---- ground state (spin_symmetric) -------------------------------------
     auto gs = slater<double>(model);
     gs.tol = 1e-12;
     auto gs_solver = Fbr_gs(model, gs);
@@ -105,7 +106,9 @@ int main(int argc, char** argv)
     // Master-slave convention: the first state is the master and drives the
     // shared orbital basis. The excitation B=c_0^dag|psi0> is the hard evolution,
     // so it is the master; the stationary ground state psi0 is the slave.
+    model.layout = spin_block;   // B is not spin-flip symmetric, see the top
     auto psi0 = gs_solver.fb.to_complex();
+    psi0.layout = spin_block;
     psi0.tol = 1e-12;
     auto [B, nrm] = add_particle(psi0, 0);
     B.tol = psi0.tol;
@@ -114,7 +117,7 @@ int main(int argc, char** argv)
 
     // the impurity site must be a single MPS orbital for c_element to be local:
     // row 0 of the effective rotation is then a pure phase on one column. (The
-    // impurity sits at the centre of the spin-symmetric chain, not at index 0.)
+    // impurity sits at the centre of the chain, not at index 0.)
     {
         arma::cx_mat Q = solver.effective_rot();
         arma::rowvec row = arma::abs(Q.row(0));
@@ -129,7 +132,7 @@ int main(int argc, char** argv)
                 + "_U" + us + ".dat";
     ofstream out(name);
     out << setprecision(12);
-    out << "# SIAM impurity greater Green function, spin-symmetric FBR\n"
+    out << "# SIAM impurity greater Green function, FBR (gs spin_symmetric, dynamics spin_block)\n"
         << "# L=" << L << " U=" << U << " V=" << V << " dt=" << dt
         << " tmax=" << tmax << " E_gs=" << gs_solver.energy << "\n"
         << "# t  n_active  bond_dim  wall_s  ReG00  ImG00  n0  ReC0n  ImC0n  E_psi0  E_B\n";
