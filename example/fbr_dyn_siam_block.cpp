@@ -1,4 +1,4 @@
-#include "fbr/fbr_dyn_spin_block.h"
+#include "fbr/fbr.h"
 #include <iostream>
 #include <iomanip>
 
@@ -8,7 +8,7 @@ using namespace fbr;
 int main()
 {
     int L=100;
-    ImpuritySpin model;
+    ImpurityParam model;
     {
         double U=0.2;
         double V=0.1;
@@ -20,32 +20,32 @@ int main()
         K(0,2)=K(2,0)=K(1,3)=K(3,1)=V;
         arma::mat Umat(L, L, arma::fill::zeros);
         Umat(0,1) = U;  // SIAM: U on (imp_up site 0, imp_dw site 1)
-        std::vector<int> impPos = {2, 0, 1, 3};  // {buf_up, imp_up, imp_dw, buf_dw}
-        model = ImpuritySpin {{.Kmat=K, .Umat=Umat, .impPos=impPos}};
+        std::vector<int> imp_pos = {2, 0, 1, 3};  // {buf_up, imp_up, imp_dw, buf_dw}
+        model = ImpurityParam{.Kmat=K, .Umat=Umat, .imp_pos=imp_pos, .layout=spin_block};
+        model.to_star();
     }
-    Fb_mps_spin_block<cmpx> fb;
+    Fb_mps<cmpx> fb;
     {
-        auto ek=arma::vec {model.param.Kmat.diag()};
+        auto ek=arma::vec {model.Kmat.diag()};
         ek[L/2-1]=ek[L/2]=-10;
         ek[L/2-2]=ek[L/2+1]=10;
-        fb=Fb_mps_spin_block<cmpx>::from_slater(model.param.rot*cmpx(1,0),
-                                                ek, model.param.nPart(), model.param.nImp());
+        fb=slater<cmpx>(model, ek);
     }
 
     double dt=0.1;
-    auto solver=Fbr_dyn_spin_block(model,fb,dt);
+    auto solver=Fbr_dyn(model,fb,dt);
     solver.fb.tol=1e-12;
 
     arma::real(solver.K*1).eval().clean(1e-11).print("K initial");
 
-    cout<<"time m <n0> <n1>  nActive\n"<<setprecision(12);
+    cout<<"time m <n0> <n1>  n_active\n"<<setprecision(12);
     itensor::cpu_time t0;
     for(auto i=0; i*dt<L; i++){
-        solver.iterate({.err_goal=1e-8, .epsilonM=1e-8, .nKrylov=15});
+        solver.iterate({.epsilon_M=0});  // epsilon_M=0 -> no expansion; n_krylov inert, err_goal from default
         double n0= solver.fb.occupations_ni()(L/2);
         double n1= solver.fb.occupations_ni()(L/2+1);
         cout<<(i+1)*solver.dt<<" "<<maxLinkDim(solver.fb.psi)<<" "
-            <<n0<<" "<<n1<<" "<<solver.fb.p2-solver.fb.p1<<endl;
+            <<n0<<" "<<n1<<" "<<solver.fb.active.b-solver.fb.active.a<<endl;
         t0.mark();
     }
     return 0;

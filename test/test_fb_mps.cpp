@@ -1,18 +1,16 @@
 #include <catch2/catch.hpp>
-#include "fbr/fb_mps_spin.h"
-#include "fbr/fb_mps_spin_block.h"
 #include "fbr/fb_mps.h"
 
 using namespace arma;
 using namespace fbr;
 
-TEST_CASE("ensure_reflection_mat", "[fb_mps_spin]") {
+TEST_CASE("ensure_reflection", "[fb_mps_spin]") {
     const int L = 6;
     mat K(L, L, fill::zeros);
     mat br(L/2, L/2, fill::randu);
     K.submat(L/2, L/2, L-1, L-1) = br;
 
-    Fb_mps_spin<double>::ensure_reflection_mat(K);
+    Fb_mps<double>::ensure_reflection(K);
 
     // K(L/2-1-i, L/2-1-j) == br(i,j)
     for (int i = 0; i < L/2; i++)
@@ -20,77 +18,64 @@ TEST_CASE("ensure_reflection_mat", "[fb_mps_spin]") {
             REQUIRE(K(L/2-1-i, L/2-1-j) == Approx(br(i, j)));
 }
 
-TEST_CASE("ensure_reflection_col", "[fb_mps_spin]") {
-    const int L = 6;
-    mat R(L, L, fill::zeros);
-    mat right(L, L/2, fill::randu);
-    R.cols(L/2, L-1) = right;
-
-    Fb_mps_spin<double>::ensure_reflection_col(R);
-
-    // R.col(L/2-1-k) == right.col(k)
-    for (int k = 0; k < L/2; k++)
-        REQUIRE(norm(R.col(L/2-1-k) - right.col(k)) == Approx(0).margin(1e-14));
-}
-
 // ---- interval method tests ----
 // Layout for L=8, imp_size=2:
 //   [ bath_up:0,1,2 | imp_up:3 | imp_dw:4 | bath_dw:5,6,7 ]
 
 namespace {
-Fb_mps_spin<double> make_fb(int L=8, int imp_size=2, int nPart=4) {
-    return Fb_mps_spin<double>::from_slater(mat(L, L, fill::eye),
-                                            linspace(-1.0, 1.0, L), nPart, imp_size);
+Fb_mps<double> make_fb(int L=8, int imp_size=2, int n_part=4) {
+    return Fb_mps<double>::from_slater(mat(L, L, fill::eye),
+                                            linspace(-1.0, 1.0, L), n_part, imp_size, spin_symmetric);
 }
 } // namespace
 
-TEST_CASE("interval_impurity and interval_bath", "[fb_mps_spin]") {
+TEST_CASE("range: impurity and bath", "[fb_mps_spin]") {
     auto fb = make_fb();
-    REQUIRE(fb.interval_impurity_full() == std::make_pair(3, 5));
-    REQUIRE(fb.interval_impurity(up)    == std::make_pair(3, 4));
-    REQUIRE(fb.interval_impurity(dw)    == std::make_pair(4, 5));
-    REQUIRE(fb.interval_bath(up)        == std::make_pair(0, 3));
-    REQUIRE(fb.interval_bath(dw)        == std::make_pair(5, 8));
+    REQUIRE(fb.range(Part::impurity) == Range{3, 5});
+    REQUIRE(fb.range(Part::impurity,up)    == Range{3, 4});
+    REQUIRE(fb.range(Part::impurity,dw)    == Range{4, 5});
+    REQUIRE(fb.range(Part::bath,up)        == Range{0, 3});
+    REQUIRE(fb.range(Part::bath,dw)        == Range{5, 8});
 }
 
-TEST_CASE("interval_active and interval_slater: initial window equals impurity", "[fb_mps_spin]") {
+TEST_CASE("range: the initial active window is exactly the impurity", "[fb_mps_spin]") {
     auto fb = make_fb();
-    REQUIRE(fb.interval_active_full() == std::make_pair(3, 5));
-    REQUIRE(fb.interval_active(up)    == std::make_pair(3, 4));
-    REQUIRE(fb.interval_active(dw)    == std::make_pair(4, 5));
-    REQUIRE(fb.interval_slater(up)    == std::make_pair(0, 3));
-    REQUIRE(fb.interval_slater(dw)    == std::make_pair(5, 8));
+    REQUIRE(fb.range(Part::active) == Range{3, 5});
+    REQUIRE(fb.range(Part::active,up)    == Range{3, 4});
+    REQUIRE(fb.range(Part::active,dw)    == Range{4, 5});
+    REQUIRE(fb.range(Part::slater,up)    == Range{0, 3});
+    REQUIRE(fb.range(Part::slater,dw)    == Range{5, 8});
     // rotating region is empty when active window == impurity
-    auto [au, bu] = fb.interval_rotating(up);
-    auto [ad, bd] = fb.interval_rotating(dw);
+    auto [au, bu] = fb.range(Part::rotating,up);
+    auto [ad, bd] = fb.range(Part::rotating,dw);
     REQUIRE(au == bu);
     REQUIRE(ad == bd);
 }
 
-TEST_CASE("interval_active, interval_slater and interval_rotating: extended window", "[fb_mps_spin]") {
+TEST_CASE("range: active, slater and rotating on an extended window", "[fb_mps_spin]") {
     auto fb = make_fb();
-    fb.p1 = 1; fb.p2 = 7;
-    REQUIRE(fb.interval_active_full() == std::make_pair(1, 7));
-    REQUIRE(fb.interval_active(up)    == std::make_pair(1, 4));
-    REQUIRE(fb.interval_active(dw)    == std::make_pair(4, 7));
-    REQUIRE(fb.interval_slater(up)    == std::make_pair(0, 1));
-    REQUIRE(fb.interval_slater(dw)    == std::make_pair(7, 8));
-    REQUIRE(fb.interval_rotating(up)  == std::make_pair(1, 3));
-    REQUIRE(fb.interval_rotating(dw)  == std::make_pair(5, 7));
+    fb.active.a = 1; fb.active.b = 7;
+    REQUIRE(fb.range(Part::active) == Range{1, 7});
+    REQUIRE(fb.range(Part::active,up)    == Range{1, 4});
+    REQUIRE(fb.range(Part::active,dw)    == Range{4, 7});
+    REQUIRE(fb.range(Part::slater,up)    == Range{0, 1});
+    REQUIRE(fb.range(Part::slater,dw)    == Range{7, 8});
+    REQUIRE(fb.range(Part::rotating,up)  == Range{1, 3});
+    REQUIRE(fb.range(Part::rotating,dw)  == Range{5, 7});
 }
 
-// ---- extract_representative ----
-// Compare extract_representative between Fb_mps_spin and Fb_mps.
+// ---- representative planning ----
+// Compare representative updates between Fb_mps_spin and Fb_mps.
 //
 // Setup: SIAM, L=8, imp_size=2, both describe the same physical system
 //   spinless layout:  [imp_up:0 | imp_dw:1 | bath_up:2,4,6 | bath_dw:3,5,7]  (even=up, odd=down)
 //   spin layout:      [bath_up:0,1,2 | imp_up:3 | imp_dw:4 | bath_dw:5,6,7]  (impurity at center)
 //
 // Both start with the same occupations (2 particles in each sector): imp + 1 bath orbital.
-// After extract_representative(nRef=0), both should rotate their K matrices consistently,
+// After planning for nRef=0, both should rotate their K matrices consistently,
 // reflecting the same underlying physics just with different site orderings.
 
-TEST_CASE("extract_representative: spin vs spinless", "[fb_mps_spin]") {
+TEST_CASE("plan_representative: spin vs spinless", "[fb_mps_spin]") {
     const int L = 8, imp_size = 2;
 
     // Base kinetic matrix: 4-site (1 impurity + 3 bath) SIAM structure
@@ -120,20 +105,25 @@ TEST_CASE("extract_representative: spin vs spinless", "[fb_mps_spin]") {
     // Build block-diagonal K: down block = Kbase, up block = reflected Kbase
     mat Ksp(L, L, fill::zeros);
     Ksp.submat(L/2, L/2, L-1, L-1) = Kbase;  // down block
-    Fb_mps_spin<double>::ensure_reflection_mat(Ksp);  // fill in up block by reflection
+    Fb_mps<double>::ensure_reflection(Ksp);  // fill in up block by reflection
 
     // Create Fb_mps objects with same occupations in each sector: imp + 1 bath
     auto fb_sl = Fb_mps<double>::from_slater(mat(L, L, fill::eye),
                                              vec{-2.0, -2.0, -1.0, -1.0, 1.0, 1.0, 2.0, 2.0},
-                                             4, imp_size, false);
+                                             4, imp_size, leading);
 
-    auto fb_sp = Fb_mps_spin<double>::from_slater(mat(L, L, fill::eye),
+    auto fb_sp = Fb_mps<double>::from_slater(mat(L, L, fill::eye),
                                                   vec{2.0, 1.0, -1.0, -2.0, -2.0, -1.0, 1.0, 2.0},
-                                                  4, imp_size);
+                                                  4, imp_size, spin_symmetric);
 
-    // extract_representative rotates to natural orbitals and selects unoccupied bath
-    fb_sl.extract_representative(Ksl, 0);
-    fb_sp.extract_representative(Ksp, 0, /*use_active=*/false);
+    auto update_sl=fb_sl.plan_representative(Ksl,0);
+    update_sl.apply_as_basis(Ksl);
+    fb_sl.apply(update_sl);
+
+    auto update_sp=fb_sp.plan_representative(Ksp,0);
+    update_sp.apply_as_basis(Ksp);
+    Fb_mps<double>::ensure_reflection(Ksp);
+    fb_sp.apply(update_sp);
 
     vec eigs_sl = eig_sym(Ksl);
     vec eigs_sp = eig_sym(Ksp);
@@ -141,15 +131,15 @@ TEST_CASE("extract_representative: spin vs spinless", "[fb_mps_spin]") {
     REQUIRE(norm(eigs_sl - eigs_sp) < 1e-10);
 }
 
-// ---- extract_representative_final ----
+// ---- active representative planning ----
 // Same setup and layout as above.  After promoting orbitals with nRef=0 and nRef=1
-// into the active window, extract_representative_final rotates the remaining
+// into the active window, plan_active_representative rotates the remaining
 // active bath so the coupling to the impurity is concentrated in the leading columns.
 // Both systems start with identical eigenvalues and every step is unitary, so
 // eig_sym(Ksl) == eig_sym(Ksp) must hold throughout.
 
-TEST_CASE("extract_representative_final: spin vs spinless", "[fb_mps_spin]") {
-    const int L = 12, imp_size = 2, nPart = 6;
+TEST_CASE("plan_active_representative: spin vs spinless", "[fb_mps_spin]") {
+    const int L = 12, imp_size = 2, n_part = 6;
 
     // 1 impurity + 5 bath sites per spin
     mat Kbase = {{0.0, 1.0, 2.0, 3.0, 4.0, 5.0},
@@ -169,37 +159,82 @@ TEST_CASE("extract_representative_final: spin vs spinless", "[fb_mps_spin]") {
     // Spin: [bath_up:0-4 | imp_up:5 | imp_dw:6 | bath_dw:7-11]
     mat Ksp(L, L, fill::zeros);
     Ksp.submat(L/2, L/2, L-1, L-1) = Kbase;
-    Fb_mps_spin<double>::ensure_reflection_mat(Ksp);
+    Fb_mps<double>::ensure_reflection(Ksp);
 
     auto fb_sl = Fb_mps<double>::from_slater(mat(L, L, fill::eye),
                                              vec{-3.0, -3.0, -2.0, -2.0, -1.0, -1.0,
                                                   1.0,  1.0,  2.0,  2.0,  3.0,  3.0},
-                                             nPart, imp_size, /*spin=*/false);
+                                             n_part, imp_size, leading);
 
-    auto fb_sp = Fb_mps_spin<double>::from_slater(mat(L, L, fill::eye),
+    auto fb_sp = Fb_mps<double>::from_slater(mat(L, L, fill::eye),
                                                   vec{3.0, 2.0, 1.0, -1.0, -2.0, -3.0,
                                                      -3.0,-2.0,-1.0,  1.0,  2.0,  3.0},
-                                                  nPart, imp_size);
+                                                  n_part, imp_size, spin_symmetric);
 
-    fb_sl.extract_representative(Ksl, 0);
-    fb_sl.extract_representative(Ksl, 1);
-    fb_sp.extract_representative(Ksp, 0, /*use_active=*/false);
-    fb_sp.extract_representative(Ksp, 1, /*use_active=*/false);
+    auto apply_sl=[&](auto const& update) {
+        update.apply_as_basis(Ksl);
+        fb_sl.apply(update);
+    };
+    auto apply_sp=[&](auto const& update) {
+        update.apply_as_basis(Ksp);
+        Fb_mps<double>::ensure_reflection(Ksp);
+        fb_sp.apply(update);
+    };
 
-    fb_sp.extract_representative_final(Ksp);
-    fb_sl.extract_representative_final(Ksl, imp_size, fb_sl.nActive);
+    apply_sl(fb_sl.plan_representative(Ksl,0));
+    apply_sl(fb_sl.plan_representative(Ksl,1));
+    apply_sp(fb_sp.plan_representative(Ksp,0));
+    apply_sp(fb_sp.plan_representative(Ksp,1));
+
+    apply_sp(fb_sp.plan_active_representative(Ksp));
+    apply_sl(fb_sl.plan_active_representative(Ksl));
 
     REQUIRE(norm(eig_sym(Ksl) - eig_sym(Ksp)) < 1e-10);
 }
 
+TEST_CASE("Fb_mps Slater swap includes the fermionic string", "[fb_mps][orbital_update]")
+{
+    constexpr int L=6;
+    constexpr int i=2;
+    constexpr int j=5;
+    auto check=[&](vec const& ek) {
+        auto fb=Fb_mps<double>::from_slater(mat(L,L,fill::eye),ek,3,1, leading);
+        double ni=std::real(fb.cc(i,i));
+        double nj=std::real(fb.cc(j,j));
+
+        itensor::AutoMPO ampo(fb.sites);
+        ampo+=1.0,"Cdag",i+1,"C",j+1;
+        ampo+=-1.0,"Cdag",j+1,"C",i+1;
+        auto expected=itensor::applyMPO(itensor::toMPO(ampo),fb.psi,
+                                        {"Cutoff",fb.tol,"Normalize",false});
+        expected.noPrime();
+
+        OrbitalUpdate<double> update(fb.active.a,fb.active.b);
+        update.gates.emplace_back(i,j);
+        fb.apply(update);
+
+        auto expected_norm=itensor::innerC(expected,expected);
+        REQUIRE(std::abs(itensor::innerC(expected,fb.psi)-expected_norm)<1e-12);
+        REQUIRE(fb.occupations_ni2()(i)==Approx(nj).margin(1e-12));
+        REQUIRE(fb.occupations_ni2()(j)==Approx(ni).margin(1e-12));
+    };
+
+    SECTION("occupied i to empty j") {
+        check(vec{-3.0,-2.0,-1.0,2.0,3.0,1.0});
+    }
+    SECTION("occupied j to empty i") {
+        check(vec{-3.0,3.0,2.0,-2.0,1.0,-1.0});
+    }
+}
+
 // ---- Fb_mps_spin_block: cross-check vs Fb_mps_spin on symmetric K ----
 //
-// On an Sz-symmetric K (reflection-symmetric, as produced by toStar() with
+// On an Sz-symmetric K (reflection-symmetric, as produced by to_star() with
 // spin-reflection), the block version must reproduce the spin version's K
-// spectrum after extract_representative + extract_representative_final.
+// spectrum after representative and active-representative planning.
 
-TEST_CASE("Fb_mps_spin_block: extract_representative matches spin on symmetric K", "[fb_mps_spin_block]") {
-    const int L = 12, imp_size = 2, nPart = 6;
+TEST_CASE("Fb_mps_spin_block: representative plans match spin on symmetric K", "[fb_mps_spin_block]") {
+    const int L = 12, imp_size = 2, n_part = 6;
 
     mat Kbase = {{0.0, 1.0, 2.0, 3.0, 4.0, 5.0},
                  {1.0, 0.1, 0.0, 0.0, 0.0, 0.0},
@@ -210,39 +245,49 @@ TEST_CASE("Fb_mps_spin_block: extract_representative matches spin on symmetric K
 
     mat Ksp(L, L, fill::zeros);
     Ksp.submat(L/2, L/2, L-1, L-1) = Kbase;
-    Fb_mps_spin<double>::ensure_reflection_mat(Ksp);
+    Fb_mps<double>::ensure_reflection(Ksp);
     mat Kbl = Ksp;
 
     vec ek{3.0, 2.0, 1.0, -1.0, -2.0, -3.0,
           -3.0,-2.0,-1.0,  1.0,  2.0,  3.0};
     mat rot(L, L, fill::eye);
 
-    auto fb_sp = Fb_mps_spin<double>::from_slater(rot, ek, nPart, imp_size);
-    auto fb_bl = Fb_mps_spin_block<double>::from_slater(rot, ek, nPart, imp_size);
+    auto fb_sp = Fb_mps<double>::from_slater(rot, ek, n_part, imp_size, spin_symmetric);
+    auto fb_bl = Fb_mps<double>::from_slater(rot, ek, n_part, imp_size, spin_block);
 
-    fb_sp.extract_representative(Ksp, 0, /*use_active=*/false);
-    fb_bl.extract_representative(Kbl, 0, /*use_active=*/false);
-    INFO("After extract_representative(0): norm(Ksp-Kbl)=" << norm(Ksp-Kbl)
+    auto apply_sp=[&](auto const& update) {
+        update.apply_as_basis(Ksp);
+        Fb_mps<double>::ensure_reflection(Ksp);
+        fb_sp.apply(update);
+    };
+    auto apply_bl=[&](auto const& update) {
+        update.apply_as_basis(Kbl);
+        fb_bl.apply(update);
+    };
+
+    apply_sp(fb_sp.plan_representative(Ksp,0));
+    apply_bl(fb_bl.plan_representative(Kbl,0));
+    INFO("After plan_representative(0): norm(Ksp-Kbl)=" << norm(Ksp-Kbl)
          << " norm(rot diff)=" << norm(fb_sp.rot-fb_bl.rot)
          << " norm(cc diff)=" << norm(fb_sp.cc-fb_bl.cc));
     REQUIRE(norm(Ksp - Kbl) < 1e-10);
     REQUIRE(norm(fb_sp.rot - fb_bl.rot) < 1e-10);
     REQUIRE(norm(fb_sp.cc  - fb_bl.cc)  < 1e-10);
 
-    fb_sp.extract_representative(Ksp, 1, /*use_active=*/false);
-    fb_bl.extract_representative(Kbl, 1, /*use_active=*/false);
-    INFO("After extract_representative(1): norm(Ksp-Kbl)=" << norm(Ksp-Kbl)
+    apply_sp(fb_sp.plan_representative(Ksp,1));
+    apply_bl(fb_bl.plan_representative(Kbl,1));
+    INFO("After plan_representative(1): norm(Ksp-Kbl)=" << norm(Ksp-Kbl)
          << " norm(rot diff)=" << norm(fb_sp.rot-fb_bl.rot)
          << " norm(cc diff)=" << norm(fb_sp.cc-fb_bl.cc));
-    REQUIRE(fb_bl.p1 == fb_sp.p1);
-    REQUIRE(fb_bl.p2 == fb_sp.p2);
+    REQUIRE(fb_bl.active.a == fb_sp.active.a);
+    REQUIRE(fb_bl.active.b == fb_sp.active.b);
     REQUIRE(norm(Ksp - Kbl) < 1e-10);
     REQUIRE(norm(fb_sp.rot - fb_bl.rot) < 1e-10);
     REQUIRE(norm(fb_sp.cc  - fb_bl.cc)  < 1e-10);
 
-    fb_sp.extract_representative_final(Ksp);
-    fb_bl.extract_representative_final(Kbl);
-    INFO("After extract_representative_final: norm(Ksp-Kbl)=" << norm(Ksp-Kbl)
+    apply_sp(fb_sp.plan_active_representative(Ksp));
+    apply_bl(fb_bl.plan_active_representative(Kbl));
+    INFO("After plan_active_representative: norm(Ksp-Kbl)=" << norm(Ksp-Kbl)
          << " norm(rot diff)=" << norm(fb_sp.rot-fb_bl.rot)
          << " norm(cc diff)=" << norm(fb_sp.cc-fb_bl.cc));
     REQUIRE(norm(Ksp - Kbl) < 1e-10);
@@ -250,7 +295,7 @@ TEST_CASE("Fb_mps_spin_block: extract_representative matches spin on symmetric K
     REQUIRE(norm(fb_sp.cc  - fb_bl.cc)  < 1e-10);
 }
 
-TEST_CASE("Fb_mps_spin_block: rotateToNaturalOrbitals matches spin on symmetric K", "[fb_mps_spin_block]") {
+TEST_CASE("Fb_mps_spin_block: natural-orbital plans match spin on symmetric K", "[fb_mps_spin_block]") {
     const int L = 12, imp_size = 2;
 
     // Build a symmetric cc with some active and inactive orbitals per spin
@@ -268,20 +313,20 @@ TEST_CASE("Fb_mps_spin_block: rotateToNaturalOrbitals matches spin on symmetric 
     cc_template(3,4) = cc_template(4,3) = 0.05;
     cc_template(L-1-3, L-1-4) = cc_template(L-1-4, L-1-3) = 0.05;
 
-    auto fb_sp = Fb_mps_spin<double>::from_slater(mat(L, L, fill::eye), linspace(-1.0,1.0,L), 6, imp_size);
-    auto fb_bl = Fb_mps_spin_block<double>::from_slater(mat(L, L, fill::eye), linspace(-1.0,1.0,L), 6, imp_size);
+    auto fb_sp = Fb_mps<double>::from_slater(mat(L, L, fill::eye), linspace(-1.0,1.0,L), 6, imp_size, spin_symmetric);
+    auto fb_bl = Fb_mps<double>::from_slater(mat(L, L, fill::eye), linspace(-1.0,1.0,L), 6, imp_size, spin_block);
     fb_sp.cc = cc_template;
     fb_bl.cc = cc_template;
-    fb_sp.p1 = 2;  fb_sp.p2 = L-2;
-    fb_bl.p1 = 2;  fb_bl.p2 = L-2;
+    fb_sp.active.a = 2;  fb_sp.active.b = L-2;
+    fb_bl.active.a = 2;  fb_bl.active.b = L-2;
 
-    fb_sp.rotateToNaturalOrbitals();
-    fb_bl.rotateToNaturalOrbitals();
-    INFO("rotateToNaturalOrbitals: norm(rot diff)=" << norm(fb_sp.rot-fb_bl.rot)
+    fb_sp.apply(fb_sp.plan_natural_orbitals(fb_sp.cc));
+    fb_bl.apply(fb_bl.plan_natural_orbitals(fb_bl.cc));
+    INFO("plan_natural_orbitals: norm(rot diff)=" << norm(fb_sp.rot-fb_bl.rot)
          << " norm(cc diff)=" << norm(fb_sp.cc-fb_bl.cc));
 
-    REQUIRE(fb_bl.p1 == fb_sp.p1);
-    REQUIRE(fb_bl.p2 == fb_sp.p2);
+    REQUIRE(fb_bl.active.a == fb_sp.active.a);
+    REQUIRE(fb_bl.active.b == fb_sp.active.b);
     REQUIRE(norm(fb_sp.rot - fb_bl.rot) < 1e-10);
     REQUIRE(norm(fb_sp.cc  - fb_bl.cc)  < 1e-10);
 }
@@ -301,19 +346,19 @@ TEST_CASE("Fb_mps_spin_block: rotateToNaturalOrbitals matches spin on symmetric 
 
 namespace {
 // Build a real-space SIAM kinetic matrix and its star-geometry counterpart.
-// Layout: [bath_up:0..nBath-1 | imp_up:nBath | imp_dw:L/2 | bath_dw:L/2+1..L-1]  (nImp=2)
+// Layout: [bath_up:0..nBath-1 | imp_up:nBath | imp_dw:L/2 | bath_dw:L/2+1..L-1]  (n_imp=2)
 // Returns (K_real, Kstar, rot) with rot * Kstar * rot.t() == K_real.
 std::tuple<mat,mat,mat> build_siam_real_and_star(int L, double V=0.1, double U=0.2) {
-    const int nImp = 2;
-    const int nBath = L/2 - nImp/2;
+    const int n_imp = 2;
+    const int nBath = L/2 - n_imp/2;
 
     mat K(L, L, fill::zeros);
     for (int i = 0; i < L/2-1; i++) K(i,i+1) = K(i+1,i) = 0.5;
     for (int i = L/2; i < L-1; i++) K(i,i+1) = K(i+1,i) = 0.5;
-    K(nBath+nImp/2-1, nBath+nImp/2-1) = -U/2;
+    K(nBath+n_imp/2-1, nBath+n_imp/2-1) = -U/2;
     K(L/2, L/2)                       = -U/2;
-    K(nBath, nBath+nImp/2-1) = K(nBath+nImp/2-1, nBath) = V;
-    K(L/2, L/2+nImp/2-1)     = K(L/2+nImp/2-1, L/2)     = V;
+    K(nBath, nBath+n_imp/2-1) = K(nBath+n_imp/2-1, nBath) = V;
+    K(L/2, L/2+n_imp/2-1)     = K(L/2+n_imp/2-1, L/2)     = V;
 
     mat Kstar(L, L, fill::zeros);
     mat rot(L, L, fill::eye);
@@ -322,7 +367,7 @@ std::tuple<mat,mat,mat> build_siam_real_and_star(int L, double V=0.1, double U=0
     for (int s : {0, 1}) {
         uvec pos      = (s==0) ? pos_up : pos_dw;
         uvec pos_bath = (s==0) ? pos.head(nBath)  : pos.tail(nBath);
-        uvec pos_impu = (s==0) ? pos.tail(nImp/2) : pos.head(nImp/2);
+        uvec pos_impu = (s==0) ? pos.tail(n_imp/2) : pos.head(n_imp/2);
         mat Kbath = K.submat(pos_bath, pos_bath);
         mat evec1; vec ek1;
         eig_sym(ek1, evec1, Kbath);
@@ -346,22 +391,22 @@ std::tuple<mat,mat,mat> build_siam_real_and_star(int L, double V=0.1, double U=0
 } // namespace
 
 TEST_CASE("Fb_mps_spin: real-space correlator on SIAM star matches rot*cc*rot.t()", "[fb_mps_spin][correlator]") {
-    const int L = 12, nImp = 2;
-    const int nBath = L/2 - nImp/2;
+    const int L = 12, n_imp = 2;
+    const int nBath = L/2 - n_imp/2;
     auto [Kreal, Kstar, rot] = build_siam_real_and_star(L);
     REQUIRE(norm(rot * Kstar * rot.t() - Kreal, "fro") < 1e-10);
 
     // Half-filled Slater state in the star basis, with physical impurities forced occupied.
     vec ek = Kstar.diag();
-    ek[nBath + nImp/2 - 1] = -10;  // imp up
+    ek[nBath + n_imp/2 - 1] = -10;  // imp up
     ek[L/2]                = -10;  // imp dw
-    auto fb = Fb_mps_spin<double>::from_slater(rot, ek, L/2, nImp);
+    auto fb = Fb_mps<double>::from_slater(rot, ek, L/2, n_imp, spin_symmetric);
 
     // Ground truth: c_i = sum_a rot[i,a] d_a  =>  Corr = rot * cc * rot.t() for real rot.
     mat Corr_true = rot * fb.cc * rot.t();
 
-    SECTION("correlator_all()") {
-        mat Corr_code = fb.correlator_all();
+    SECTION("correlator()") {
+        mat Corr_code = fb.correlator();
         INFO("|Corr_code - Corr_true|_F = " << norm(Corr_code - Corr_true, "fro"));
         REQUIRE(norm(Corr_code - Corr_true, "fro") < 1e-10);
     }
@@ -370,95 +415,146 @@ TEST_CASE("Fb_mps_spin: real-space correlator on SIAM star matches rot*cc*rot.t(
             for (int j : {0, 3, 5, 6, 8, L-1})
                 REQUIRE(std::abs(fb.correlator(i, j) - Corr_true(i, j)) < 1e-10);
     }
-    SECTION("correlator_all_i(j) is column j of Corr_true") {
+    SECTION("correlator_col(j) is column j of Corr_true") {
         for (int j : {0, 3, 5, 6, 8, L-1})
-            REQUIRE(norm(fb.correlator_all_i(j) - Corr_true.col(j), 2) < 1e-10);
+            REQUIRE(norm(fb.correlator_col(j) - Corr_true.col(j), 2) < 1e-10);
     }
-    SECTION("correlator_all_j(i) is row i of Corr_true") {
+    SECTION("correlator_row(i) is row i of Corr_true") {
         for (int i : {0, 3, 5, 6, 8, L-1})
-            REQUIRE(norm(fb.correlator_all_j(i) - Corr_true.row(i).t(), 2) < 1e-10);
+            REQUIRE(norm(fb.correlator_row(i) - Corr_true.row(i).t(), 2) < 1e-10);
     }
 }
 
 TEST_CASE("Fb_mps_spin_block: real-space correlator on SIAM star matches rot*cc*rot.t()", "[fb_mps_spin_block][correlator]") {
-    const int L = 12, nImp = 2;
-    const int nBath = L/2 - nImp/2;
+    const int L = 12, n_imp = 2;
+    const int nBath = L/2 - n_imp/2;
     auto [Kreal, Kstar, rot] = build_siam_real_and_star(L);
     REQUIRE(norm(rot * Kstar * rot.t() - Kreal, "fro") < 1e-10);
 
     vec ek = Kstar.diag();
-    ek[nBath + nImp/2 - 1] = -10;
+    ek[nBath + n_imp/2 - 1] = -10;
     ek[L/2]                = -10;
-    auto fb = Fb_mps_spin_block<double>::from_slater(rot, ek, L/2, nImp);
+    auto fb = Fb_mps<double>::from_slater(rot, ek, L/2, n_imp, spin_block);
 
     mat Corr_true = rot * fb.cc * rot.t();
 
-    SECTION("correlator_all()") {
-        REQUIRE(norm(fb.correlator_all() - Corr_true, "fro") < 1e-10);
+    SECTION("correlator()") {
+        REQUIRE(norm(fb.correlator() - Corr_true, "fro") < 1e-10);
     }
     SECTION("correlator(i,j)") {
         for (int i : {0, 3, 5, 6, 8, L-1})
             for (int j : {0, 3, 5, 6, 8, L-1})
                 REQUIRE(std::abs(fb.correlator(i, j) - Corr_true(i, j)) < 1e-10);
     }
-    SECTION("correlator_all_i(j)") {
+    SECTION("correlator_col(j)") {
         for (int j : {0, 3, 5, 6, 8, L-1})
-            REQUIRE(norm(fb.correlator_all_i(j) - Corr_true.col(j), 2) < 1e-10);
+            REQUIRE(norm(fb.correlator_col(j) - Corr_true.col(j), 2) < 1e-10);
     }
-    SECTION("correlator_all_j(i)") {
+    SECTION("correlator_row(i)") {
         for (int i : {0, 3, 5, 6, 8, L-1})
-            REQUIRE(norm(fb.correlator_all_j(i) - Corr_true.row(i).t(), 2) < 1e-10);
+            REQUIRE(norm(fb.correlator_row(i) - Corr_true.row(i).t(), 2) < 1e-10);
     }
 }
 
-// ---- applyLocalOp ----
-// With an identity rotation frame_site(i)==i, so the real-space site maps directly
-// onto the MPS orbital. We check: (a) the frame mapping, (b) "N" on an occupied
-// impurity site leaves occupations unchanged, (c) "Cdag" on an empty impurity site
-// creates a particle, and (d) sites outside the active window are rejected.
+namespace {
+template<class Fb>
+void check_complex_correlators(Fb const& fb, cx_mat const& expected)
+{
+    REQUIRE(norm(fb.correlator()-expected,"fro")<1e-12);
+    for (int i : {0,2,5}) {
+        for (int j : {1,3,5})
+            REQUIRE(std::abs(fb.correlator(i,j)-expected(i,j))<1e-12);
+        REQUIRE(norm(fb.correlator_row(i)-expected.row(i).st(),2)<1e-12);
+    }
+    for (int j : {1,3,5})
+        REQUIRE(norm(fb.correlator_col(j)-expected.col(j),2)<1e-12);
+}
+} // namespace
 
-TEST_CASE("Fb_mps applyLocalOp: N on impurity and active-window guard", "[fb_mps][applyLocalOp]") {
-    const int L = 8, imp_size = 2, nPart = 4;
+TEST_CASE("complex frames use simple transpose in real-space correlators",
+          "[fb_mps][fb_mps_spin][fb_mps_spin_block][correlator][complex]")
+{
+    arma::arma_rng::set_seed(8142);
+    constexpr int L=6;
+    cx_mat raw=cx_mat(L,L,fill::randn)+imag_1*cx_mat(L,L,fill::randn);
+    cx_mat rot,R;
+    qr(rot,R,raw);
+    vec ek={-3.0,-2.0,-1.0,1.0,2.0,3.0};
+
+    auto fb=Fb_mps<cmpx>::from_slater(rot,ek,L/2,2, leading);
+    auto fb_spin=Fb_mps<cmpx>::from_slater(rot,ek,L/2,2, spin_symmetric);
+    auto fb_block=Fb_mps<cmpx>::from_slater(rot,ek,L/2,2, spin_block);
+
+    // c_i=sum_a rot(i,a)d_a. For complex rot the two transposes are not
+    // interchangeable: Qinv=rot.st(), then C=Qinv.t()*cc*Qinv.
+    cx_mat expected=arma::conj(rot)*fb.cc*rot.st();
+    cx_mat real_only_formula=rot*fb.cc*rot.t();
+    REQUIRE(norm(expected-real_only_formula,"fro")>1e-3);
+
+    check_complex_correlators(fb,expected);
+    check_complex_correlators(fb_spin,expected);
+    check_complex_correlators(fb_block,expected);
+}
+
+// ---- apply_local_op ----
+// With an identity rotation the real-space site maps directly onto the MPS orbital.
+// We check that local operators act on impurity sites and reject Slater sites.
+
+TEST_CASE("Fb_mps apply_local_op: N on impurity and active-window guard", "[fb_mps][apply_local_op]") {
+    const int L = 8, imp_size = 2, n_part = 4;
     // ascending ek occupies the 4 lowest -> sites 0,1,2,3; impurity sites 0,1 occupied.
     vec ek = {-2, -2, 1, 1, 2, 2, 3, 3};
-    auto fb = Fb_mps<double>::from_slater(mat(L, L, fill::eye), ek, nPart, imp_size, /*spin=*/false);
+    auto fb = Fb_mps<double>::from_slater(mat(L, L, fill::eye), ek, n_part, imp_size, leading);
 
-    REQUIRE(fb.frame_site(1) == 1);
     REQUIRE(std::real(fb.cc(0,0)) == Approx(1.0));
-    fb.applyLocalOp("N", 0);                                   // occupied impurity, in active window
+    fb.apply_local_op("N", 0);                                   // occupied impurity, in active window
     REQUIRE(std::real(fb.cc(0,0)) == Approx(1.0));
-    REQUIRE_THROWS_AS(fb.applyLocalOp("N", 5), std::invalid_argument);  // Slater site rejected
+    REQUIRE_THROWS_AS(fb.apply_local_op("N", 5), std::invalid_argument);  // Slater site rejected
 }
 
-TEST_CASE("Fb_mps_spin applyLocalOp: N/Cdag and active-window guard", "[fb_mps_spin][applyLocalOp]") {
-    const int L = 8, imp_size = 2, nPart = 4;
+TEST_CASE("Fb_mps_spin apply_local_op: N/Cdag and active-window guard", "[fb_mps_spin][apply_local_op]") {
+    const int L = 8, imp_size = 2, n_part = 4;
     // ascending ek occupies {2,3,5,6}; impurity sites are 3 (up) and 4 (dw):
     // site 3 occupied, site 4 empty.
     vec ek = {2, 1, -3, -2, 5, -1, 0.5, 3};
-    auto fb = Fb_mps_spin<double>::from_slater(mat(L, L, fill::eye), ek, nPart, imp_size);
+    auto fb = Fb_mps<double>::from_slater(mat(L, L, fill::eye), ek, n_part, imp_size, spin_symmetric);
 
-    REQUIRE(fb.frame_site(3) == 3);
-    REQUIRE(fb.interval_active_full() == std::make_pair(3, 5));
+    REQUIRE(fb.range(Part::active) == Range{3, 5});
     REQUIRE(fb.occupations_ni()(3) == Approx(1.0));
     REQUIRE(fb.occupations_ni()(4) == Approx(0.0).margin(1e-12));
 
-    fb.applyLocalOp("N", 3);                                   // occupied impurity, unchanged
+    fb.apply_local_op("N", 3);                                   // occupied impurity, unchanged
     REQUIRE(fb.occupations_ni()(3) == Approx(1.0));
 
-    fb.applyLocalOp("Cdag", 4);                                // create on empty impurity (dw)
+    fb.apply_local_op("Cdag", 4);                                // create on empty impurity (dw)
     REQUIRE(fb.occupations_ni()(4) == Approx(1.0));
 
-    REQUIRE_THROWS_AS(fb.applyLocalOp("N", 0), std::invalid_argument);  // Slater site rejected
+    REQUIRE_THROWS_AS(fb.apply_local_op("N", 0), std::invalid_argument);  // Slater site rejected
 }
 
-TEST_CASE("Fb_mps_spin_block applyLocalOp: N and active-window guard", "[fb_mps_spin_block][applyLocalOp]") {
-    const int L = 8, imp_size = 2, nPart = 4;
+TEST_CASE("Fb_mps_spin_block apply_local_op: N and active-window guard", "[fb_mps_spin_block][apply_local_op]") {
+    const int L = 8, imp_size = 2, n_part = 4;
     vec ek = {2, 1, -3, -2, 5, -1, 0.5, 3};
-    auto fb = Fb_mps_spin_block<double>::from_slater(mat(L, L, fill::eye), ek, nPart, imp_size);
+    auto fb = Fb_mps<double>::from_slater(mat(L, L, fill::eye), ek, n_part, imp_size, spin_block);
 
-    REQUIRE(fb.frame_site(3) == 3);
     REQUIRE(fb.occupations_ni()(3) == Approx(1.0));
-    fb.applyLocalOp("N", 3);                                   // occupied impurity, unchanged
+    fb.apply_local_op("N", 3);                                   // occupied impurity, unchanged
     REQUIRE(fb.occupations_ni()(3) == Approx(1.0));
-    REQUIRE_THROWS_AS(fb.applyLocalOp("N", 0), std::invalid_argument);  // Slater site rejected
+    REQUIRE_THROWS_AS(fb.apply_local_op("N", 0), std::invalid_argument);  // Slater site rejected
+}
+
+TEST_CASE("Fb_mps complex apply_local_op updates the active correlator",
+          "[fb_mps][apply_local_op][complex]")
+{
+    constexpr int L=6;
+    cx_mat rot(L,L,fill::eye);
+    rot(2,2)=cmpx(0,1);
+    rot(3,3)=std::exp(cmpx(0,0.37));
+    vec ek={1.0,-2.0,-1.0,2.0,3.0,4.0};
+    auto fb=Fb_mps<cmpx>::from_slater(rot,ek,2,2, leading);
+
+    REQUIRE(std::real(fb.cc(0,0))==Approx(0.0).margin(1e-12));
+    fb.apply_local_op("Cdag",0);
+    REQUIRE(std::real(fb.cc(0,0))==Approx(1.0));
+    REQUIRE_THROWS_AS(fb.apply_local_op("N",2),std::invalid_argument);
 }

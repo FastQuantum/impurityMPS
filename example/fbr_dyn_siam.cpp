@@ -1,4 +1,4 @@
-#include "fbr/fbr_dyn_spin.h"
+#include "fbr/fbr.h"
 #include <iostream>
 #include <iomanip>
 
@@ -7,10 +7,10 @@ using namespace fbr;
 
 int main()
 {
-    int L=100;
-    ImpuritySpin model;
+    int L=1000;
+    ImpurityParam model;
     {
-        double U=0.2;
+        double U=0.1;
         double V=0.1;
         arma::mat K(L,L, arma::fill::zeros);
         {
@@ -24,45 +24,47 @@ int main()
         arma::mat Umat(L, L, arma::fill::zeros);
         Umat(0,1) = U;
         // Convention 2 (outer..inner..outer): {buf_up, imp_up, imp_dw, buf_dw} = {2, 0, 1, 3}.
-        std::vector<int> impPos = {2, 0, 1, 3};
+        std::vector<int> imp_pos = {2, 0, 1, 3};
 
-        model = ImpuritySpin {{.Kmat=K, .Umat=Umat, .impPos=impPos}};
+        model = ImpurityParam{.Kmat=K, .Umat=Umat, .imp_pos=imp_pos, .layout=spin_symmetric};
+        model.to_star();
     }
-    Fb_mps_spin<cmpx> fb;
+    Fb_mps<cmpx> fb;
     {
-        auto ek=arma::vec {model.param.Kmat.diag()};
+        auto ek=arma::vec {model.Kmat.diag()};
         // force impurity ocupation |1100>
         ek[L/2-1]=ek[L/2]=-10;
         ek[L/2-2]=ek[L/2+1]=10;
         arma::cx_mat rot(L,L,arma::fill::eye);
-        fb=Fb_mps_spin<cmpx>::from_slater(model.param.rot*cmpx(1,0), ek, model.param.nPart(), model.param.nImp());
+        fb=slater<cmpx>(model, ek);
         // fb.occupations_ni().as_row().eval().print("ni");
     }
+    // fb.tol=1e-10;
 
     double dt=0.1;
-    auto solver=Fbr_dyn_spin(model,fb,dt);
-    solver.fb.tol=1e-12;
+    auto solver=Fbr_dyn(model,fb,dt);
 
     // arma::real(fb.rot*1).eval().clean(1e-11).print("fb.rot");
-    // arma::real(model.param.rot*1).eval().clean(1e-11).print("param.rot");
+    // arma::real(model.rot*1).eval().clean(1e-11).print("param.rot");
     // auto Q=solver.param.rot;
-    arma::real(solver.K*1).eval().clean(1e-11).print("K inicial");
+    // arma::real(solver.K*1).eval().clean(1e-11).print("K inicial");
     // arma::real(solver.param.Kmat*1).eval().clean(1e-11).print("Kmat original");
     // arma::real(solver.Kip0*1).eval().clean(1e-11).print("Kip0 before main() iterations");
     // terminate();
 
-    cout<<"time m <n0> <cd>  nActive\n"<<setprecision(12);
+    cout<<"time m <n0> <cd>  n_active\n"<<setprecision(12);
     itensor::cpu_time t0;
     for(auto i=0; i*dt<L; i++){
         // arma::real(solver.K*1).eval().clean(1e-11).print("K");
-        // auto [a,b]=solver.fb.interval_active_full();
+        // auto [a,b]=solver.fb.range(Part::active);
         // solver.fb.occupations_ni().as_row().eval().cols(a,b-1).eval().print("ni");
 
-        solver.iterate({.nIter_diag=8, .err_goal=1e-8, .epsilonM=0e-8, .nKrylov=15});
+        solver.iterate({.epsilon_M=0e-8});
         // double n0 = solver.fb.correlator(1,1).real();
         double n0= solver.fb.occupations_ni()(L/2);
         double n1= solver.fb.occupations_ni()(L/2+1);
-        cout<<(i+1)*solver.dt<<" "<<maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<n1<<" "<<solver.fb.p2-solver.fb.p1<<endl;
+        cout<<(i+1)*solver.dt<<" "<<maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<n1<<" "<<solver.fb.active.b-solver.fb.active.a
+             <<" "<<t0.sincemark().wall<<endl;
         t0.mark();
     }
     return 0;

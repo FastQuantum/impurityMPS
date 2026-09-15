@@ -4,9 +4,14 @@
 #include "itensor_utils.h"
 #include "impurity_param.h"
 #include "fb_mps.h"
+#include "initial_state.h"
 
 namespace fbr {
 
+/// Ground state of an impurity model: a DMRG sweep on the active window,
+/// then the orbital rotations that move the window's edges. One solver for the
+/// three layouts -- the window [a,b) is [0,n_active) for `leading`, and
+/// ensure_symmetry only does anything under `spin_symmetric`.
 struct Fbr_gs {
     ImpurityParam param;
 
@@ -15,59 +20,63 @@ struct Fbr_gs {
     arma::mat K;
     double energy=-1000;
 
-    Fbr_gs(Impurity const& imp, Fb_mps<double> const& fb_)
-        : param(imp.param)
+    Fbr_gs(ImpurityParam const& param_, Fb_mps<double> const& fb_)
+        : param(param_)
         , fb { fb_ }
         , K(param.Kmat)
-    {}
+    {
+        param.validate();   // a model built directly in star geometry never saw to_star()
+    }
 
     void iterate(DmrgParam args={})
     {
-        extract_representative(0);
-        extract_representative(1);
-        doDmrg(args);
-        rotateToNaturalOrbitals();
+        apply_plan(fb.plan_representative(K,0,/*use_active=*/true));
+        apply_plan(fb.plan_representative(K,1,/*use_active=*/true));
+        do_dmrg(args);
+        apply_plan(fb.plan_natural_orbitals(fb.cc));
     }
 
-    void extract_representative(int nRef){ fb.extract_representative(K,nRef,fb.nActive); }
-
-    void doDmrg(DmrgParam args={})
+    void apply_plan(OrbitalUpdate<double> const& update)
     {
-        int nA=fb.nActive;
-        auto mpo=fullHamiltonian(K.submat(0,0,nA-1,nA-1));
+        update.apply_as_basis(K);
+        fb.ensure_symmetry(K);
+        fb.apply(update);
+    }
+
+    void do_dmrg(DmrgParam args={})
+    {
+        auto [a,b]=fb.range(Part::active);
+        auto mpo=full_hamiltonian(a,b);
         auto sweeps = itensor::Sweeps(1);
         sweeps.maxdim() = args.max_bond_dim;
         sweeps.cutoff() = fb.tol;
-        sweeps.niter() = args.nIter_diag;
+        sweeps.niter() = args.n_iter_diag;
         sweeps.noise() = args.noise;
-        energy=itensor::dmrg(fb.psi,mpo,sweeps, {"MaxSite",nA,"Quiet", true, "Silent", true});
-        energy += fb.SlaterEnergy(K);
+        fb.psi.position(a+1);
+        energy=itensor::dmrg(fb.psi,mpo,sweeps, {"Minb",a+1,"MaxSite",b,"Quiet", true, "Silent", true});
+        energy += fb.slater_energy(K);
         fb.update_cc();
     }
 
-    void rotateToNaturalOrbitals()
-    {
-        int nA=fb.nActive;
-        auto rot1=fb.rotateToNaturalOrbitals(param.nImp());
-        K.cols(0,nA-1)=K.cols(0,nA-1).eval()*rot1;
-        K.rows(0,nA-1)=rot1.t()*K.rows(0,nA-1).eval();
-    }
-
-    itensor::MPO fullHamiltonian(arma::mat const& kin) const
+    /// the MPO of the interacting Hamiltonian: the full Umat plus the kinetic
+    /// block [a,b) of the current K
+    itensor::MPO full_hamiltonian(int a,int b) const
     {
         itensor::AutoMPO h(fb.sites);
-        int L=param.length();
-        for (int i=0; i<L; i++)
-            for (int j=0; j<L; j++)
-                if (std::abs(param.Umat(i,j))>1e-15)
-                    h += param.Umat(i,j),"N",i+1,"N",j+1;
-        for (int i=0; i<(int)kin.n_rows; i++)
-            for (int j=0; j<(int)kin.n_cols; j++)
-                if (std::abs(kin(i,j))>fb.tol)
-                    h += kin(i,j),"Cdag",i+1,"C",j+1;
+        int L = param.length();
+        for (int i = 0; i < L; i++)
+            for (int j = 0; j < L; j++)
+                if (std::abs(param.Umat(i,j)) > 1e-15)
+                    h += param.Umat(i,j), "N", i+1, "N", j+1;
+
+        for(auto i=a; i<b; i++)
+            for(auto j=a; j<b; j++)
+                if (std::abs(K(i,j))>fb.tol)
+                    h += K(i,j),"Cdag",i+1,"C",j+1;
         return itensor::toMPO(h);
     }
 };
+
 
 } // namespace fbr
 

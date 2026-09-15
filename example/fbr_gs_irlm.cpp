@@ -1,4 +1,4 @@
-#include "fbr/fbr_gs.h"
+#include "fbr/fbr.h"
 #include <iostream>
 #include <iomanip>
 
@@ -20,22 +20,23 @@ int main()
     arma::mat Umat(L,L,arma::fill::zeros);
     Umat(0,1)=U;
 
-    auto model = Impurity {{.Kmat=K, .Umat=Umat, .impPos={0,1}}};
+    auto model = ImpurityParam{.Kmat=K, .Umat=Umat, .imp_pos={0,1}};
+    model.to_star();
 
-    auto ek=arma::vec {model.param.Kmat.diag()};
+    auto ek=arma::vec {model.Kmat.diag()};
     // force impurity occupation |10>
     ek[0]=-10;
     ek[1]=10;
-    auto fb=Fb_mps<double>::from_slater(model.param.rot, ek, model.param.nPart(), model.param.nImp(), false);
+    auto fb=slater<double>(model, ek);
     fb.tol=1e-10;
 
     auto solver=Fbr_gs(model,fb);
 
-    cout<<"iteration nActive energy time\n"<<setprecision(12);
+    cout<<"iteration n_active energy time\n"<<setprecision(12);
     itensor::cpu_time t0;
     for(auto i=0;i<100;i++){
         solver.iterate();
-        cout<<i+1<<" "<<solver.fb.nActive<<" "<<solver.energy<<" "<<t0.sincemark().wall<<endl;
+        cout<<i+1<<" "<<solver.fb.n_active()<<" "<<solver.energy<<" "<<t0.sincemark().wall<<endl;
         t0.mark();
     }
     return 0;

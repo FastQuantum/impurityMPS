@@ -3,18 +3,15 @@
 list(APPEND test_SRC
     fbr_gs_irlm.cpp
     fbr_dyn_irlm.cpp
+    fbr_green_irlm.cpp
     fbr_gs_siam.cpp
     fbr_dyn_siam.cpp
     fbr_dyn_ns_siam.cpp
     fbr_dyn_siam_center.cpp
-    fbr_dyn_ns__man_siam.cpp
+    fbr_dyn_shared_siam_manual.cpp
     fbr_dyn_siam_block.cpp
+    bench_buildK.cpp
 )
-
-option(FBR_EXAMPLE_REF "Build reference star/chain examples" OFF)
-if(FBR_EXAMPLE_REF)
-    add_subdirectory(ref)
-endif()
 
 foreach (test ${test_SRC})
     get_filename_component (TName ${test} NAME_WE)

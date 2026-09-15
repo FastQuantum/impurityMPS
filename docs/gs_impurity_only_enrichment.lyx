@@ -1,0 +1,312 @@
+#LyX 2.3 created this file. For more info see http://www.lyx.org/
+\lyxformat 544
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures true
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\use_minted 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\is_math_indent 0
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Section
+Impurity-only enrichment for the ground state
+\end_layout
+
+\begin_layout Standard
+The ground-state computation can be viewed as being close in spirit to the
+ time-evolution computation after the formal replacement
+\begin_inset Formula $dt\mapsto -i\,d\tau$
+\end_inset
+
+.
+ The useful analogy is not exact, but it is a good guide for how to make
+ the active-space enrichment cheaper.
+\end_layout
+
+\begin_layout Standard
+In the present spinless ground-state code, enrichment connects the whole
+ active window to the Slater sector.
+ In code this corresponds to selecting representative Slater orbitals from
+\begin_inset Formula $K_{AS}$
+\end_inset
+
+, where 
+\begin_inset Formula $A$
+\end_inset
+
+ is the current active window and 
+\begin_inset Formula $S$
+\end_inset
+
+ is the Slater sector.
+ Schematically,
+\begin_inset Formula 
+\[
+K=\begin{pmatrix}
+K_{II} & K_{IB} & K_{IS}\\
+K_{BI} & K_{BB} & K_{BS}\\
+K_{SI} & K_{SB} & K_{SS}
+\end{pmatrix},
+\qquad
+A=I\cup B .
+\]
+
+\end_inset
+
+The current GS enrichment uses information from 
+\begin_inset Formula $K_{AS}=(K_{IS},K_{BS})$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+In the dynamics code, the interaction picture removes the bath Hamiltonian
+ from the explicit TDVP problem.
+ Therefore representative orbitals are selected only through the impurity-bath
+ coupling,
+\begin_inset Formula $K_{IS}$
+\end_inset
+
+.
+ This suggests a cheaper GS heuristic: before enrichment, rotate the Slater
+ bath to a basis where the Slater bath block is diagonal, then enrich using
+ impurity rows only.
+\end_layout
+
+\begin_layout Subsection
+Important difference from real time
+\end_layout
+
+\begin_layout Standard
+For real time, if
+\begin_inset Formula $K_{SS}=\operatorname{diag}(\epsilon_k)$
+\end_inset
+
+, bath-only evolution is a phase:
+\begin_inset Formula 
+\[
+b_k(t+dt)=e^{-i\epsilon_k dt}b_k(t).
+\]
+
+\end_inset
+
+For imaginary time / ground-state evolution, it is instead an exponential
+ weight:
+\begin_inset Formula 
+\[
+b_k(\tau+d\tau)=e^{-\epsilon_k d\tau}b_k(\tau).
+\]
+
+\end_inset
+
+So it is not literally a phase in the GS problem.
+ But for enrichment we do not need an exact imaginary-time evolution of the
+ Slater sector.
+ We only need a cheap way to identify useful Slater directions to promote
+ into the active window.
+\end_layout
+
+\begin_layout Subsection
+Proposed cheap enrichment
+\end_layout
+
+\begin_layout Standard
+The minimal version is:
+\end_layout
+
+\begin_layout Enumerate
+Rotate the Slater block so that
+\begin_inset Formula 
+\[
+K_{SS}=\operatorname{diag}(\epsilon_k).
+\]
+
+\end_inset
+
+\end_layout
+
+\begin_layout Enumerate
+Build the representative-orbital SVD only from impurity rows,
+\begin_inset Formula 
+\[
+K_{IS}.
+\]
+
+\end_inset
+
+\end_layout
+
+\begin_layout Enumerate
+Promote the dominant occupied and empty representatives, as in the current
+ enrichment procedure.
+\end_layout
+
+\begin_layout Standard
+This replaces the full active-to-Slater enrichment matrix
+\begin_inset Formula $K_{AS}$
+\end_inset
+
+ by the smaller impurity-to-Slater matrix
+\begin_inset Formula $K_{IS}$
+\end_inset
+
+.
+ The active bath orbitals do not directly request new representatives.
+ Instead, the Slater sector is kept in a bath eigenbasis, and new active
+ directions enter only through their direct hybridization with the impurity.
+\end_layout
+
+\begin_layout Subsection
+Energy-weighted variant
+\end_layout
+
+\begin_layout Standard
+A stronger version is to include the diagonal bath energies as a simple
+ imaginary-time or resolvent dressing.
+ In the diagonal bath basis, the useful Krylov directions generated through
+ the bath are of the form
+\begin_inset Formula 
+\[
+K_{IS},\quad K_{IS}K_{SS},\quad K_{IS}K_{SS}^{2},\ldots
+\]
+
+\end_inset
+
+or, from a ground-state correction viewpoint, roughly
+\begin_inset Formula 
+\[
+\frac{K_{I k}}{E-\epsilon_k}.
+\]
+
+\end_inset
+
+Thus one can enrich from a dressed impurity coupling
+\begin_inset Formula 
+\[
+W_{I k}=K_{I k}\,f(\epsilon_k,n_k),
+\]
+
+\end_inset
+
+where 
+\begin_inset Formula $n_k$
+\end_inset
+
+ is the Slater occupation.
+ Simple first choices for 
+\begin_inset Formula $f$
+\end_inset
+
+ are
+\begin_inset Formula 
+\[
+f(\epsilon_k,n_k)=1,\qquad
+f(\epsilon_k,n_k)=\frac{1}{|\epsilon_k-\mu|+\eta},
+\]
+
+\end_inset
+
+or separate particle and hole denominators around the Fermi level.
+\end_layout
+
+\begin_layout Subsection
+Expected tradeoff
+\end_layout
+
+\begin_layout Standard
+This approach is approximate, but enrichment itself is already a heuristic
+ step.
+ The main benefit is that most GS iterations could use impurity-only enrichment,
+ which is much cheaper than repeatedly coupling the entire active window to
+ the full Slater sector.
+\end_layout
+
+\begin_layout Standard
+The main risk is missing screening or cloud orbitals that couple mostly through
+ already-active bath orbitals rather than directly through the impurity.
+ A practical compromise is to do cheap impurity-only enrichment on most iterations
+ and occasionally perform the full active-to-Slater enrichment as a refresh.
+\end_layout
+
+\begin_layout Subsection
+Conclusion
+\end_layout
+
+\begin_layout Standard
+The idea should not be described as applying the real-time bath interaction
+ picture literally to the GS problem.
+ A better description is: diagonalize the Slater bath so bath-only propagation
+ is trivial, then use impurity-bath hybridization, optionally dressed by simple
+ energy denominators, to choose representative Slater orbitals for enrichment.
+\end_layout
+
+\end_body
+\end_document

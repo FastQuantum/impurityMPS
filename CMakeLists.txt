@@ -32,6 +32,20 @@ target_link_libraries(${PROJECT_NAME} INTERFACE armadillo)
 
 add_subdirectory(example)
 
+# The reference programs live under test/ref; they are only built on demand
+# because each one is a full DMRG/TDVP run, not something a normal build needs.
+option(FBR_EXAMPLE_REF "Build the reference star/chain programs" OFF)
+
 #----------- tests -----------------
+
+# enable_testing() must run in the top-level list file so CMake writes the root
+# CTestTestfile.cmake that recurses into test/; without it `ctest` in the build
+# dir reports "No tests were found" even though test/ registers Catch2 tests.
+enable_testing()
+
+# Reference dynamics tests compare against snapshots up to t=20, which is slow.
+# By default they stop at t=5; configure with -DFBR_ENABLE_LONG_TEST=ON to run
+# the full t=20 sweep.
+option(FBR_ENABLE_LONG_TEST "Run reference dynamics tests up to t=20 (default: t=5)" OFF)
 
 add_subdirectory(test)
