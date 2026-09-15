@@ -11,6 +11,7 @@ import html
 import subprocess
 import traceback
 
+import bench_dyn_cost
 import bench_green_cost
 import bond_dynamics
 import green_irlm
@@ -23,6 +24,7 @@ SECTIONS = [
     ("SIAM Green function: FBR vs star vs chain", green_siam),
     ("Green function cost: few-body vs full star", bench_green_cost),
     ("Cost of one evolution, by protocol", quench_vs_excitation),
+    ("Cost of a timestep against L", bench_dyn_cost),
     ("Bond dimension in time: few-body vs full MPS", bond_dynamics),
 ]
 

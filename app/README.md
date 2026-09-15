@@ -58,6 +58,32 @@ Findings so far:
 | `quench_vs_excitation_siam` | Window and time of one `Fbr_dyn` for the paper's quench, the excitation c₀†\|gs⟩ (`spin_block`), and \|gs⟩ itself | `{quench,excitation,gs}_siam_L{100,500}_U0.025` | `quench_vs_excitation.py` |
 | `gs_frame_vs_ip_siam` | Does a co-moving frame (`fbr_dyn_frame.h`) keep the \|gs⟩ window smaller than the interaction picture? | `gs_{ip,frame}_siam_L{20,40}_U0` | `quench_vs_excitation.py` |
 | `bench_buildK` | Per-step wall time against L of the spin dynamics (the O(L²) orbital bookkeeping) | prints | — |
+| `bench_dyn_cost` | Is an `Fbr_dyn` timestep O(L²) or O(L³)? Phase by phase, for `spin_symmetric`, `spin_block` and `leading` | `bench_dyn_cost_{sym,block,ns}_L{250,500,1000,2000,4000}_U{0.1,0.2}` | `bench_dyn_cost.py` |
+
+Finding (2026-09-15): **the timestep is O(L²) for all three layouts.** The measurement
+`correlator(i,j)` was O(L³) and is now O(L²). 60 steps (t=6) of the example quenches, run one at a
+time on one core. The window and χ do not depend on L (n_active 12–14, χ=8 for the SIAM, 8 and 12 for
+the IRLM), so the cost against L is the cost of a step. Slopes are fitted over L=1000–4000:
+
+| per step | `spin_symmetric` | `spin_block` | `leading` | where it comes from |
+|---|---|---|---|---|
+| orbital update (build_K, plan, apply) | 2.02 | 1.99 | 2.20 | ≈L Givens gates per step (4028 at L=4000), each O(L) on `rot`, `cc`, `K` |
+| TDVP | 1.03 | 1.02 | 1.15 | ITensor sweeps the MPO and the environments over all L sites |
+| whole step, L=4000 | 3.7 s | 3.5 s | 2.5 s | the orbital update is 80–92% of it |
+| `solver.correlator(0,0)`, L=4000 | 0.10 s (slope 1.98) | 0.10 s (1.92) | 0.10 s (2.00) | rows i and j of `effective_rot` only |
+| the same, before the fix | 166 s (slope 3.1) | 169 s | 163 s | through the dense `effective_rot`: two L×L products |
+
+- `build_K` alone shows slope 2.5 from L=1000 to 4000. That is the memory hierarchy, not an L³ term:
+  one complex matrix is 16 MB at L=1000 and 64 MB at L=2000, against a 30 MB L3. A standalone timing of
+  the same expression gives a flat 6e-8 s·L⁻² from L=500 to 5656, while a plain L×L matrix add jumps
+  ×2.7 per L² between L=1414 and 2000.
+- The O(L³) measurement cost 45× a whole step at L=4000, and every example and app that prints
+  `correlator(0,0)` each step paid it. `correlator(i,j)`, `correlator_col` and `correlator_row` now
+  use only rows of `effective_rot` (`effective_rot_row`, `effective_rot_times`), which gives the same n0
+  (|diff|=0 against the independent two-row evaluation `correlator_L2` in `bench_dyn_cost`). `effective_rot()`
+  itself and the full `correlator()` matrix are still O(L³).
+- Checks: `spin_symmetric` and `spin_block` agree on n0(t=6) to 1.4e-5 at every L, and the L=1000
+  `spin_symmetric` value (0.886199) matches `test/ref/output/fbr_dyn_siam_L1000_U0.1.txt` (0.886201).
 
 Finding: the co-moving frame is a **negative result**. The bath propagator couples empty and
 full Slater orbitals, so the window grows and the eigenstate drifts. The ~20-orbital
