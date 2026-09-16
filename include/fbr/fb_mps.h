@@ -14,6 +14,7 @@
 #include <iomanip>
 #include <set>
 #include <stdexcept>
+#include <utility>
 #include <string>
 #include <vector>
 
@@ -117,18 +118,13 @@ struct Fb_mps
         throw std::invalid_argument("Fb_mps::range: this part is not contiguous, pass a Spin");
     }
 
-    /// ensure reflection symmetry of rows and columns
-    static void ensure_reflection(arma::Mat<T> &K)
+    /// Impose this layout's reflection symmetry on rows and columns, if any.
+    void ensure_symmetry(arma::Mat<T>& K) const
     {
+        if (layout!=spin_symmetric) return;
         int L=K.n_rows;
         auto irev=arma::regspace<arma::uvec>(L/2-1,0);
         K.submat(irev,irev)=K.submat(L/2,L/2,L-1,L-1);
-    }
-
-    /// impose on K the symmetry of this layout, if any
-    void ensure_symmetry(arma::Mat<T> &K) const
-    {
-        if (layout==spin_symmetric) ensure_reflection(K);
     }
 
     /// convert to complex values. There is an specialization for `double` below.
@@ -207,7 +203,7 @@ struct Fb_mps
 
             auto givens=(s==dw) ? givens_for_rot_left(V.head_cols(count).eval())
                                 : givens_for_rot_right(V.head_cols(count).eval());
-            givens_dagger_in_place(givens);
+            givens=givens_dagger(std::move(givens));
             update.append(arma::regspace<arma::uvec>(a,b-1),givens);
             if (s==dw && layout==spin_symmetric) {
                 auto [a_up,b_up]=range(Part::rotating,up);
@@ -238,7 +234,11 @@ struct Fb_mps
             arma::eig_sym(occupations,orbitals,block);
             arma::vec activity=occupations;
             for (auto& x : activity) x=std::min(x,1-x);
-            arma::Mat<T> rotation=orbitals.cols(sort_activity(activity));
+            // Stable ordering keeps the centered spin sectors as mirror images.
+            arma::uvec order;
+            if (layout==leading) order=arma::sort_index(activity);
+            else order=arma::stable_sort_index(activity);
+            arma::Mat<T> rotation=orbitals.cols(order);
             if (flipped) rotation=arma::flipud(rotation).eval();
 
             auto givens=flipped ? givens_for_rot_left(rotation)
@@ -453,14 +453,6 @@ private:
         return (int)arma::find(singular_values>act_tol()*singular_values[0]).eval().size();
     }
 
-    /// Order of the natural orbitals by activity min(n,1-n). The centered
-    /// layouts need a stable order to keep up and dw mirror images.
-    arma::uvec sort_activity(arma::vec const& activity) const
-    {
-        if (layout==leading) return arma::sort_index(activity);
-        return arma::stable_sort_index(activity);
-    }
-
     /// Positions (relative to a) of the orbitals in [a,b) that are neither empty nor full.
     arma::uvec active_orbitals(arma::Mat<T> const& cc_source, int a, int b) const
     {
@@ -496,7 +488,7 @@ private:
 
         plan.givens=(s==dw) ? givens_for_rot_left(V.head_cols(plan.count).eval())
                             : givens_for_rot_right(V.head_cols(plan.count).eval());
-        givens_dagger_in_place(plan.givens);
+        plan.givens=givens_dagger(std::move(plan.givens));
         return plan;
     }
 

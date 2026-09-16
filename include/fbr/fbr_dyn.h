@@ -19,15 +19,6 @@ namespace fbr {
 
 namespace detail {
 
-/// Rank of a coupling block: number of singular values above tol (relative).
-inline int sv_rank(arma::mat const& block, double tol)
-{
-    if (block.n_rows==0 || block.n_cols==0) return 0;
-    arma::vec s=arma::svd(block);
-    if (s.empty() || s[0]==0) return 0;
-    return (int)arma::find(s>tol*s[0]).eval().size();
-}
-
 /// Rank of the impurity-bath coupling block of Kmat: the largest over the spin
 /// sectors, so both grow the window by the same amount even when their coupling
 /// ranks differ (spin_block). An extra, weakly coupled representative costs one
@@ -39,7 +30,11 @@ inline int coupling_rank(Fb_mps<cmpx> const& fb, arma::mat const& Kmat)
         auto [a_imp,b_imp]=fb.range(Part::impurity,s);
         auto [a_sla,b_sla]=fb.range(Part::slater,s);
         if (a_imp>=b_imp || a_sla>=b_sla) continue;
-        rank=std::max(rank,sv_rank(Kmat.submat(a_imp,a_sla,b_imp-1,b_sla-1),fb.act_tol()));
+        // Keep singular values above the relative orbital-activity tolerance.
+        arma::vec singular_values=arma::svd(Kmat.submat(a_imp,a_sla,b_imp-1,b_sla-1));
+        if (singular_values.empty() || singular_values[0]==0) continue;
+        int sector_rank=(int)arma::find(singular_values>fb.act_tol()*singular_values[0]).eval().size();
+        rank=std::max(rank,sector_rank);
     }
     return rank;
 }

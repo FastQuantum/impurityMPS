@@ -4,30 +4,43 @@
 using namespace arma;
 using namespace fbr;
 
-TEST_CASE("ensure_reflection", "[fb_mps_spin]") {
-    const int L = 6;
-    mat K(L, L, fill::zeros);
-    mat br(L/2, L/2, fill::randu);
-    K.submat(L/2, L/2, L-1, L-1) = br;
-
-    Fb_mps<double>::ensure_reflection(K);
-
-    // K(L/2-1-i, L/2-1-j) == br(i,j)
-    for (int i = 0; i < L/2; i++)
-        for (int j = 0; j < L/2; j++)
-            REQUIRE(K(L/2-1-i, L/2-1-j) == Approx(br(i, j)));
-}
-
-// ---- interval method tests ----
-// Layout for L=8, imp_size=2:
-//   [ bath_up:0,1,2 | imp_up:3 | imp_dw:4 | bath_dw:5,6,7 ]
-
 namespace {
 Fb_mps<double> make_fb(int L=8, int imp_size=2, int n_part=4) {
     return Fb_mps<double>::from_slater(mat(L, L, fill::eye),
                                             linspace(-1.0, 1.0, L), n_part, imp_size, spin_symmetric);
 }
 } // namespace
+
+TEST_CASE("ensure_symmetry mirrors only spin-symmetric layouts", "[fb_mps_spin]") {
+    const int L = 6;
+    mat K(L, L, fill::zeros);
+    mat br(L/2, L/2, fill::randu);
+    K.submat(L/2, L/2, L-1, L-1) = br;
+
+    auto fb=make_fb(L);
+    SECTION("leading layout leaves the matrix unchanged") {
+        fb.layout=leading;
+        mat original=K;
+        fb.ensure_symmetry(K);
+        REQUIRE(norm(K-original,"fro") == 0);
+    }
+    SECTION("spin_block leaves the matrix unchanged") {
+        fb.layout=spin_block;
+        mat original=K;
+        fb.ensure_symmetry(K);
+        REQUIRE(norm(K-original,"fro") == 0);
+    }
+    SECTION("spin_symmetric reflects the down block onto the up block") {
+        fb.ensure_symmetry(K);
+        for (int i=0; i<L/2; i++)
+            for (int j=0; j<L/2; j++)
+                REQUIRE(K(L/2-1-i, L/2-1-j) == Approx(br(i,j)));
+    }
+}
+
+// ---- interval method tests ----
+// Layout for L=8, imp_size=2:
+//   [ bath_up:0,1,2 | imp_up:3 | imp_dw:4 | bath_dw:5,6,7 ]
 
 TEST_CASE("range: impurity and bath", "[fb_mps_spin]") {
     auto fb = make_fb();
@@ -105,7 +118,6 @@ TEST_CASE("plan_representative: spin vs spinless", "[fb_mps_spin]") {
     // Build block-diagonal K: down block = Kbase, up block = reflected Kbase
     mat Ksp(L, L, fill::zeros);
     Ksp.submat(L/2, L/2, L-1, L-1) = Kbase;  // down block
-    Fb_mps<double>::ensure_reflection(Ksp);  // fill in up block by reflection
 
     // Create Fb_mps objects with same occupations in each sector: imp + 1 bath
     auto fb_sl = Fb_mps<double>::from_slater(mat(L, L, fill::eye),
@@ -115,6 +127,7 @@ TEST_CASE("plan_representative: spin vs spinless", "[fb_mps_spin]") {
     auto fb_sp = Fb_mps<double>::from_slater(mat(L, L, fill::eye),
                                                   vec{2.0, 1.0, -1.0, -2.0, -2.0, -1.0, 1.0, 2.0},
                                                   4, imp_size, spin_symmetric);
+    fb_sp.ensure_symmetry(Ksp);
 
     auto update_sl=fb_sl.plan_representative(Ksl,0);
     update_sl.apply_as_basis(Ksl);
@@ -122,7 +135,7 @@ TEST_CASE("plan_representative: spin vs spinless", "[fb_mps_spin]") {
 
     auto update_sp=fb_sp.plan_representative(Ksp,0);
     update_sp.apply_as_basis(Ksp);
-    Fb_mps<double>::ensure_reflection(Ksp);
+    fb_sp.ensure_symmetry(Ksp);
     fb_sp.apply(update_sp);
 
     vec eigs_sl = eig_sym(Ksl);
@@ -159,7 +172,6 @@ TEST_CASE("plan_active_representative: spin vs spinless", "[fb_mps_spin]") {
     // Spin: [bath_up:0-4 | imp_up:5 | imp_dw:6 | bath_dw:7-11]
     mat Ksp(L, L, fill::zeros);
     Ksp.submat(L/2, L/2, L-1, L-1) = Kbase;
-    Fb_mps<double>::ensure_reflection(Ksp);
 
     auto fb_sl = Fb_mps<double>::from_slater(mat(L, L, fill::eye),
                                              vec{-3.0, -3.0, -2.0, -2.0, -1.0, -1.0,
@@ -170,6 +182,7 @@ TEST_CASE("plan_active_representative: spin vs spinless", "[fb_mps_spin]") {
                                                   vec{3.0, 2.0, 1.0, -1.0, -2.0, -3.0,
                                                      -3.0,-2.0,-1.0,  1.0,  2.0,  3.0},
                                                   n_part, imp_size, spin_symmetric);
+    fb_sp.ensure_symmetry(Ksp);
 
     auto apply_sl=[&](auto const& update) {
         update.apply_as_basis(Ksl);
@@ -177,7 +190,7 @@ TEST_CASE("plan_active_representative: spin vs spinless", "[fb_mps_spin]") {
     };
     auto apply_sp=[&](auto const& update) {
         update.apply_as_basis(Ksp);
-        Fb_mps<double>::ensure_reflection(Ksp);
+        fb_sp.ensure_symmetry(Ksp);
         fb_sp.apply(update);
     };
 
@@ -250,19 +263,19 @@ TEST_CASE("Fb_mps_spin_block: representative plans match spin on symmetric K", "
 
     mat Ksp(L, L, fill::zeros);
     Ksp.submat(L/2, L/2, L-1, L-1) = Kbase;
-    Fb_mps<double>::ensure_reflection(Ksp);
-    mat Kbl = Ksp;
 
     vec ek{3.0, 2.0, 1.0, -1.0, -2.0, -3.0,
           -3.0,-2.0,-1.0,  1.0,  2.0,  3.0};
     mat rot(L, L, fill::eye);
 
     auto fb_sp = Fb_mps<double>::from_slater(rot, ek, n_part, imp_size, spin_symmetric);
+    fb_sp.ensure_symmetry(Ksp);
+    mat Kbl=Ksp;
     auto fb_bl = Fb_mps<double>::from_slater(rot, ek, n_part, imp_size, spin_block);
 
     auto apply_sp=[&](auto const& update) {
         update.apply_as_basis(Ksp);
-        Fb_mps<double>::ensure_reflection(Ksp);
+        fb_sp.ensure_symmetry(Ksp);
         fb_sp.apply(update);
     };
     auto apply_bl=[&](auto const& update) {

@@ -6,8 +6,6 @@ using namespace std;
 using namespace fbr;
 using namespace fbr::graph;
 
-bool same_component(vector<int> labels,int a, int b) { return labels[a]==labels[b]; }
-
 TEST_CASE("Single node graph", "[graph]")
 {
     arma::mat K(1, 1, fill::value(1.0));

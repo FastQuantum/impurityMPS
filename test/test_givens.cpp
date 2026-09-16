@@ -1,4 +1,5 @@
 #include<catch2/catch.hpp>
+#include <utility>
 #include "fbr/givens_rotation.h"
 #include "fbr/orbital_update.h"
 
@@ -6,23 +7,26 @@ using namespace arma;
 using namespace std;
 using namespace fbr;
 
-TEST_CASE("OrbitalGate transformations match dense matrices", "[orbital_gate]")
+TEMPLATE_TEST_CASE("OrbitalGate transformations match dense matrices", "[orbital_gate]", double, cmpx)
 {
     arma::arma_rng::set_seed(1701);
     constexpr int L=7;
     constexpr int a=2;
-    constexpr int b=3;
+    int b=3;
+    SECTION("adjacent orbitals") {}
+    SECTION("non-adjacent orbitals") { b=5; }
 
-    cx_vec pair(2,fill::randn);
-    auto givens=GivensRot<cmpx>::create_from_pair(0,pair[0],pair[1],true);
-    OrbitalGate<cmpx> gate(a,b,givens);
+    arma::Col<TestType> pair(2,fill::randn);
+    auto givens=GivensRot<TestType>::create_from_pair(0,pair[0],pair[1],true);
+    OrbitalGate<TestType> gate(a,b,givens);
 
-    cx_mat R(L,L,fill::eye);
-    R.submat(a,a,b,b)=givens.matrix();
-    cx_mat K=cx_mat(L,L,fill::randn)+imag_1*cx_mat(L,L,fill::randn);
+    arma::Mat<TestType> R(L,L,fill::eye);
+    uvec positions={(uword)a,(uword)b};
+    R(positions,positions)=givens.matrix();
+    arma::Mat<TestType> K(L,L,fill::randn);
     K=K+K.t();
-    cx_mat frame=cx_mat(L,L,fill::randn)+imag_1*cx_mat(L,L,fill::randn);
-    cx_mat cc=cx_mat(L,L,fill::randn)+imag_1*cx_mat(L,L,fill::randn);
+    arma::Mat<TestType> frame(L,L,fill::randn);
+    arma::Mat<TestType> cc(L,L,fill::randn);
     cc=cc+cc.t();
 
     auto K_actual=K;
@@ -36,8 +40,8 @@ TEST_CASE("OrbitalGate transformations match dense matrices", "[orbital_gate]")
     REQUIRE(abs(frame_actual-frame*R).max()<1e-13);
     REQUIRE(abs(cc_actual-R.st()*cc*conj(R)).max()<1e-13);
 
-    OrbitalGate<cmpx> swap(1,5);
-    cx_mat P(L,L,fill::eye);
+    OrbitalGate<TestType> swap(1,5);
+    arma::Mat<TestType> P(L,L,fill::eye);
     P.swap_cols(1,5);
     K_actual=K;
     frame_actual=frame;
@@ -70,7 +74,7 @@ TEST_CASE("index-aware apply_givens matches dense embedding", "[givens]")
     qr(Q, R, Vfull);
     cx_mat V = Q.head_cols(n_sv);
     auto givens = givens_for_rot_left(V);
-    givens_dagger_in_place(givens);
+    givens=givens_dagger(std::move(givens));
 
     // Non-contiguous target positions of size n inside [0,L).
     uvec pos = {1, 2, 4, 7, 9, 12};
@@ -292,7 +296,7 @@ TEST_CASE("givens_reflect real", "[givens_reflect]")
     // Build a non-trivial set of Givens via a 3-column SVD
     arma::mat V(n, 3, arma::fill::randu);
     auto givens = givens_for_rot_left(V);
-    givens_dagger_in_place(givens);
+    givens=givens_dagger(std::move(givens));
 
     arma::mat rot1    = matrot_from_givens(givens, n);
     arma::mat rot1_up = matrot_from_givens(givens_reflect(givens, n), n);
@@ -315,7 +319,7 @@ TEST_CASE("givens_reflect complex", "[givens_reflect]")
 
     arma::cx_mat V(n, 3, arma::fill::randu);
     auto givens = givens_for_rot_left(V);
-    givens_dagger_in_place(givens);
+    givens=givens_dagger(std::move(givens));
 
     arma::cx_mat rot1    = matrot_from_givens(givens, n);
     arma::cx_mat rot1_up = matrot_from_givens(givens_reflect(givens, n), n);
@@ -358,7 +362,7 @@ TEST_CASE("set of Givens")
         svd_econ(U,s,V,k12);
         auto givens=givens_for_rot_left(V.head_cols(2).eval());
         for(auto& g:givens) g.b+=2;
-        givens_dagger_in_place(givens);
+        givens=givens_dagger(std::move(givens));
 
         kin.print("kin");
         SECTION("using global rot")
@@ -386,7 +390,7 @@ TEST_CASE("set of Givens")
         eig_sym(eval,evec,A);
         SECTION("left stair") {
             auto givens=givens_for_rot_left(evec.head_cols(2).eval());
-            givens_dagger_in_place(givens);
+            givens=givens_dagger(std::move(givens));
 
             eval.as_row().eval().print("eval");
             auto k1=A;
@@ -396,7 +400,7 @@ TEST_CASE("set of Givens")
         }
         SECTION("right stair") {
             auto givens=givens_for_rot_right(evec.head_cols(3).eval());
-            givens_dagger_in_place(givens);
+            givens=givens_dagger(std::move(givens));
 
             eval.as_row().eval().print("eval");
             auto k1=A;
@@ -417,7 +421,7 @@ TEST_CASE("set of Givens")
         svd(U,s,V,k12);
         auto givens=givens_for_rot_left(V.head_cols(1).eval());
         for(auto &g:givens) g.b+=2;
-        //givens_dagger_in_place(givens);
+        //givens=givens_dagger(std::move(givens));
         for(auto &g:givens) {
 //            std::cout<<"gate "<<g.b<<" "<<g.b+1<<std::endl;
             apply_givens(g,A);

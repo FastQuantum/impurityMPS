@@ -6,7 +6,6 @@
 
 #include <complex>
 #include <stdexcept>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -43,9 +42,15 @@ struct OrbitalGate {
             return;
         }
 
-        auto g=givens();
-        apply_right(K,g);
-        apply_left(g.dagger(),K);
+        auto m=givens().matrix();
+        arma::Col<T> ca=K.col(a), cb=K.col(b);
+        K.col(a)=ca*m(0,0)+cb*m(1,0);
+        K.col(b)=ca*m(0,1)+cb*m(1,1);
+
+        auto adjoint=m.t().eval();
+        arma::Row<T> ra=K.row(a), rb=K.row(b);
+        K.row(a)=adjoint(0,0)*ra+adjoint(0,1)*rb;
+        K.row(b)=adjoint(1,0)*ra+adjoint(1,1)*rb;
     }
 
     /// Apply rot -> rot R, or swap its columns.
@@ -55,7 +60,10 @@ struct OrbitalGate {
             rot.swap_cols(a,b);
             return;
         }
-        apply_right(rot,givens());
+        auto m=givens().matrix();
+        arma::Col<T> ca=rot.col(a), cb=rot.col(b);
+        rot.col(a)=ca*m(0,0)+cb*m(1,0);
+        rot.col(b)=ca*m(0,1)+cb*m(1,1);
     }
 
     /// Apply cc -> R^T cc R*, or swap its rows and columns.
@@ -68,36 +76,14 @@ struct OrbitalGate {
         }
 
         auto m=givens().matrix();
+        auto conjugated=arma::conj(m).eval();
         arma::Col<T> ca=cc.col(a), cb=cc.col(b);
-        cc.col(a)=ca*conjugate(m(0,0))+cb*conjugate(m(1,0));
-        cc.col(b)=ca*conjugate(m(0,1))+cb*conjugate(m(1,1));
+        cc.col(a)=ca*conjugated(0,0)+cb*conjugated(1,0);
+        cc.col(b)=ca*conjugated(0,1)+cb*conjugated(1,1);
 
         arma::Row<T> ra=cc.row(a), rb=cc.row(b);
         cc.row(a)=m(0,0)*ra+m(1,0)*rb;
         cc.row(b)=m(0,1)*ra+m(1,1)*rb;
-    }
-
-private:
-    static T conjugate(T const& x)
-    {
-        if constexpr (std::is_arithmetic<T>::value) return x;
-        else return std::conj(x);
-    }
-
-    void apply_right(arma::Mat<T>& matrix,GivensRot<T> const& g) const
-    {
-        auto m=g.matrix();
-        arma::Col<T> ca=matrix.col(a), cb=matrix.col(b);
-        matrix.col(a)=ca*m(0,0)+cb*m(1,0);
-        matrix.col(b)=ca*m(0,1)+cb*m(1,1);
-    }
-
-    void apply_left(GivensRot<T> const& g,arma::Mat<T>& matrix) const
-    {
-        auto m=g.matrix();
-        arma::Row<T> ra=matrix.row(a), rb=matrix.row(b);
-        matrix.row(a)=m(0,0)*ra+m(0,1)*rb;
-        matrix.row(b)=m(1,0)*ra+m(1,1)*rb;
     }
 };
 
