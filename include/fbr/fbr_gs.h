@@ -25,7 +25,7 @@ struct Fbr_gs {
         , fb { fb_ }
         , K(param.Kmat)
     {
-        param.validate();   // a model built directly in star geometry never saw to_star()
+        param.prepare();   // a model built directly in star geometry never saw to_star()
     }
 
     void iterate(DmrgParam args={})

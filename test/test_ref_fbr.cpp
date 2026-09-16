@@ -1,6 +1,7 @@
 #include <catch2/catch.hpp>
 
 #include "fbr/fbr_dyn.h"
+#include "fbr/fbr_gs.h"
 #include "test_ref_common.h"
 
 #include <fstream>
@@ -317,4 +318,38 @@ TEST_CASE("spin_symmetric refuses a spin-polarized state", "[spin_guard]") {
 
     model.layout=polarized.layout=spin_block;
     REQUIRE_NOTHROW(Fbr_dyn(model,polarized,dt));
+}
+
+
+TEST_CASE("omitted model defaults match explicit preparation in both solvers", "[model_defaults]")
+{
+    mat K=diagmat(vec{-0.3,0.2,-1,-0.5,0.5,1});
+    for (int i=2; i<6; ++i) K(0,i)=K(i,0)=0.1;
+    K(0,1)=K(1,0)=0.2;
+    const auto model=ImpurityParam{.Kmat=K,.imp_pos={0,1}};
+    auto prepared=model;
+    prepared.prepare();
+
+    SECTION("ground state") {
+        auto implicit=Fbr_gs(model,slater<double>(model));
+        auto explicit_defaults=Fbr_gs(prepared,slater<double>(prepared));
+        for (int step=0; step<3; ++step) {
+            implicit.iterate({.noise=0});
+            explicit_defaults.iterate({.noise=0});
+            REQUIRE(implicit.energy == Approx(explicit_defaults.energy).margin(1e-10));
+            REQUIRE(norm(implicit.fb.correlator()-explicit_defaults.fb.correlator(),"fro")
+                    == Approx(0).margin(1e-10));
+        }
+    }
+    SECTION("real time") {
+        auto implicit=Fbr_dyn(model,slater<cmpx>(model),0.1);
+        auto explicit_defaults=Fbr_dyn(prepared,slater<cmpx>(prepared),0.1);
+        for (int step=0; step<3; ++step) {
+            implicit.iterate({.epsilon_M=0});
+            explicit_defaults.iterate({.epsilon_M=0});
+            REQUIRE(implicit.energy == Approx(explicit_defaults.energy).margin(1e-10));
+            REQUIRE(norm(implicit.correlator()-explicit_defaults.correlator(),"fro")
+                    == Approx(0).margin(1e-10));
+        }
+    }
 }

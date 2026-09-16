@@ -128,6 +128,12 @@ For models with spin you describe the impurities by listing them from the outerm
 - **Spin-flip symmetric** (`spin_symmetric`) — up and down are equivalent, so only one spin block is computed. See [`fbr_gs_siam.cpp`](example/fbr_gs_siam.cpp) and [`fbr_dyn_siam.cpp`](example/fbr_dyn_siam.cpp).
 - **Generic spin (block)** (`spin_block`) — the two spin blocks are handled independently, for cases without spin-flip symmetry. See [`fbr_dyn_siam_block.cpp`](example/fbr_dyn_siam_block.cpp).
 
+Models built directly in star geometry can skip `to_star()`: put the impurity at the
+positions required by the layout, and use `slater<T>(model)` as usual. An omitted
+`rot` means the identity frame, and an omitted `Umat` means zero interaction.
+`validate()` checks inputs without changing them; `prepare()` also initializes
+these default matrices. Solvers and `to_star()` call `prepare()` automatically.
+
 The layout is part of the model: `ImpurityParam::layout` selects the chain geometry `to_star()` produces, and `slater<T>(model)` builds a matching initial state. The spinless case is `leading`, the default.
 
 ```c++

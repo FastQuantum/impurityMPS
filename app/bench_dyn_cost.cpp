@@ -10,11 +10,11 @@
 // time of step n isolates the L dependence. The steps below replay
 // Fbr_dyn::iterate() through its public methods, in the same order, with a
 // timer around each phase:
-//   buildK   Common::build_K                      O(n_imp L^2)
+//   buildK   build_K                      O(n_imp L^2)
 //   plan     plan_representative x2, plan_active_representative, plan_natural_orbitals
-//   applyK   apply_plan_to_K: the Givens gates on K      O(#gates L)
+//   applyK   basis rotation: the Givens gates on K      O(#gates L)
 //   applyfb  Fb_mps::apply: gates on rot and cc, MPS gates in the window, Slater swaps
-//   tdvp     full_hamiltonian + evolve_one
+//   tdvp     do_tdvp (Hamiltonian construction + evolution)
 // After the last step it times the measurement solver.correlator(0,0) against an
 // independent O(L^2) evaluation of the same element. Before 2026-09-15 the library
 // went through the dense effective_rot, O(L^3): 166 s at L=4000 (app/README.md).
@@ -132,7 +132,8 @@ int main(int argc, char** argv)
             tp += sec_since(c);
             ngates += up.gates.size();
             c = clk::now();
-            solver.apply_plan_to_K(solver.fb, up);
+            up.apply_as_basis(solver.K);
+            solver.fb.ensure_symmetry(solver.K);
             tk += sec_since(c);
             c = clk::now();
             solver.fb.apply(up);

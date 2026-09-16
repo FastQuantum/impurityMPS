@@ -1,5 +1,7 @@
 #include <catch2/catch.hpp>
+#include <limits>
 #include "fbr/impurity_param.h"
+#include "fbr/initial_state.h"
 
 using namespace arma;
 using namespace std;
@@ -108,4 +110,101 @@ TEST_CASE("star transform, centered layouts", "[param]")
         REQUIRE(norm(ek_up-ek_dw) > 0.1);
         REQUIRE(norm(ek_up-ek_dw*(0.5/0.8)) == Approx(0.0).margin(1e-10));
     }
+}
+
+
+TEST_CASE("leading star transform preserves ordered impurities and interaction", "[param][regression]")
+{
+    int L=6;
+    mat K=diagmat(vec{0.1,0.2,0.3,0.4,0.5,0.6});
+    for (int i=0; i<L-1; ++i) K(i,i+1)=K(i+1,i)=0.15;
+    vector<int> impurities;
+    SECTION("overlapping swaps must not undo the impurity order") { impurities={1,0}; }
+    SECTION("interaction must follow impurities moved from the bath") { impurities={4,2}; }
+
+    mat U(L,L,fill::zeros);
+    U(impurities[0],impurities[1])=0.7;
+    auto model=ImpurityParam{.Kmat=K,.Umat=U,.imp_pos=impurities};
+    model.to_star();
+
+    REQUIRE(model.imp_pos == vector<int>{0,1});
+    // Non-rotating columns must still identify the requested original sites,
+    // in the requested order. Recovering K alone would not catch a wrong order.
+    for (int i=0; i<2; ++i) {
+        vec expected(L,fill::zeros);
+        expected(impurities[i])=1;
+        REQUIRE(norm(model.rot.col(i)-expected) == Approx(0).margin(1e-12));
+    }
+    mat expected_U(L,L,fill::zeros);
+    expected_U(0,1)=0.7;
+    REQUIRE(norm(model.Umat-expected_U,"fro") == Approx(0).margin(1e-12));
+    REQUIRE(norm(model.rot*model.Umat*model.rot.t()-U,"fro") == Approx(0).margin(1e-12));
+    requireFrameRecoversInput(model,K);
+    requireDiagonalBath(model.Kmat,2,L);
+}
+
+TEST_CASE("Slater state accepts star models with omitted defaults", "[param][regression]")
+{
+    const auto model=ImpurityParam{.Kmat=diagmat(vec{-2,-1,1,2}),.imp_pos={0}};
+    auto fb=slater<double>(model);
+    REQUIRE(fb.rot.n_rows == 4);
+    REQUIRE(norm(fb.rot-mat(4,4,fill::eye),"fro") == Approx(0).margin(1e-12));
+    REQUIRE(norm(fb.correlator()-diagmat(vec{1,1,0,0}),"fro") == Approx(0).margin(1e-12));
+    REQUIRE(model.rot.empty()); // constructing a state also works with a const model
+}
+
+TEST_CASE("model preparation checks inputs before constructing a state", "[param]")
+{
+    auto model=ImpurityParam{.Kmat=diagmat(vec{-2,-1,1,2}),.imp_pos={0}};
+    SECTION("default matrices are initialized once") {
+        model.prepare();
+        REQUIRE(norm(model.rot-mat(4,4,fill::eye),"fro") == Approx(0).margin(1e-12));
+        REQUIRE(norm(model.Umat,"fro") == Approx(0).margin(1e-12));
+        model.rot.swap_cols(0,1);
+        model.Umat(0,0)=0.5;
+        model.prepare();
+        REQUIRE(model.rot(1,0) == 1);
+        REQUIRE(model.Umat(0,0) == 0.5);
+        return;
+    }
+    SECTION("kinetic matrix must be square") { model.Kmat.zeros(4,3); }
+    SECTION("rotation must match the model length") { model.rot.eye(3,3); }
+    SECTION("interaction must match the model length") { model.Umat.zeros(3,3); }
+    SECTION("impurity positions cannot repeat") { model.imp_pos={0,0}; }
+    SECTION("impurity positions cannot be negative") { model.imp_pos={-1}; }
+    SECTION("impurity positions must be inside the model") { model.imp_pos={4}; }
+    SECTION("filling cannot be negative") { model.filling=-0.1; }
+    SECTION("filling cannot exceed one") { model.filling=1.1; }
+    SECTION("filling cannot be NaN") { model.filling=std::numeric_limits<double>::quiet_NaN(); }
+    SECTION("centered models require even length") {
+        model.Kmat.eye(5,5);
+        model.imp_pos={1,2};
+        model.layout=spin_block;
+    }
+    REQUIRE_THROWS_AS(model.prepare(),std::invalid_argument);
+    REQUIRE_THROWS_AS(slater<double>(model),std::invalid_argument);
+}
+
+TEST_CASE("Slater state rejects energies and impurity positions inconsistent with the model", "[param]")
+{
+    auto model=ImpurityParam{.Kmat=diagmat(vec{-2,-1,1,2}),.imp_pos={0}};
+    SECTION("wrong energy count") {
+        REQUIRE_THROWS_AS(slater<double>(model,vec{-1,1}),std::invalid_argument);
+    }
+    SECTION("impurities must already occupy their layout positions") {
+        model.imp_pos={2};
+        REQUIRE_THROWS_AS(slater<double>(model),std::invalid_argument);
+        model.to_star();
+        REQUIRE_NOTHROW(slater<double>(model));
+    }
+}
+
+TEST_CASE("star transform without bath preserves the entire impurity Hamiltonian", "[param]")
+{
+    auto model=ImpurityParam{.Kmat=diagmat(vec{-1,1}),.Umat=mat(2,2,fill::zeros),.imp_pos={1,0}};
+    model.Umat(1,0)=0.7;
+    model.to_star();
+    REQUIRE(model.Kmat(0,0) == 1);
+    REQUIRE(model.Umat(0,1) == 0.7);
+    requireFrameRecoversInput(model,diagmat(vec{-1,1}));
 }

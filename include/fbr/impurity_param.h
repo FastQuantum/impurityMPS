@@ -6,6 +6,8 @@
 #include <armadillo>
 #include <itensor/all.h>
 #include <set>
+#include <cmath>
+#include <stdexcept>
 
 namespace fbr {
 
@@ -41,17 +43,40 @@ struct ImpurityParam {
     int n_imp() const { return imp_pos.size(); }
     int n_part() const { return filling*length()+0.5; }
 
-    void validate()
+    /// Check inputs without changing the model. Empty rot and Umat mean
+    /// identity and zero interaction, respectively.
+    void validate() const
     {
         int L=length();
-        if (rot.empty()) rot=arma::mat(L,L, arma::fill::eye);
-        if (Umat.empty()) Umat=arma::mat(L,L, arma::fill::zeros);
-        if ((int)Umat.n_rows!=L || (int)Umat.n_cols!=L)
-            throw std::invalid_argument("ImpurityParam: Umat must be L×L");
+        if (L==0 || (int)Kmat.n_cols!=L || !Kmat.is_finite())
+            throw std::invalid_argument("ImpurityParam: Kmat must be a finite, non-empty square matrix");
+        if (!rot.empty() && ((int)rot.n_rows!=L || (int)rot.n_cols!=L || !rot.is_finite()))
+            throw std::invalid_argument("ImpurityParam: rot must be a finite L×L matrix");
+        if (!Umat.empty() && ((int)Umat.n_rows!=L || (int)Umat.n_cols!=L || !Umat.is_finite()))
+            throw std::invalid_argument("ImpurityParam: Umat must be a finite L×L matrix");
+        if (!std::isfinite(filling) || filling<0 || filling>1)
+            throw std::invalid_argument("ImpurityParam: filling must be between 0 and 1");
+        if (layout!=leading && layout!=spin_symmetric && layout!=spin_block)
+            throw std::invalid_argument("ImpurityParam: unknown layout");
         if (imp_pos.empty())
             throw std::invalid_argument("ImpurityParam: imp_pos must be non-empty");
-        if (layout!=leading && imp_pos.size()%2)
-            throw std::invalid_argument("ImpurityParam: a centered layout needs an even imp_pos (nUp = nDw)");
+        std::set<int> impurities;
+        for (int i : imp_pos) {
+            if (i<0 || i>=L || !impurities.insert(i).second)
+                throw std::invalid_argument("ImpurityParam: impurity positions must be distinct and in [0,L)");
+        }
+        if (layout!=leading && (L%2 || imp_pos.size()%2))
+            throw std::invalid_argument("ImpurityParam: a centered layout needs even length and impurity count");
+    }
+
+    /// Check the model and materialize its default matrices before transforming
+    /// it or storing it in a solver.
+    void prepare()
+    {
+        validate();
+        int L=length();
+        if (rot.empty()) rot=arma::mat(L,L,arma::fill::eye);
+        if (Umat.empty()) Umat=arma::mat(L,L,arma::fill::zeros);
     }
 
     /// transform Kmat to star geometry (Hbath is diagonal), in the geometry
@@ -115,15 +140,22 @@ private:
     /// resulting orbital ordering.
     void to_star_leading()
     {
-        validate();
+        prepare();
         int L=length();
         int n_imp=this->n_imp();
 
-        for(auto i=0u; i<imp_pos.size(); i++) {  // put the impurity at the beginning
-            Kmat.swap_cols(i,imp_pos[i]);
-            Kmat.swap_rows(i,imp_pos[i]);
-            rot.swap_cols(i,imp_pos[i]);
-        }
+        // One permutation maps new positions to old ones. Sequential swaps
+        // would use stale positions when an earlier swap moved another impurity.
+        std::vector<int> positions=imp_pos;
+        auto bath=set_diff(L,imp_pos);
+        positions.insert(positions.end(),bath.begin(),bath.end());
+        arma::uvec order=arma::conv_to<arma::uvec>::from(positions);
+        Kmat=Kmat.submat(order,order).eval();
+        Umat=Umat.submat(order,order).eval();
+        rot=rot.cols(order).eval();
+        imp_pos=iota(n_imp);
+        if (n_imp==L) return; // no bath to diagonalize
+
         arma::mat Kbath=Kmat.submat(n_imp,n_imp,L-1,L-1).eval();
         int nB=L-n_imp;
         auto labels = graph::find_islands(Kbath);
@@ -169,7 +201,7 @@ private:
     /// diagonal bath per spin: |bath_up|imp_up|imp_dw|bath_dw|
     void to_star_centered()
     {
-        validate();
+        prepare();
         int L = length();
         int nUp = n_imp()/2;
 
