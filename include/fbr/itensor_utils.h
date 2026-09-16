@@ -50,6 +50,66 @@ inline arma::vec get_ni(itensor::Fermion const& sites, itensor::MPS const& psi)
     return ni;
 }
 
+/// Renyi-1/2 entanglement entropy across the bond between sites b and b+1
+/// (1-based b). With Schmidt values s_i (sum s_i^2 = 1, so the reduced density
+/// matrix eigenvalues are p_i = s_i^2), S_{1/2} = 2 ln(sum_i sqrt(p_i)) = 2 ln(sum_i s_i).
+/// A copy of psi is taken so the caller's gauge is untouched.
+inline double renyi_half_at(itensor::MPS psi, int b)
+{
+    psi.position(b);
+    auto site_b = itensor::siteIndex(psi, b);
+    auto [U, S, V] = (b > 1)
+        ? itensor::svd(psi(b), {itensor::leftLinkIndex(psi, b), site_b})
+        : itensor::svd(psi(b), {site_b});
+    auto si = itensor::commonIndex(U, S);
+    double sum_sqrt = 0;
+    for (int n = 1; n <= itensor::dim(si); n++) sum_sqrt += itensor::elt(S, n, n);
+    return 2.0 * std::log(sum_sqrt);
+}
+
+/// Maximum link dimension and the Renyi-1/2 entropy at that (bottleneck) bond.
+/// One SVD per call: cheap next to a TDVP step, and the max-bond entropy is the
+/// proxy for whether the truncation is discarding real weight or just noise.
+inline std::pair<int,double> max_bond_and_renyi_half(itensor::MPS const& psi)
+{
+    int L = itensor::length(psi);
+    int bstar = 1, mmax = 1;
+    for (int i = 1; i < L; i++) {
+        int m = itensor::dim(itensor::linkIndex(psi, i));
+        if (m >= mmax) { mmax = m; bstar = i; }
+    }
+    return {mmax, renyi_half_at(psi, bstar)};
+}
+
+/// Renyi-1/2 entropy at EVERY bond, in one left-to-right sweep: returns
+/// {sum over bonds, max over bonds}. The sum is extensive and smooth in time,
+/// unlike the single max-bond value which jumps when the bottleneck bond moves.
+/// A copy of psi is swept, so the caller's gauge is untouched. Bonds with link
+/// dimension 1 contribute exactly 0 and are skipped.
+inline std::pair<double,double> renyi_half_profile(itensor::MPS psi)
+{
+    int L = itensor::length(psi);
+    if (L < 2) return {0.0, 0.0};
+    psi.position(1);
+    psi.normalize();
+    double total = 0, mx = 0;
+    for (int b = 1; b < L; b++) {
+        auto site_b = itensor::siteIndex(psi, b);
+        auto [U, S, V] = (b > 1)
+            ? itensor::svd(psi(b), {itensor::leftLinkIndex(psi, b), site_b}, {"Cutoff", 0.0})
+            : itensor::svd(psi(b), {site_b}, {"Cutoff", 0.0});
+        auto si = itensor::commonIndex(U, S);
+        double ss = 0;
+        for (int n = 1; n <= itensor::dim(si); n++) ss += itensor::elt(S, n, n);
+        double s_half = ss > 0 ? 2.0 * std::log(ss) : 0.0;
+        total += s_half;
+        if (s_half > mx) mx = s_half;
+        psi.set(b, U);                     // move the orthogonality center to b+1
+        psi.set(b + 1, S * V * psi(b + 1));
+    }
+    return {total, mx};
+}
+
 /// The ITensor two-site gates that apply a circuit of Givens rotations to an MPS,
 /// used to rotate the active window into its natural orbitals.
 template<class T>

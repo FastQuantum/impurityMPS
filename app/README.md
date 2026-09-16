@@ -139,10 +139,45 @@ Findings (2026-09-14):
   `Fbr_dyn_shared` now throw on a state that is not its own mirror image under
   `spin_symmetric`; use `spin_block` for spin-polarized states.
 
+## Cutoffs of the excitation: circuit vs orbital activity
+
+`excitation_cutoff_siam` evolves the same excitation B = c₀↑†|gs⟩ but separates the
+two truncation cutoffs that were previously one `Fb_mps::tol`:
+- **mps_cutoff** (`fb.tol`) — MPS/circuit truncation: the Givens gates and the TDVP sweeps.
+- **activity_tol** (`fb.activity_tol`, defaults to `tol`) — orbital-activity cutoff: the
+  coupling rank that *promotes* bath orbitals into the window, and the occupation
+  threshold that *demotes* empty/full ones back to the Slater part.
+
+Columns: `t n_active bond_dim renyi_half slater_activity n0up n0dw norm wall_s ReA ImA`.
+`renyi_half` is the Rényi-½ entropy at the max-bond bond (`itensor_utils.h:renyi_half_at`);
+`slater_activity` is max_i min(nᵢ,1−nᵢ) over the frozen orbitals — the physics the
+activity cutoff throws away. It tracks `activity_tol` almost exactly, so it is a live gauge.
+The ground state is solved once per (L,U) at gs_tol=1e-9 / 50 iters and cached under
+`app/output/gs_cache/` via `Fb_mps::save`/`load` (delete the cache to re-solve).
+
+Findings (2026-09-16, L=100, U=0.1, t=30, accuracy = running max|n0up − n0up(1e-11)|):
+- **The tight cutoff simulates noise.** At mps=1e-11 the bond dimension climbs to ~30 and
+  N_active to 23; at mps=1e-8 they stay ~9 / 20, at 1e-6 ~4 / 20 — yet **Rényi-½ is nearly
+  identical** across all of them (the loose curves are actually smoother; the tight one
+  spikes on noise-level singular values). The extra bond dimension is not entanglement.
+- **`activity_tol` loosens for free** up to ~1e-7 (≈20 % faster, accuracy unchanged at the
+  mps-set floor); 1e-6 still fine; 1e-5 breaks (3e-3). `mps_cutoff` is the accuracy lever
+  (accuracy ∝ cutoff), `activity_tol` mostly trims a couple of window orbitals.
+- **Sweet spot mps = act = 1e-8:** ~4e-4 in n0↑, ~2× cheaper than 1e-11, χ/N_active off the
+  noise floor.
+- **gs precision is not critical.** gs_tol 1e-9 vs 1e-12 changes the dynamics n0↑ by 7e-5
+  (below the 1e-8 floor) but cuts the gs DMRG bond from 479 to 42 — ~6× cheaper, ~9× with
+  the iteration cap. gs_tol=1e-7 is too loose (E off 2e-3, N_active collapses).
+
+Production (`excitation_cutoff_siam_{star,fbr}_L1000_U{0.05,0.1}_mc1e-8_ac1e-8`, t=500,
+stop at χ=1024): star vs FBR bond growth, Rényi-½, wall/step and window. Plot with
+`plot/excitation_cutoff.py`.
+
 ## Tuning and exploration
 
 | Program | What it is |
 |---|---|
+| `gs_tune_siam` | SIAM ground-state (`Fbr_gs`) convergence and cost vs `gs_tol`/iterations — shows the gs need not be solved to 1e-12. Prints the convergence curve |
 | `star_dyn_tune` + `plot/tune_compare.py` | Sweep of the TDVP subspace-expansion parameters of the star SIAM run, compared with the chain reference. Produced the tuned set in `test/ref/star_dyn_siam_center.cpp` |
 | `fbr_dyn_tune` | The same for the FBR SIAM dynamics (`err_goal`, `n_iter_diag`) |
 | `star_dyn_siam_center_ip`, `star_dyn_siam_center_ipc` | Star SIAM in the interaction picture of the bath (analytic bath phases; accumulated bath unitary + Trotter split). They print only |

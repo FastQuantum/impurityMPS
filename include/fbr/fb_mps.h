@@ -10,8 +10,11 @@
 #include <itensor/all.h>
 
 #include <algorithm>
+#include <fstream>
+#include <iomanip>
 #include <set>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace fbr {
@@ -35,8 +38,14 @@ struct Fb_mps
     int imp_size=0;             ///< the number of non-rotating impurity orbitals, at the center
     Range active;               ///< the active orbitals, [active.a, active.b)
     Layout layout=leading;      ///< the arrangement of the active window
-    double tol=1e-10;           ///< the tolerance used for both applying the gates and defining active orbitals.
+    double tol=1e-10;           ///< MPS/circuit truncation cutoff: applying the Givens gates and the TDVP sweeps.
+    double activity_tol=-1;     ///< orbital-activity cutoff: promotion (coupling rank) and demotion (empty/full window edges). <0 means "use tol".
     int n_sv=-1;                 ///< fixed rank of impurity–bath coupling (set by dynamics solver). -1 = recompute dynamically.
+
+    /// The orbital-activity tolerance actually in force: activity_tol when set,
+    /// otherwise tol. Keeping them separate lets the circuit/MPS cutoff and the
+    /// window promote/demote thresholds be tuned independently.
+    double act_tol() const { return activity_tol>=0 ? activity_tol : tol; }
 
     /**
      * @brief Construct a Fb_mps as a Slater state.
@@ -124,6 +133,37 @@ struct Fb_mps
 
     /// convert to complex values. There is an specialization for `double` below.
     Fb_mps<cmpx> to_complex() const { return *this; }
+
+    /// Serialize to <prefix>.{sites,psi,rot,cc,meta} so a solved state (a ground
+    /// state, say) can be reused across experiments without re-solving. The
+    /// ITensor site indices are written together with psi, so a loaded state's
+    /// operators still line up with its MPS.
+    void save(std::string const& prefix) const
+    {
+        itensor::writeToFile(prefix+".sites", sites);
+        itensor::writeToFile(prefix+".psi", psi);
+        rot.save(prefix+".rot", arma::arma_binary);
+        cc.save(prefix+".cc", arma::arma_binary);
+        std::ofstream meta(prefix+".meta");
+        meta << std::setprecision(17)
+             << imp_size << " " << active.a << " " << active.b << " "
+             << (int)layout << " " << tol << " " << activity_tol << " " << n_sv << "\n";
+    }
+
+    static Fb_mps<T> load(std::string const& prefix)
+    {
+        Fb_mps<T> fb;
+        fb.sites = itensor::readFromFile<itensor::Fermion>(prefix+".sites");
+        fb.psi   = itensor::readFromFile<itensor::MPS>(prefix+".psi");
+        fb.rot.load(prefix+".rot", arma::arma_binary);
+        fb.cc.load(prefix+".cc", arma::arma_binary);
+        std::ifstream meta(prefix+".meta");
+        int lay=0;
+        meta >> fb.imp_size >> fb.active.a >> fb.active.b >> lay
+             >> fb.tol >> fb.activity_tol >> fb.n_sv;
+        fb.layout = (Layout)lay;
+        return fb;
+    }
 
     OrbitalUpdate<T> plan_representative(arma::Mat<T> const& K,int nRef,
                                         bool use_active=false) const
@@ -410,7 +450,7 @@ private:
     int rank(arma::vec const& singular_values, int nCols) const
     {
         if (n_sv>=0) return std::min<int>(n_sv,nCols);
-        return (int)arma::find(singular_values>tol*singular_values[0]).eval().size();
+        return (int)arma::find(singular_values>act_tol()*singular_values[0]).eval().size();
     }
 
     /// Order of the natural orbitals by activity min(n,1-n). The centered
@@ -425,7 +465,8 @@ private:
     arma::uvec active_orbitals(arma::Mat<T> const& cc_source, int a, int b) const
     {
         arma::vec ni=arma::real(cc_source.diag()).eval().rows(a,b-1);
-        return arma::find(ni>tol && ni<1-tol).eval();
+        double at=act_tol();
+        return arma::find(ni>at && ni<1-at).eval();
     }
 
     /// Rotate the Slater orbitals of one spin sector so that their coupling to
@@ -514,6 +555,7 @@ inline Fb_mps<cmpx> Fb_mps<double>::to_complex() const
     fb.active.b = active.b;
     fb.layout = layout;
     fb.tol = tol;
+    fb.activity_tol = activity_tol;
     fb.n_sv = n_sv;
     return fb;
 }

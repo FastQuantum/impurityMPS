@@ -39,7 +39,7 @@ inline int coupling_rank(Fb_mps<cmpx> const& fb, arma::mat const& Kmat)
         auto [a_imp,b_imp]=fb.range(Part::impurity,s);
         auto [a_sla,b_sla]=fb.range(Part::slater,s);
         if (a_imp>=b_imp || a_sla>=b_sla) continue;
-        rank=std::max(rank,sv_rank(Kmat.submat(a_imp,a_sla,b_imp-1,b_sla-1),fb.tol));
+        rank=std::max(rank,sv_rank(Kmat.submat(a_imp,a_sla,b_imp-1,b_sla-1),fb.act_tol()));
     }
     return rank;
 }
