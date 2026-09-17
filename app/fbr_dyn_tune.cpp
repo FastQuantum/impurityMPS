@@ -1,5 +1,5 @@
 // Parameter-tuning driver for the FBR (active-window) SIAM dynamics, mirroring
-// test/test_ref_fbr.cpp's makeFbrRun. FBR runs with epsilon_M=0 (no subspace
+// test/test_ref_siam_spin_sym.cpp's makeFbrRun. FBR runs with epsilon_M=0 (no subspace
 // expansion), so n_krylov/epsilon_K are inert here — the only TDVP knob is err_goal
 // (plus n_iter_diag). Compares the FBR trajectory against the committed chain
 // reference and prints per-snapshot max|dni|, max|dcc|.
@@ -16,7 +16,7 @@ using namespace arma;
 using namespace fbr;
 using namespace fbrtest;
 
-// star-geometry spin layout -> chain index map (copied from test_ref_fbr.cpp)
+// star-geometry spin geometry -> chain index map (copied from test_ref_siam_spin_sym.cpp)
 static uvec fbrIndexToChainIndex(int L)
 {
     uvec p(L);
@@ -37,7 +37,7 @@ static auto makeFbrRun(int L, double dt, double U)
         K(0, 2) = K(2, 0) = K(1, 3) = K(3, 1) = V;
         mat Umat(L, L, fill::zeros);
         Umat(0, 1) = U;
-        model = ImpurityParam{.Kmat = K, .Umat = Umat, .imp_pos = {2, 0, 1, 3}, .layout=spin_symmetric};
+        model = ImpurityParam{.Kmat = K, .Umat = Umat, .imp_pos = {2, 0, 1, 3}, .geometry=spin_sym};
         model.to_star();
     }
     auto ek = vec{model.Kmat.diag()};

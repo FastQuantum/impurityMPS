@@ -5,34 +5,12 @@
 
 namespace fbr {
 
-/// EXPERIMENTAL / NEGATIVE RESULT -- kept for the record, not used by any test.
-///
-/// Co-moving-frame real-time evolution: a first-order Trotter split
-///     exp(-iH dt) = exp(-i H_bath dt) exp(-i H_imp dt) + O(dt^2)
-/// where, unlike the interaction-picture Fbr_dyn, the bath propagator is applied
-/// to the ACTIVE WINDOW of the MPS as a genuine rotation of the state (not a
-/// basis relabel), so the MPS stays in the Schrodinger picture. The idea was that
-/// natural orbitals chosen from that Schrodinger cc would keep the window small
-/// for a state Fbr_dyn's interaction-picture cc makes precess (e.g. the ground
-/// state).
-///
-/// It does NOT work, for a reason that is itself the finding. This code drops the
-/// bath rotation's Slater block ("empty/full orbitals, a phase changes nothing").
-/// That is false: after the natural-orbital demotion step, the empty and full
-/// Slater orbitals are natural orbitals in which H_bath is NOT diagonal -- it has
-/// K_ij matrix elements coupling an empty orbital to a full one. exp(-i H_bath dt)
-/// on that block hops charge empty<->full (an O(1) effect), so:
-///   - dropping the block loses that hopping  -> wrong physics (large drift), and
-///   - the same coupling partially fills Slater orbitals that must then be
-///     promoted back -> the active window grows, not shrinks.
-/// Measured on |gs> at U=0: arrow-only (bath step disabled) stays at n_active=4,
-/// drift ~5e-8; enabling the bath rotation blows the window to the full system and
-/// corrupts the state. So the ~20-orbital ground-state window of Fbr_dyn is not a
-/// formulation artifact -- it is this physical empty<->full coupling, and the
-/// naive state-rotating route cannot beat the interaction picture.
-///
-/// H_imp = H - H_bath is the impurity on-site + hybridization ("arrow") plus the
-/// Hubbard U (in the MPO); H_bath is the diagonal bath in star geometry.
+/// Experimental first-order split exp(-i H_bath dt) exp(-i H_imp dt).
+/// H_imp contains impurity on-site terms, hybridization and interactions.
+/// Only the active window receives the bath evolution. This omits hopping
+/// between empty and filled Slater orbitals after natural-orbital rotation,
+/// causing incorrect dynamics. Retained for the comparison in
+/// app/gs_frame_vs_ip_siam.cpp; see app/README.md for the experimental context.
 struct Fbr_dyn_frame : Fbr_dyn {
 
     using State = Fbr_dyn::State;
@@ -74,10 +52,9 @@ struct Fbr_dyn_frame : Fbr_dyn {
 
     /// Actively rotate the state's active window by exp(-i H_bath dt) (a genuine
     /// single-particle evolution of the MPS, not a basis relabel). H_bath
-    /// restricted to the window is Hermitian; its impurity columns are unit
-    /// vectors on impurity star sites where Dbath==0, so the impurity is never
-    /// rotated. O(n_active): Uw is n_active x n_active and the Givens circuit
-    /// stays inside the window.
+    /// restricted to the window is Hermitian and zero on impurity rows/columns,
+    /// so Uw acts as identity there. Uw and its circuit live inside the window;
+    /// constructing Ha still involves the full L-dimensional orbital frame.
     void apply_bath_frame()
     {
         auto [a,b]=fb.range(Part::active);
@@ -95,7 +72,7 @@ struct Fbr_dyn_frame : Fbr_dyn {
         // fb.apply is a PASSIVE basis change: it rotates the MPS and compensates
         // in rot so the physical state is unchanged. We want the ACTIVE evolution
         // U|psi>: keep the MPS rotation, undo the rot compensation, and rebuild cc
-        // from the rotated state. (Uw is zero on the impurity, so rot's impurity
+        // from the rotated state. (Uw is identity on the impurity, so rot's impurity
         // columns are untouched and the impurity stays a single MPS orbital.)
         arma::cx_mat rot_before = fb.rot;
         fb.apply(update);

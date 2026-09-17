@@ -2,7 +2,7 @@
 #define FBR_PARAM_H
 
 #include "graph.h"
-#include "layout.h"
+#include "chain_geometry.h"
 #include <armadillo>
 #include <itensor/all.h>
 #include <set>
@@ -14,11 +14,11 @@ namespace fbr {
 /// The parameters of an impurity model, together with the chain geometry its
 /// star transformation produces.
 ///
-/// `layout==leading` gives the spinless chain |imp|active|slater|: imp_pos is a
-/// flat list of the interacting sites in the CURRENT Kmat layout, and after
+/// `geometry==standard` gives the impurity-first chain |imp|active|slater|: imp_pos is a
+/// flat list of the interacting sites in the CURRENT Kmat geometry, and after
 /// to_star() the impurity sits at the beginning, imp_pos=={0,...,n_imp-1}.
 ///
-/// The centered layouts (`spin_symmetric`, `spin_block`) give
+/// The centered geometries (`spin_sym`, `spin_block`) give
 /// |slater_up|active_up|imp_up|imp_dw|active_dw|slater_dw|, with imp_pos ordered
 /// spatially as it should appear at the center of the chain:
 ///     imp_pos[0]      = outermost up  (next to up bath)
@@ -29,7 +29,7 @@ namespace fbr {
 /// from the connected components of Kmat (graph::find_islands): the first
 /// nUp = n_imp/2 entries must lie in one island, the rest in the other.
 ///
-/// Umat is L×L, indexed by site in the current Kmat layout: the term is
+/// Umat is L×L, indexed by site in the current Kmat geometry: the term is
 ///   sum_{i,j} Umat(i,j) N_i N_j
 struct ImpurityParam {
     arma::mat Kmat;           ///< the kinetic energy coefficient matrix
@@ -37,7 +37,7 @@ struct ImpurityParam {
     std::vector<int> imp_pos;  ///< the positions of the interacting sites
     double filling=0.5;       ///< number of electrons per site
     arma::mat rot;            ///< (default => identity) the actual frame, such that rot*Kmat*rot.t() gives the original Kmat (in real space)
-    Layout layout=leading;    ///< the chain geometry to_star() produces
+    Chain_geometry geometry=standard;    ///< the chain geometry to_star() produces
 
     int length() const { return Kmat.n_rows; }
     int n_imp() const { return imp_pos.size(); }
@@ -56,8 +56,8 @@ struct ImpurityParam {
             throw std::invalid_argument("ImpurityParam: Umat must be a finite L×L matrix");
         if (!std::isfinite(filling) || filling<0 || filling>1)
             throw std::invalid_argument("ImpurityParam: filling must be between 0 and 1");
-        if (layout!=leading && layout!=spin_symmetric && layout!=spin_block)
-            throw std::invalid_argument("ImpurityParam: unknown layout");
+        if (geometry!=standard && geometry!=spin_sym && geometry!=spin_block)
+            throw std::invalid_argument("ImpurityParam: unknown geometry");
         if (imp_pos.empty())
             throw std::invalid_argument("ImpurityParam: imp_pos must be non-empty");
         std::set<int> impurities;
@@ -65,8 +65,8 @@ struct ImpurityParam {
             if (i<0 || i>=L || !impurities.insert(i).second)
                 throw std::invalid_argument("ImpurityParam: impurity positions must be distinct and in [0,L)");
         }
-        if (layout!=leading && (L%2 || imp_pos.size()%2))
-            throw std::invalid_argument("ImpurityParam: a centered layout needs even length and impurity count");
+        if (geometry!=standard && (L%2 || imp_pos.size()%2))
+            throw std::invalid_argument("ImpurityParam: a centered geometry needs even length and impurity count");
     }
 
     /// Check the model and materialize its default matrices before transforming
@@ -80,11 +80,11 @@ struct ImpurityParam {
     }
 
     /// transform Kmat to star geometry (Hbath is diagonal), in the geometry
-    /// selected by `layout`. Every solver expects a model this has been run on;
+    /// selected by `geometry`. Every solver expects a model this has been run on;
     /// a model built directly in star geometry can skip it.
-    void to_star() { layout==leading ? to_star_leading() : to_star_centered(); }
+    void to_star() { geometry==standard ? to_star_standard() : to_star_centered(); }
 
-    /// Split sites into two ordered halves consistent with a centered layout:
+    /// Split sites into two ordered halves consistent with a centered geometry:
     ///   sites_up = [bath_up reversed..., imp_pos[0], ..., imp_pos[nUp-1]]
     ///   sites_dw = [imp_pos[nUp], ..., imp_pos[n_imp-1], bath_dw...]
     /// so that concatenation = pos_all maps new->old.
@@ -138,7 +138,7 @@ private:
     /// geometry. Diagonalizing the full bath at once would mix the islands
     /// (e.g. via degenerate eigenvalues), breaking spin coherence in the
     /// resulting orbital ordering.
-    void to_star_leading()
+    void to_star_standard()
     {
         prepare();
         int L=length();
@@ -217,33 +217,33 @@ private:
         for (int i = 0; i < n_imp(); i++) imp_pos[i] = L/2 - nUp + i;
 
         // 2) diagonalize the dw bath. Read from the center outwards each half is
-        // a leading chain of its own -- impurities first, then its bath -- which
-        // is the |imp|bath| shape to_star_leading() expects. For dw that reading is
+        // a standard chain of its own -- impurities first, then its bath -- which
+        // is the |imp|bath| shape to_star_standard() expects. For dw that reading is
         // the submatrix itself; for up it is the submatrix under `irev`.
         arma::uvec irev = arma::reverse(arma::regspace<arma::uvec>(0, L/2 - 1));
         auto half_star=[&](arma::mat const& Khalf) {
             ImpurityParam half = {.Kmat = Khalf,
                                   .Umat = arma::mat(L/2, L/2, arma::fill::zeros),
                                   .imp_pos = iota(nUp)};
-            half.to_star();   // a leading star on the half chain
+            half.to_star();   // a standard star on the half chain
             return half;
         };
-        if (layout==spin_symmetric) {   // the layout only holds for a symmetric model
+        if (geometry==spin_sym) {   // the geometry only holds for a symmetric model
             arma::mat asym = Kmat.submat(irev,irev) - Kmat.submat(L/2, L/2, L-1, L-1);
             if (asym.max() > 1e-10 || asym.min() < -1e-10)
-                throw std::invalid_argument("ImpurityParam: spin_symmetric needs the two spin "
+                throw std::invalid_argument("ImpurityParam: spin_sym needs the two spin "
                                             "sectors to be mirror images; use spin_block instead");
         }
         auto half = half_star(Kmat.submat(L/2, L/2, L-1, L-1));
         Kmat.submat(L/2, L/2, L-1, L-1) = half.Kmat;
         rot.cols(L/2, L-1) = rot.cols(L/2, L-1).eval() * half.rot;
 
-        // 3) and the up bath. Under spin_symmetric the two halves are the same
+        // 3) and the up bath. Under spin_sym the two halves are the same
         // matrix, so reflecting the dw result is both cheaper and exact -- and it
-        // keeps the mirror symmetry that layout relies on free of any eigenvector
+        // keeps the mirror symmetry that geometry relies on free of any eigenvector
         // sign the two diagonalizations could disagree on. spin_block assumes no
         // such symmetry, so its up bath is diagonalized on its own.
-        auto const& up_half = (layout==spin_symmetric) ? half
+        auto const& up_half = (geometry==spin_sym) ? half
                                                        : half_star(Kmat.submat(irev, irev));
         Kmat.submat(irev, irev) = up_half.Kmat;
         rot.cols(irev)         = rot.cols(irev).eval() * up_half.rot;

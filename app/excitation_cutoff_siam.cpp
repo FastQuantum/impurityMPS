@@ -57,7 +57,7 @@ ImpurityParam siam_model(int L, double U, double V)
     K(0, 2) = K(2, 0) = K(1, 3) = K(3, 1) = V;
     mat Umat(L, L, fill::zeros);
     Umat(0, 1) = U;
-    auto model = ImpurityParam{.Kmat = K, .Umat = Umat, .imp_pos = {0, 1}, .layout = spin_block};
+    auto model = ImpurityParam{.Kmat = K, .Umat = Umat, .imp_pos = {0, 1}, .geometry = spin_block};
     model.to_star();
     return model;
 }

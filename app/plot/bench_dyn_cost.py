@@ -14,9 +14,9 @@ import numpy as np
 
 from common import by_length, save, style
 
-LAYOUTS = [("sym", "spin_symmetric, SIAM U=0.1"),
+LAYOUTS = [("sym", "spin_sym, SIAM U=0.1"),
            ("block", "spin_block, SIAM U=0.1"),
-           ("ns", "leading (spinless), IRLM U=0.2")]
+           ("ns", "standard (spinless), IRLM U=0.2")]
 
 # phase -> (columns summed, colour, label)
 PHASES = {

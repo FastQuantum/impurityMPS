@@ -77,7 +77,7 @@ int main()
         // force impurity occupation: physical imp sites occupied, buffer sites empty
         ek[0]=ek[1]=-10;    // spin-up and spin-down physical impurities
         ek[2]=ek[3]=10;     // spin-up and spin-down buffers
-        fb=Fb_mps<cmpx>::from_slater(rot*cmpx(1,0), ek, L/2, n_imp, leading);
+        fb=Fb_mps<cmpx>::from_slater(rot*cmpx(1,0), ek, L/2, n_imp, standard);
     }
 
     // Construct model from pre-computed star geometry (bypassing to_star)
@@ -96,7 +96,7 @@ int main()
     // arma::real(fb.rot*1).eval().clean(1e-11).print("fb.rot");
     // arma::real(model.rot*1).eval().clean(1e-11).print("param.rot");
     // auto Q=solver.param.rot;
-    arma::real(solver.K*1).eval().clean(1e-11).print("K inicial ns");
+    arma::real(solver.K*1).eval().clean(1e-11).print("Initial kinetic matrix");
     // arma::real(solver.param.Kmat*1).eval().clean(1e-11).print("Kmat original");
     // arma::real(solver.Kip0*1).eval().clean(1e-11).print("Kip0 before main() iterations");
     // terminate();
@@ -106,12 +106,12 @@ int main()
     for(auto i=0; i*dt<L; i++){
         // arma::real(solver.K*1).eval().clean(1e-11).print("K");
         // auto [a,b]=solver.fb.range(Part::active);
-        // solver.fb.occupations_ni().as_row().eval().cols(a,b-1).eval().print("ni");
+        // solver.fb.occupations().as_row().eval().cols(a,b-1).eval().print("ni");
 
         solver.iterate({.max_bond_dim=2048, .epsilon_M=1e-4});
         // double n0 = solver.fb.correlator(1,1).real();
-        double n0= solver.fb.occupations_ni2()(0);
-        double n1= solver.fb.occupations_ni2()(2);
+        double n0= solver.fb.measure_occupations()(0);
+        double n1= solver.fb.measure_occupations()(2);
         cout<<(i+1)*solver.dt<<" "<<itensor::maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<n1<<" "<<solver.fb.n_active()<<endl;
         t0.mark();
     }

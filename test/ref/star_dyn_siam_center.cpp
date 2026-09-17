@@ -46,7 +46,7 @@ void writeReference(string const& path, vector<Snap> const& snaps, int L)
 }
 
 /// return the kinetic energy in star geometry and the rotation that produced it.
-/// Layout: [spin-up bath | spin-up imp | spin-down imp | spin-down bath]
+/// Chain_geometry: [spin-up bath | spin-up imp | spin-down imp | spin-down bath]
 /// For spin-up the impurity is at the right end; for spin-down at the left end.
 /// rot maps star operators back to the original basis: c_i = sum_a rot(i,a) d_a,
 /// so <c_i^dag c_j> = (rot * cc_star * rot^T)(i,j).

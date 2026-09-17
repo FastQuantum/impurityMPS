@@ -37,7 +37,7 @@ ctest
 
 Set `OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1` for every test binary; running several of them at once on separate cores is fine.
 
-Tests use Catch2 v2, in six executables. `fbr_test` holds the fast unit tests (`test_givens`, `test_graph`, `test_fb_mps`, `test_green_overlap`, ...). The other five need their own executable, because the TDVP headers define non-inline functions. Four compare a solver against a committed reference: `fbr_test_fbr` (spin-symmetric), `fbr_test_block` (generic spin), `fbr_test_ns` (spinless) and `fbr_test_green` (Green functions of the SIAM and the IRLM against their chain baselines, L=100). The fifth, `fbr_test_green_sep`, checks the separate-frame Green function against the exact U=0 result. The reference runs stop early by default (t=5 for the correlators, t=2 for the Green functions); configure with `-DFBR_ENABLE_LONG_TEST=ON` to go to t=20. The parameters covered are L=100 and V=0.1, with U=0.1 and 0.2 for the SIAM (correlators and Green function), and U=0.1, 0.2 and -0.2 for the IRLM Green functions. `fbr_test_fbr` additionally replays the first few steps of the L=1000 SIAM quench against `test/ref/output/fbr_dyn_siam_L1000_U*.txt` (tag `[large_l]`, regenerate with `example/fbr_dyn_siam.cpp`) as a smoke test that the solver still scales to L=1000.
+Tests use Catch2 v2, in six executables. `fbr_test` holds the fast unit tests (`test_givens`, `test_graph`, `test_fb_mps`, `test_green_overlap`, ...). The other five need their own executable, because the TDVP headers define non-inline functions. Four compare a solver against a committed reference: `fbr_test_siam_spin_sym` (spin-symmetric), `fbr_test_siam_spin_block` (generic spin), `fbr_test_siam` (standard geometry) and `fbr_test_green` (Green functions of the SIAM and the IRLM against their chain baselines, L=100). The fifth, `fbr_test_green_sep`, checks the separate-frame Green function against the exact U=0 result. The reference runs stop early by default (t=5 for the correlators, t=2 for the Green functions); configure with `-DFBR_ENABLE_LONG_TEST=ON` to go to t=20. The parameters covered are L=100 and V=0.1, with U=0.1 and 0.2 for the SIAM (correlators and Green function), and U=0.1, 0.2 and -0.2 for the IRLM Green functions. `fbr_test_siam_spin_sym` additionally replays the first few steps of the L=1000 SIAM quench against `test/ref/output/fbr_dyn_siam_L1000_U*.txt` (tag `[large_l]`, regenerate with `example/fbr_dyn_siam_spin_sym.cpp`) as a smoke test that the solver still scales to L=1000.
 
 ## Where programs and data go
 
@@ -58,11 +58,11 @@ All library types live in `namespace fbr`. Single-file programs include `#includ
 | Header | Purpose |
 |---|---|
 | `fbr.h` | The umbrella: the four-step recipe and the dozen names it uses |
-| `fb_mps.h` | `Fb_mps<T>` — few-body MPS state with rotation matrix `rot`, correlation matrix `cc` and active window `active`. One class for the three orbital layouts, chosen by the `Layout` of the model (`ImpurityParam::layout`), or passed directly to `from_slater`: `leading` (spinless), `spin_symmetric`, `spin_block` |
-| `layout.h` | `Spin`, `Layout`, `Part` and `Range` — the chain geometry vocabulary shared by the model and the state. `fb.range(Part::active)` or `fb.range(Part::slater,dw)` names any part of the chain |
-| `impurity_param.h` | `ImpurityParam` — kinetic matrix `Kmat`, interaction `Umat`, impurity positions and the chain `layout`; `to_star()` transforms to star geometry (leading or centered, per `layout`), and the solvers `validate()` whatever they are handed |
-| `initial_state.h` | `slater<T>(model,ek)` — the Slater state a model starts from, in its own frame, filling and layout (`ek` defaults to `Kmat.diag()`) |
-| `fbr_gs.h` | `Fbr_gs` — ground state solver: DMRG loop + orbital rotation, for all three layouts |
+| `fb_mps.h` | `Fb_mps<T>` — few-body MPS state with rotation matrix `rot`, correlation matrix `cc` and active window `active`. One class for the three orbital geometries, chosen by the `Chain_geometry` of the model (`ImpurityParam::geometry`), or passed directly to `from_slater`: `standard` (impurity first, no spin symmetry assumed), `spin_sym`, `spin_block` |
+| `chain_geometry.h` | `Spin`, `Chain_geometry`, `Part` and `Range` — the chain geometry vocabulary shared by the model and the state. `fb.range(Part::active)` or `fb.range(Part::slater,dw)` names any part of the chain |
+| `impurity_param.h` | `ImpurityParam` — kinetic matrix `Kmat`, interaction `Umat`, impurity positions and the chain `geometry`; `to_star()` transforms to star geometry (standard or centered, per `geometry`), and the solvers `validate()` whatever they are handed |
+| `initial_state.h` | `slater<T>(model,ek)` — the Slater state a model starts from, in its own frame, filling and geometry (`ek` defaults to `Kmat.diag()`) |
+| `fbr_gs.h` | `Fbr_gs` — ground state solver: DMRG loop + orbital rotation, for all three geometries |
 | `fbr_dyn.h` | `Fbr_dyn` — dynamics: TDVP loop + orbital rotation: `Fbr_dyn(model,fb,dt)`. `Fbr_dyn_shared` evolves several states in one common orbital basis: `Fbr_dyn_shared(model,states,dt)`. The basis follows the first state (the master; for a Green function, the excitation `c†|psi0>`), and the window is widened to hold the others |
 | `green_overlap.h` | `overlap(A,B)` and `c_element(A,B,i)` between states in *different* orbital frames (Green functions from separately evolved states); `align_to_frame` |
 | `fbr_dyn_frame.h` | `Fbr_dyn_frame` — co-moving-frame dynamics. **Negative result**, kept for the record and not included by `fbr.h`; used only by `app/gs_frame_vs_ip_siam.cpp` |
@@ -76,15 +76,15 @@ Input is a generic kinetic matrix `Kmat`. `to_star()` transforms it to star geom
 
 ### Spin variants
 
-The `spin_symmetric` layout supports spin up/down having equivalent properties (spin flip commute with the Hamiltonian): only the down sector is computed and the up one is its mirror image. Use it with `ImpurityParam{.layout=spin_symmetric}`. The impurity is represented as -----spin-up-----xx XX------spin-down------- whre xx and XX are the non-rotating orbitals with spin up and down, respectively. The state must be spin-flip symmetric too, not just the model: a spin-polarized state such as the Green-function excitation c₀↑†|gs> needs `spin_block`, and `Fbr_dyn`/`Fbr_dyn_shared` throw if handed one under `spin_symmetric`. `spin_block` is the generic-spin variant (no spin-flip symmetry assumed), and `leading` is the spinless one, |imp|active|slater|, which is the same chain with an empty up sector (`mid()==0`).
+The `spin_sym` geometry supports spin up/down having equivalent properties (spin flip commute with the Hamiltonian): only the down sector is computed and the up one is its mirror image. Use it with `ImpurityParam{.geometry=spin_sym}`. The impurity is represented as -----spin-up-----xx XX------spin-down------- whre xx and XX are the non-rotating orbitals with spin up and down, respectively. The state must be spin-flip symmetric too, not just the model: a spin-polarized state such as the Green-function excitation c₀↑†|gs> needs `spin_block`, and `Fbr_dyn`/`Fbr_dyn_shared` throw if handed one under `spin_sym`. `spin_block` is the generic-spin variant (no spin-flip symmetry assumed), and `standard` assumes no spin symmetry and puts the impurity first, |imp|active|slater|, which is the same chain with an empty up sector (`mid()==0`).
 
 ### Examples (`example/`)
 
 Each `.cpp` is a standalone executable. Key ones:
 - `fbr_gs_irlm.cpp` — ground state, spinless IRLM
-- `fbr_gs_siam.cpp` — ground state, SIAM (spin)
+- `fbr_gs_siam_spin_sym.cpp` — ground state, SIAM (spin)
 - `fbr_dyn_irlm.cpp` — real-time dynamics, spinless, complex MPS
-- `fbr_dyn_siam.cpp` — dynamics with spin
+- `fbr_dyn_siam_spin_sym.cpp` — dynamics with spin
 - `fbr_green_irlm.cpp` — Green function from three states in one basis (`Fbr_dyn_shared`), checked against the exact non-interacting result
 - `fbr_green_irlm_separate.cpp` — the same Green function, with each state in its own frame (`green_overlap.h`)
 

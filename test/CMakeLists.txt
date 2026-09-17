@@ -20,7 +20,7 @@ endif()
 # non-inline functions, so two TUs including a dyn header in one link target
 # would produce multiple-definition errors. test_ref_* compare against a file in
 # test/ref/output; test_green_sep checks against the exact U=0 result.
-foreach(src test_ref_fbr test_ref_block test_ref_ns test_ref_green test_green_sep)
+foreach(src test_ref_siam_spin_sym test_ref_siam_spin_block test_ref_siam test_ref_green test_green_sep)
     string(REGEX REPLACE "^test_(ref_)?" "" variant ${src})    # target fbr_test_<variant>
     add_executable(${PROJECT_NAME}_test_${variant}
         test_main.cpp
@@ -38,8 +38,8 @@ list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/contrib/)
 include(CTest)
 include(Catch)
 catch_discover_tests(${PROJECT_NAME}_test)
-catch_discover_tests(${PROJECT_NAME}_test_fbr)
-catch_discover_tests(${PROJECT_NAME}_test_block)
-catch_discover_tests(${PROJECT_NAME}_test_ns)
+catch_discover_tests(${PROJECT_NAME}_test_siam_spin_sym)
+catch_discover_tests(${PROJECT_NAME}_test_siam_spin_block)
+catch_discover_tests(${PROJECT_NAME}_test_siam)
 catch_discover_tests(${PROJECT_NAME}_test_green)
 catch_discover_tests(${PROJECT_NAME}_test_green_sep)

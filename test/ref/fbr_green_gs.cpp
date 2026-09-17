@@ -4,7 +4,7 @@
 // L=100, per model and U -- and the result never changes, so it is kept on disk.
 // The test still checks what it loads: at t=0 the Green functions involve only
 // the ground state, and they are compared there against the chain DMRG baseline
-// to 1e-6. Fbr_gs itself stays covered by the [frame] test in test_ref_ns.cpp,
+// to 1e-6. Fbr_gs itself stays covered by the [frame] test in test_ref_siam.cpp,
 // which runs it at L=12 for pennies.
 //
 // Writes, for every U the Green function tests use,

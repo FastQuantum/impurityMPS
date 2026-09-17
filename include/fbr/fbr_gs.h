@@ -10,8 +10,8 @@ namespace fbr {
 
 /// Ground state of an impurity model: a DMRG sweep on the active window,
 /// then the orbital rotations that move the window's edges. One solver for the
-/// three layouts -- the window [a,b) is [0,n_active) for `leading`, and
-/// ensure_symmetry only does anything under `spin_symmetric`.
+/// three geometries -- the window [a,b) is [0,n_active) for `standard`, and
+/// ensure_symmetry only does anything under `spin_sym`.
 struct Fbr_gs {
     ImpurityParam param;
 
@@ -30,8 +30,8 @@ struct Fbr_gs {
 
     void iterate(DmrgParam args={})
     {
-        apply_plan(fb.plan_representative(K,0,/*use_active=*/true));
-        apply_plan(fb.plan_representative(K,1,/*use_active=*/true));
+        apply_plan(fb.plan_representative(K,0,Part::active));
+        apply_plan(fb.plan_representative(K,1,Part::active));
         do_dmrg(args);
         apply_plan(fb.plan_natural_orbitals(fb.cc));
     }

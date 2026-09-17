@@ -11,7 +11,7 @@ using namespace arma;
 using namespace fbr;
 
 /// return the kinetic energy in star geometry and the rotation to get it.
-/// Layout: [spin-up bath | spin-up imp | spin-down imp | spin-down bath]
+/// Chain_geometry: [spin-up bath | spin-up imp | spin-down imp | spin-down bath]
 /// For spin-up the impurity is at the right end; for spin-down at the left end.
 auto computeKstar(mat K, int n_imp)
 {
@@ -132,7 +132,7 @@ int main()
         // force impurity occupation: physical imp sites occupied, buffer sites empty
         ek[nBath+n_imp/2-1]=ek[L/2]=-10;    // spin-up and spin-down physical impurities
         ek[nBath]=ek[L/2+n_imp/2-1]=10;     // spin-up and spin-down buffers
-        fb=Fb_mps<cmpx>::from_slater(rot*cmpx(1,0), ek, L/2, n_imp, spin_symmetric);
+        fb=Fb_mps<cmpx>::from_slater(rot*cmpx(1,0), ek, L/2, n_imp, spin_sym);
     }
 
     // Construct model from pre-computed star geometry (bypassing to_star)
@@ -144,7 +144,7 @@ int main()
         model.rot  = rot;
         // convention 2: spatial order outer-up..inner-up..inner-dw..outer-dw
         model.imp_pos = {nBath, nBath+n_imp/2-1, L/2, L/2+n_imp/2-1};
-        model.layout = spin_symmetric;
+        model.geometry = spin_sym;
     }
 
     auto mpo=getHamiltonian(fb.sites,model.Kmat,model.Umat);

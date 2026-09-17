@@ -20,12 +20,8 @@ struct TdvpParam {
     int n_iter_diag=16;      ///< Krylov iterations used to apply exp(-i * Heff * dt) locally.
     double err_goal=1e-7;   ///< TDVP local evolution error goal.
     // --- addBasis (global subspace expansion) parameters ---
-    // Defaults tuned on the star-geometry SIAM benchmark (test/ref/star_dyn_tune.cpp):
-    // this set tracks the chain baseline as tightly as the old overkill
-    // (n_krylov=15, err_goal=1e-8, epsilon_M=1e-7, epsilon_K=1e-8) at ~4x less cost.
-    // n_krylov is the cheap knob (15->2 is free); err_goal and the two epsilon cutoffs
-    // are sensitive (~1 order of loosening is the safe limit). FBR callers set
-    // epsilon_M=0 to skip the expansion entirely, so n_krylov/epsilon_K are inert there.
+    // Set epsilon_M=0 to disable expansion; n_krylov and epsilon_K are then unused.
+    // For the tuning experiment, see app/star_dyn_tune.cpp and app/README.md.
     double epsilon_M=3e-7;   ///< addBasis density-matrix cutoff; set to 0 to skip basis expansion.
     int n_krylov=2;          ///< Krylov order of the addBasis global subspace expansion
     double epsilon_K=3e-8;   ///< add basis cutoff for each Krylov-vector
@@ -84,8 +80,7 @@ inline std::pair<int,double> max_bond_and_renyi_half(itensor::MPS const& psi)
 /// Renyi-1/2 entropy at EVERY bond, in one left-to-right sweep: returns
 /// {sum over bonds, max over bonds}. The sum is extensive and smooth in time,
 /// unlike the single max-bond value which jumps when the bottleneck bond moves.
-/// A copy of psi is swept, so the caller's gauge is untouched. Bonds with link
-/// dimension 1 contribute exactly 0 and are skipped.
+/// A copy of psi is normalized and swept, so the caller's state is untouched.
 inline std::pair<double,double> renyi_half_profile(itensor::MPS psi)
 {
     int L = itensor::length(psi);

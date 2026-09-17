@@ -5,12 +5,12 @@ list(APPEND test_SRC
     fbr_dyn_irlm.cpp
     fbr_green_irlm.cpp
     fbr_green_irlm_separate.cpp
-    fbr_gs_siam.cpp
+    fbr_gs_siam_spin_sym.cpp
+    fbr_dyn_siam_spin_sym.cpp
     fbr_dyn_siam.cpp
-    fbr_dyn_ns_siam.cpp
-    fbr_dyn_siam_center.cpp
-    fbr_dyn_shared_siam_manual.cpp
-    fbr_dyn_siam_block.cpp
+    fbr_dyn_siam_spin_sym_manual.cpp
+    fbr_dyn_siam_manual.cpp
+    fbr_dyn_siam_spin_block.cpp
 )
 
 foreach (test ${test_SRC})

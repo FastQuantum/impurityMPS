@@ -14,7 +14,7 @@ namespace {
 
 using Solver = Fbr_dyn;
 
-// Star-geometry spin layout: bath orbitals are energy-sorted eigenmodes, so the
+// Star-geometry spin geometry: bath orbitals are energy-sorted eigenmodes, so the
 // FBR site -> chain index map is the discontinuous permutation below.
 uvec fbrIndexToChainIndex(int L)
 {
@@ -42,7 +42,7 @@ Solver makeFbrRun(int L, double dt, double U)
         K(0, 2) = K(2, 0) = K(1, 3) = K(3, 1) = V;
         mat Umat(L, L, fill::zeros);
         Umat(0, 1) = U;
-        model = ImpurityParam{.Kmat = K, .Umat = Umat, .imp_pos = {2, 0, 1, 3}, .layout=spin_block};
+        model = ImpurityParam{.Kmat = K, .Umat = Umat, .imp_pos = {2, 0, 1, 3}, .geometry=spin_block};
         model.to_star();
     }
 
@@ -89,10 +89,10 @@ void checkChain(TrajResult const &res, std::map<std::string, Tol> const &tol)
 
 } // namespace
 
-TEST_CASE("fbr_block vs chain center reference U=0.2", "[fb_ref_block]") {
+TEST_CASE("fbr_siam_spin_block vs chain center reference U=0.2", "[fb_ref_siam_spin_block]") {
     checkChain(resultFor(0.2, "0.2"), chainTol());
 }
-TEST_CASE("fbr_block vs chain center reference U=0.1", "[fb_ref_block]") {
+TEST_CASE("fbr_siam_spin_block vs chain center reference U=0.1", "[fb_ref_siam_spin_block]") {
     checkChain(resultFor(0.1, "0.1"), chainTol());
 }
 
@@ -110,7 +110,7 @@ TEST_CASE("multi-state solver with one state matches single-state solver",
     K0(0,2)=K0(2,0)=K0(1,3)=K0(3,1)=0.1;
     mat Umat(L,L,fill::zeros);
     Umat(0,1)=U;
-    auto model = ImpurityParam{.Kmat=K0,.Umat=Umat,.imp_pos={2,0,1,3}, .layout=spin_block};
+    auto model = ImpurityParam{.Kmat=K0,.Umat=Umat,.imp_pos={2,0,1,3}, .geometry=spin_block};
     model.to_star();
 
     auto ek=vec{model.Kmat.diag()};

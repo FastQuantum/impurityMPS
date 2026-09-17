@@ -19,9 +19,9 @@
 //   t  n_active  bond_dim  wall_s  n0  energy
 //
 // where n0 = <c_0^dag c_0> is the impurity (spin-up) occupation. The quench and
-// |gs> are spin-flip symmetric and run under spin_symmetric, as in the paper. The
+// |gs> are spin-flip symmetric and run under spin_sym, as in the paper. The
 // excitation has one more up electron than down ones, so it runs under
-// spin_block: spin_symmetric would evolve only its dw sector and mirror it onto
+// spin_block: spin_sym would evolve only its dw sector and mirror it onto
 // the up one (Fbr_dyn refuses such a state). Written to
 //   app/output/quench_siam_L<L>_U<U>.dat
 //   app/output/excitation_siam_L<L>_U<U>.dat
@@ -54,7 +54,7 @@ ImpurityParam siam_model(int L, double U, double V)
     mat Umat(L, L, fill::zeros);
     Umat(0, 1) = U;
     auto model = ImpurityParam{.Kmat = K, .Umat = Umat,
-                               .imp_pos = {0, 1}, .layout = spin_symmetric};
+                               .imp_pos = {0, 1}, .geometry = spin_sym};
     model.to_star();
     return model;
 }
@@ -67,7 +67,7 @@ void run(ImpurityParam const& model, Fb_mps<cmpx> fb, double dt, int nStep,
     ofstream out(name);
     out << setprecision(12);
     out << "# SIAM " << what << " evolution, "
-        << (fb.layout == spin_symmetric ? "spin_symmetric" : "spin_block") << " FBR\n"
+        << (fb.geometry == spin_sym ? "spin_sym" : "spin_block") << " FBR\n"
         << "# n0(t=0)=" << std::real(solver.correlator(0, 0))
         << "  E_gs(ref)=" << e_ref << "\n"
         << "# t  n_active  bond_dim  wall_s  n0  energy\n";
@@ -129,15 +129,15 @@ int main(int argc, char** argv)
     }
 
     // ---- protocol 2: excitation c_0^dag|gs> ----
-    // The ground state is symmetric and is found under spin_symmetric; the
+    // The ground state is symmetric and is found under spin_sym; the
     // excitation is not, so it is evolved under spin_block. The star frame stays
     // the symmetric one: its reflected up bath is a valid star for spin_block too,
     // and it is the frame the ground state is in.
     if (wanted("excitation")) {
         auto model_block = model;
-        model_block.layout = spin_block;
+        model_block.geometry = spin_block;
         auto fb = gs_solver.fb.to_complex();
-        fb.layout = spin_block;
+        fb.geometry = spin_block;
         fb.tol = 1e-10;
         fb.apply_local_op("Cdag", 0);
         fb.psi.normalize();

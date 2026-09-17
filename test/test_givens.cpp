@@ -65,14 +65,14 @@ TEST_CASE("index-aware apply_givens matches dense embedding", "[givens]")
 {
     arma::arma_rng::set_seed(777);
     const int n = 6;      // local block size
-    const int n_sv = 2;    // number of columns to rotate out
+    const int coupling_rank = 2;    // number of columns to rotate out
     const int L = 14;     // full matrix size
 
     // Build a Givens list as the dynamics does (daggered left-rotation).
     cx_mat Vfull = cx_mat(n, n, fill::randn) + imag_1 * cx_mat(n, n, fill::randn);
     cx_mat Q, R;
     qr(Q, R, Vfull);
-    cx_mat V = Q.head_cols(n_sv);
+    cx_mat V = Q.head_cols(coupling_rank);
     auto givens = givens_for_rot_left(V);
     givens=givens_dagger(std::move(givens));
 

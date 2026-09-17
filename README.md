@@ -93,7 +93,7 @@ iteration n_active energy time(s)
 99 12 -318.016525257 0.788492
 100 12 -318.016525257 0.797586
 ```
-This code is the example [`fbr_gs_irlm.cpp`](example/fbr_gs_irlm.cpp). For the spinful SIAM model, see [`fbr_gs_siam.cpp`](example/fbr_gs_siam.cpp).
+This code is the example [`fbr_gs_irlm.cpp`](example/fbr_gs_irlm.cpp). For the spinful SIAM model, see [`fbr_gs_siam_spin_sym.cpp`](example/fbr_gs_siam_spin_sym.cpp).
 
 ## Real-time dynamics
 
@@ -125,22 +125,22 @@ A per-step control selects the bond dimension, the local evolution accuracy, and
 
 For models with spin you describe the impurities by listing them from the outermost up orbital through the impurities to the outermost down orbital (extra non-interacting "buffer" orbitals may be included); up/down membership is inferred from the lattice connectivity. Two regimes are supported:
 
-- **Spin-flip symmetric** (`spin_symmetric`) — up and down are equivalent, so only one spin block is computed. See [`fbr_gs_siam.cpp`](example/fbr_gs_siam.cpp) and [`fbr_dyn_siam.cpp`](example/fbr_dyn_siam.cpp).
-- **Generic spin (block)** (`spin_block`) — the two spin blocks are handled independently, for cases without spin-flip symmetry. See [`fbr_dyn_siam_block.cpp`](example/fbr_dyn_siam_block.cpp).
+- **Spin-flip symmetric** (`spin_sym`) — up and down are equivalent, so only one spin block is computed. See [`fbr_gs_siam_spin_sym.cpp`](example/fbr_gs_siam_spin_sym.cpp) and [`fbr_dyn_siam_spin_sym.cpp`](example/fbr_dyn_siam_spin_sym.cpp).
+- **Generic spin (block)** (`spin_block`) — the two spin blocks are handled independently, for cases without spin-flip symmetry. See [`fbr_dyn_siam_spin_block.cpp`](example/fbr_dyn_siam_spin_block.cpp).
 
 Models built directly in star geometry can skip `to_star()`: put the impurity at the
-positions required by the layout, and use `slater<T>(model)` as usual. An omitted
+positions required by the geometry, and use `slater<T>(model)` as usual. An omitted
 `rot` means the identity frame, and an omitted `Umat` means zero interaction.
 `validate()` checks inputs without changing them; `prepare()` also initializes
 these default matrices. Solvers and `to_star()` call `prepare()` automatically.
 
-The layout is part of the model: `ImpurityParam::layout` selects the chain geometry `to_star()` produces, and `slater<T>(model)` builds a matching initial state. The spinless case is `leading`, the default.
+The geometry is part of the model: `ImpurityParam::geometry` selects the chain geometry `to_star()` produces, and `slater<T>(model)` builds a matching initial state. The default, `standard`, puts the impurity first and assumes no spin symmetry; it supports both spinless models and SIAM.
 
 ```c++
 #include "fbr/fbr.h"
 // SIAM: U between the up impurity (site 0) and dw impurity (site 1)
 arma::mat Umat(L,L,arma::fill::zeros);  Umat(0,1)=U;
-auto model = ImpurityParam {.Kmat=K, .Umat=Umat, .imp_pos={0,1}, .layout=spin_symmetric};
+auto model = ImpurityParam {.Kmat=K, .Umat=Umat, .imp_pos={0,1}, .geometry=spin_sym};
 model.to_star();
 
 auto fb=slater<double>(model, ek);   // ek defaults to param.Kmat.diag()
@@ -149,6 +149,27 @@ for(auto i=0;i<100;i++) solver.iterate();
 double n0 = solver.fb.correlator(0,0);     // impurity occupation
 ```
 
+## Occupations and basis conventions
+
+`fb.occupations()` reads the cached diagonal of `cc`; `fb.measure_occupations()`
+measures occupations directly from the MPS without updating the cache. Both are
+indexed by **current orbitals**. Use `fb.correlator(i,i)` for an original-site
+occupation in a ground-state calculation, or `solver.correlator(i,i)` during
+dynamics to include the interaction-picture bath phases.
+
+Chain geometry is selected with `Chain_geometry` and the `.geometry` field
+(previously `Layout` and `.layout`). Its values are `standard` (previously
+`leading`), `spin_sym` (previously `spin_symmetric`), and `spin_block`.
+Both the model and the state default to `standard`.
+
+The naming cleanup replaces `occupations_ni()` with `occupations()`,
+`occupations_ni2()` with `measure_occupations()`, and `n_sv` with `coupling_rank`.
+Representative plans take `Part::active` or `Part::impurity` as their optional
+third argument, replacing `true` or `false`; the default remains `Part::impurity`.
+Saved-state formats are unchanged. Example names now use `_spin_sym` or
+`_spin_block` for specialized spin geometries; `fbr_dyn_siam` uses `standard`.
+The geometry header is now `fbr/chain_geometry.h` (previously `fbr/layout.h`).
+
 ## Examples
 
 All example sources live in [`example/`](example/) and build to one binary each under `build/example/`.
@@ -156,14 +177,15 @@ All example sources live in [`example/`](example/) and build to one binary each 
 | Example | Model / mode |
 |---|---|
 | `fbr_gs_irlm` | Ground state, spinless IRLM |
-| `fbr_gs_siam` | Ground state, SIAM (spin-flip symmetric) |
+| `fbr_gs_siam_spin_sym` | Ground state, SIAM (spin-flip symmetric) |
 | `fbr_dyn_irlm` | Dynamics, spinless IRLM (complex MPS) |
 | `fbr_green_irlm` | Green function G(0,0), G(0,1) vs the exact non-interacting result |
 | `fbr_green_irlm_separate` | The same Green function, each state evolved in its own frame (`green_overlap.h`) |
-| `fbr_dyn_siam` | Dynamics, SIAM (spin-flip symmetric) |
-| `fbr_dyn_siam_block` | Dynamics, SIAM (generic spin / block) |
-| `fbr_dyn_siam_center` | Dynamics, SIAM with impurity kept at the chain center |
-| `fbr_dyn_ns_siam`, `fbr_dyn_shared_siam_manual` | Dynamics, SIAM variants |
+| `fbr_dyn_siam_spin_sym` | Dynamics, SIAM (spin-flip symmetric) |
+| `fbr_dyn_siam_spin_block` | Dynamics, SIAM (generic spin / block) |
+| `fbr_dyn_siam_spin_sym_manual` | Dynamics, SIAM with impurity kept at the chain center |
+| `fbr_dyn_siam` | Dynamics, SIAM with standard geometry |
+| `fbr_dyn_siam_manual` | Same geometry, with a manually constructed star basis |
 
 Besides the examples, the repository keeps two kinds of standalone programs:
 

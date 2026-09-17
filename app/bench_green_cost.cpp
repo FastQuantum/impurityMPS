@@ -78,7 +78,7 @@ int main(int argc, char **argv)
     mat Kstar = model.Kmat;
 
     // ---- few-body ground state (Fbr_gs) ----
-    auto gs = Fb_mps<double>::from_slater(model.rot, vec{Kstar.diag()}, n_part, model.n_imp(), leading);
+    auto gs = Fb_mps<double>::from_slater(model.rot, vec{Kstar.diag()}, n_part, model.n_imp(), standard);
     gs.tol = 1e-9;
     Fbr_gs gsSolver(model, gs);
     for (int i = 0; i < 60; i++) gsSolver.iterate({.max_bond_dim = 256});

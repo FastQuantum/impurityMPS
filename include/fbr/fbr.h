@@ -15,9 +15,9 @@
 ///
 /// The names that appear there, and the few that go with them:
 ///
-///   ImpurityParam   Kmat, Umat, imp_pos, filling, layout, and to_star()
-///   Layout          leading (spinless), spin_symmetric, spin_block
-///                   (spin_symmetric needs a spin-flip symmetric state as well as
+///   ImpurityParam   Kmat, Umat, imp_pos, filling, geometry, and to_star()
+///   Chain_geometry          standard (impurity first), spin_sym, spin_block
+///                   (spin_sym needs a spin-flip symmetric state as well as
 ///                   model: a spin-polarized one such as c_up^dag|gs> needs spin_block)
 ///   slater<T>       the Slater state a model starts from
 ///   Fb_mps<T>       that state: rot, cc, active, and range(Part[,Spin])
@@ -27,8 +27,11 @@
 ///   overlap / c_element   <A|B> and <A|c_i|B> between states in DIFFERENT
 ///                   frames (Green functions from separately evolved states)
 ///
-/// and on any solver, energy and correlator() / correlator(i,j) /
-/// correlator_row(i) / correlator_col(j).
+/// Fbr_gs exposes energy; measure its state through solver.fb.correlator(...).
+/// Dynamics solvers provide correlator(), correlator(i,j), correlator_row(i),
+/// and correlator_col(j) in the Schrodinger picture. Fbr_dyn_shared stores energies.
+/// Fb_mps::occupations() reads cached orbital occupations; measure_occupations()
+/// measures them from the MPS. Both use the current orbital basis.
 ///
 /// Everything else -- the Givens rotations, the orbital-update plans, the
 /// ITensor bridge -- is machinery these are built from, in the headers below.
@@ -39,7 +42,7 @@
 /// here -- are unaffected; a multi-TU target should include the specific
 /// headers it needs and keep fbr_dyn.h to one file, which is what test/ does.
 
-#include "layout.h"
+#include "chain_geometry.h"
 #include "impurity_param.h"
 #include "fb_mps.h"
 #include "initial_state.h"

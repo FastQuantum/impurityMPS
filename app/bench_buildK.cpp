@@ -27,7 +27,7 @@ static auto makeSolver(int L, double dt)
     K(0, 2) = K(2, 0) = K(1, 3) = K(3, 1) = V;
     mat Umat(L, L, fill::zeros);
     Umat(0, 1) = U;
-    model = ImpurityParam{.Kmat = K, .Umat = Umat, .imp_pos = {2, 0, 1, 3}, .layout=spin_symmetric};
+    model = ImpurityParam{.Kmat = K, .Umat = Umat, .imp_pos = {2, 0, 1, 3}, .geometry=spin_sym};
     model.to_star();
 
     auto ek = vec{model.Kmat.diag()};

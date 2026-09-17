@@ -42,7 +42,7 @@ namespace {
 
 /// Star geometry and the rotation that produced it (star -> original basis):
 /// c_i = sum_a rot(i,a) d_a, so <c_i^dag c_j> = (rot * cc_star * rot^T)(i,j).
-/// Layout matches star_dyn_siam_center: [up bath | up imp | dw imp | dw bath],
+/// Chain_geometry matches star_dyn_siam_center: [up bath | up imp | dw imp | dw bath],
 /// the up impurity at the right of its half, the down impurity at the left.
 auto computeKstar(mat K, int n_imp)
 {

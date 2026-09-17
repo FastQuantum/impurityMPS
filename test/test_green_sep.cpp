@@ -69,7 +69,7 @@ TEST_CASE("separate-frame green: B->A agrees with the star frame and matches exa
 
     // ground state
     auto gs = Fb_mps<double>::from_slater(model.rot, vec{model.Kmat.diag()},
-                                          n_part, model.n_imp(), leading);
+                                          n_part, model.n_imp(), standard);
     gs.tol = 1e-12;
     auto gsSolver = Fbr_gs(model, gs);
     for (int i = 0; i < 40; i++) gsSolver.iterate({.max_bond_dim = 128});

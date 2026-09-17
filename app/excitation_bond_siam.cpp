@@ -11,8 +11,8 @@
 // the star below is exactly the basis the FBR evolves in.
 //
 //   star     two-site TDVP of the whole L-site MPS in the star geometry
-//   fbr      Fbr_dyn, spin_block layout (each spin sector gets its own orbitals;
-//            the excitation breaks the spin-flip symmetry, so spin_symmetric,
+//   fbr      Fbr_dyn, spin_block geometry (each spin sector gets its own orbitals;
+//            the excitation breaks the spin-flip symmetry, so spin_sym,
 //            which evolves only the dw sector and mirrors it, cannot take it)
 //
 //   star_gs  the same full star TDVP applied to |gs> itself (a stationary state:
@@ -52,7 +52,7 @@ ImpurityParam siam_model(int L, double U, double V)
     K(0, 2) = K(2, 0) = K(1, 3) = K(3, 1) = V;
     mat Umat(L, L, fill::zeros);
     Umat(0, 1) = U;
-    auto model = ImpurityParam{.Kmat = K, .Umat = Umat, .imp_pos = {0, 1}, .layout = spin_block};
+    auto model = ImpurityParam{.Kmat = K, .Umat = Umat, .imp_pos = {0, 1}, .geometry = spin_block};
     model.to_star();
     return model;
 }

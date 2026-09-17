@@ -1,7 +1,7 @@
 #pragma once
 
 // Shared, TDVP-independent helpers for the reference-comparison tests
-// (test_ref_fbr / test_ref_block / test_ref_ns). Each variant compiles into its
+// (test_ref_siam_spin_sym / test_ref_siam_spin_block / test_ref_siam). Each variant compiles into its
 // own executable because the TDVP headers define non-inline functions; only the
 // variant-specific FBR run lives in the .cpp, everything reusable lives here.
 
@@ -45,7 +45,7 @@ inline fbr::ImpurityParam makeIrlmModel(int L, double U, double V)
 // in the chain geometry): two interleaved spin chains (stride 2) of hopping 0.5,
 // the up and down impurity orbitals on sites 0 and 1, hybridization V to sites 2
 // and 3, e_imp = -U/2 and U between the two impurity orbitals; spin-symmetric
-// layout, and the non-rotating cluster is just the two impurity orbitals.
+// geometry, and the non-rotating cluster is just the two impurity orbitals.
 inline fbr::ImpurityParam makeSiamModel(int L, double U, double V)
 {
     mat K(L, L, fill::zeros);
@@ -55,7 +55,7 @@ inline fbr::ImpurityParam makeSiamModel(int L, double U, double V)
     mat Umat(L, L, fill::zeros);
     Umat(0, 1) = U;
     fbr::ImpurityParam model{.Kmat = K, .Umat = Umat, .imp_pos = {0, 1},
-                             .layout = fbr::spin_symmetric};
+                             .geometry = fbr::spin_sym};
     model.to_star();
     return model;
 }
@@ -74,11 +74,11 @@ void saveFbMps(std::string const &fname, fbr::Fb_mps<T> const &fb)
     itensor::write(s, fb.imp_size);
     itensor::write(s, fb.active.a);
     itensor::write(s, fb.active.b);
-    itensor::write(s, static_cast<int>(fb.layout));
+    itensor::write(s, static_cast<int>(fb.geometry));
     itensor::write(s, 0);   // legacy slot: the removed Fb_mps::spin flag. Kept so
                             // the committed output/*.dat caches stay readable.
     itensor::write(s, fb.tol);
-    itensor::write(s, fb.n_sv);
+    itensor::write(s, fb.coupling_rank);
     if (!fb.rot.save(s, arma_binary) || !fb.cc.save(s, arma_binary))
         throw std::runtime_error("cannot write the frame of " + fname);
 }
@@ -90,17 +90,17 @@ fbr::Fb_mps<T> loadFbMps(std::string const &fname)
     if (!s) throw std::runtime_error("missing saved state " + fname
                                      + " (regenerate with test/ref/fbr_green_gs.cpp)");
     fbr::Fb_mps<T> fb;
-    int layout = 0, legacy_spin = 0;
+    int geometry = 0, legacy_spin = 0;
     itensor::read(s, fb.sites);
     itensor::read(s, fb.psi);
     itensor::read(s, fb.imp_size);
     itensor::read(s, fb.active.a);
     itensor::read(s, fb.active.b);
-    itensor::read(s, layout);
+    itensor::read(s, geometry);
     itensor::read(s, legacy_spin);   // see saveFbMps
     itensor::read(s, fb.tol);
-    itensor::read(s, fb.n_sv);
-    fb.layout = static_cast<fbr::Layout>(layout);
+    itensor::read(s, fb.coupling_rank);
+    fb.geometry = static_cast<fbr::Chain_geometry>(geometry);
     if (!fb.rot.load(s, arma_binary) || !fb.cc.load(s, arma_binary))
         throw std::runtime_error("cannot read the frame of " + fname);
     return fb;
@@ -245,7 +245,7 @@ inline std::vector<GreenSample> loadSiamGreenReference(std::string const &name)
 }
 
 // Reorder a correlator from FBR site order to chain-reference site order. The
-// permutation `p` is variant-specific (the spinful and spinless layouts differ),
+// permutation `p` is variant-specific (the spinful and spinless geometries differ),
 // so each test .cpp supplies its own fbrIndexToChainIndex.
 inline cx_mat toChainOrder(cx_mat const &cc, uvec const &p)
 {

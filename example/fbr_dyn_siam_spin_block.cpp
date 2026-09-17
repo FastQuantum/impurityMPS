@@ -21,7 +21,7 @@ int main()
         arma::mat Umat(L, L, arma::fill::zeros);
         Umat(0,1) = U;  // SIAM: U on (imp_up site 0, imp_dw site 1)
         std::vector<int> imp_pos = {2, 0, 1, 3};  // {buf_up, imp_up, imp_dw, buf_dw}
-        model = ImpurityParam{.Kmat=K, .Umat=Umat, .imp_pos=imp_pos, .layout=spin_block};
+        model = ImpurityParam{.Kmat=K, .Umat=Umat, .imp_pos=imp_pos, .geometry=spin_block};
         model.to_star();
     }
     Fb_mps<cmpx> fb;
@@ -42,8 +42,8 @@ int main()
     itensor::cpu_time t0;
     for(auto i=0; i*dt<L; i++){
         solver.iterate({.epsilon_M=0});  // epsilon_M=0 -> no expansion; n_krylov inert, err_goal from default
-        double n0= solver.fb.occupations_ni()(L/2);
-        double n1= solver.fb.occupations_ni()(L/2+1);
+        double n0= solver.fb.occupations()(L/2);
+        double n1= solver.fb.occupations()(L/2+1);
         cout<<(i+1)*solver.dt<<" "<<maxLinkDim(solver.fb.psi)<<" "
             <<n0<<" "<<n1<<" "<<solver.fb.active.b-solver.fb.active.a<<endl;
         t0.mark();

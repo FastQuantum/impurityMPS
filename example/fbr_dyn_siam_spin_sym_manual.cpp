@@ -7,7 +7,7 @@ using namespace arma;
 using namespace fbr;
 
 /// return the kinetic energy in star geometry and the rotation to get it.
-/// Layout: [spin-up bath | spin-up imp | spin-down imp | spin-down bath]
+/// Chain_geometry: [spin-up bath | spin-up imp | spin-down imp | spin-down bath]
 /// For spin-up the impurity is at the right end; for spin-down at the left end.
 auto computeKstar(mat K, int n_imp)
 {
@@ -87,7 +87,7 @@ int main()
         // force impurity occupation: physical imp sites occupied, buffer sites empty
         ek[nBath+n_imp/2-1]=ek[L/2]=-10;    // spin-up and spin-down physical impurities
         ek[nBath]=ek[L/2+n_imp/2-1]=10;     // spin-up and spin-down buffers
-        fb=Fb_mps<cmpx>::from_slater(rot*cmpx(1,0), ek, L/2, n_imp, spin_symmetric);
+        fb=Fb_mps<cmpx>::from_slater(rot*cmpx(1,0), ek, L/2, n_imp, spin_sym);
     }
 
     // Construct model from pre-computed star geometry (bypassing to_star)
@@ -96,9 +96,9 @@ int main()
         model.Kmat = Kstar;
         model.Umat = Umat;
         model.rot  = arma::mat(L,L, arma::fill::eye);
-        // convention 2: {outer_up, inner_up, inner_dw, outer_dw} in Kstar layout.
+        // convention 2: {outer_up, inner_up, inner_dw, outer_dw} in Kstar geometry.
         model.imp_pos = {L/2-2, L/2-1, L/2, L/2+1};
-        model.layout = spin_symmetric;
+        model.geometry = spin_sym;
     }
 
     auto solver=Fbr_dyn(model,fb,dt);
@@ -117,12 +117,12 @@ int main()
     for(auto i=0; i*dt<L; i++){
         // arma::real(solver.K*1).eval().clean(1e-11).print("K");
         // auto [a,b]=solver.fb.range(Part::active);
-        // solver.fb.occupations_ni().as_row().eval().cols(a,b-1).eval().print("ni");
+        // solver.fb.occupations().as_row().eval().cols(a,b-1).eval().print("ni");
 
         solver.iterate({.max_bond_dim=2048, .epsilon_M=0});
         // double n0c = solver.fb.correlator(1,1).real();
-        double n0= solver.fb.occupations_ni()(L/2);
-        double n1= solver.fb.occupations_ni()(L/2+1);
+        double n0= solver.fb.occupations()(L/2);
+        double n1= solver.fb.occupations()(L/2+1);
         cout<<(i+1)*solver.dt<<" "<<maxLinkDim(solver.fb.psi)<<" "<<n0<<" "<<n1<<" "<<solver.fb.active.b-solver.fb.active.a<<endl;
         t0.mark();
     }

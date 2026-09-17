@@ -18,7 +18,7 @@ namespace {
 
 using Solver = Fbr_dyn;
 
-// Star-geometry spin layout: bath orbitals are energy-sorted eigenmodes, so the
+// Star-geometry spin geometry: bath orbitals are energy-sorted eigenmodes, so the
 // FBR site -> chain index map is the discontinuous permutation below.
 uvec fbrIndexToChainIndex(int L)
 {
@@ -61,7 +61,7 @@ Solver makeFbrRun(int L, double dt, double U)
         K(0, 2) = K(2, 0) = K(1, 3) = K(3, 1) = V;
         mat Umat(L, L, fill::zeros);
         Umat(0, 1) = U;
-        model = ImpurityParam{.Kmat = K, .Umat = Umat, .imp_pos = {2, 0, 1, 3}, .layout=spin_symmetric};
+        model = ImpurityParam{.Kmat = K, .Umat = Umat, .imp_pos = {2, 0, 1, 3}, .geometry=spin_sym};
         model.to_star();
     }
 
@@ -116,7 +116,7 @@ void checkChain(TrajResult const &res, std::map<std::string, Tol> const &tol)
 // row per time step of the SIAM impurity quench (impurity forced to |1100>, then
 // evolved). Reading only the first few steps keeps this a smoke test that the
 // solver still scales to L=1000; the full trajectories are kept for manual and
-// longer comparisons. Regenerate with example/fbr_dyn_siam.cpp.
+// longer comparisons. Regenerate with example/fbr_dyn_siam_spin_sym.cpp.
 
 struct LargeLReferenceRow {
     double time;
@@ -161,7 +161,7 @@ void checkLargeL(double U, std::string const &us)
     for (int step = 0; step < nSteps; ++step) {
         fbr.iterate({.epsilon_M = 0});
         auto const &expected = ref[step];
-        auto ni = fbr.fb.occupations_ni();
+        auto ni = fbr.fb.occupations();
         double n0 = ni[L / 2];
         double n1 = ni[L / 2 + 1];
         int m = itensor::maxLinkDim(fbr.fb.psi);
@@ -178,7 +178,7 @@ void checkLargeL(double U, std::string const &us)
 
 } // namespace
 
-TEST_CASE("build_K O(L^2) matches O(L^3) reference", "[fb_ref_fbr][build_K]") {
+TEST_CASE("build_K O(L^2) matches O(L^3) reference", "[fb_ref_siam_spin_sym][build_K]") {
     constexpr int L = 40;
     constexpr double dt = 0.1;
     auto fbr = makeFbrRun(L, dt, 0.2);
@@ -201,7 +201,7 @@ TEST_CASE("build_K O(L^2) matches O(L^3) reference", "[fb_ref_fbr][build_K]") {
 }
 
 TEST_CASE("O(L^2) correlator elements, rows and columns match the full correlator",
-          "[fb_ref_fbr][correlator]") {
+          "[fb_ref_siam_spin_sym][correlator]") {
     constexpr int L = 40;
     constexpr double dt = 0.1;
     auto fbr = makeFbrRun(L, dt, 0.2);
@@ -228,17 +228,17 @@ TEST_CASE("O(L^2) correlator elements, rows and columns match the full correlato
     }
 }
 
-TEST_CASE("fbr vs chain center reference U=0.2", "[fb_ref_fbr]") {
+TEST_CASE("fbr vs chain center reference U=0.2", "[fb_ref_siam_spin_sym]") {
     checkChain(resultFor(0.2, "0.2"), chainTol());
 }
-TEST_CASE("fbr vs chain center reference U=0.1", "[fb_ref_fbr]") {
+TEST_CASE("fbr vs chain center reference U=0.1", "[fb_ref_siam_spin_sym]") {
     checkChain(resultFor(0.1, "0.1"), chainTol());
 }
 
-TEST_CASE("fbr L=1000 quench reference U=0.2", "[fb_ref_fbr][large_l]") {
+TEST_CASE("fbr L=1000 quench reference U=0.2", "[fb_ref_siam_spin_sym][large_l]") {
     checkLargeL(0.2, "0.2");
 }
-TEST_CASE("fbr L=1000 quench reference U=0.1", "[fb_ref_fbr][large_l]") {
+TEST_CASE("fbr L=1000 quench reference U=0.1", "[fb_ref_siam_spin_sym][large_l]") {
     checkLargeL(0.1, "0.1");
 }
 
@@ -254,7 +254,7 @@ TEST_CASE("multi-state solver with one state matches single-state solver", "[mul
     K0(0,2)=K0(2,0)=K0(1,3)=K0(3,1)=0.1;
     mat Umat(L,L,fill::zeros);
     Umat(0,1)=U;
-    auto model = ImpurityParam{.Kmat=K0,.Umat=Umat,.imp_pos={2,0,1,3}, .layout=spin_symmetric};
+    auto model = ImpurityParam{.Kmat=K0,.Umat=Umat,.imp_pos={2,0,1,3}, .geometry=spin_sym};
     model.to_star();
 
     auto ek=vec{model.Kmat.diag()};
@@ -291,10 +291,10 @@ TEST_CASE("multi-state solver with one state matches single-state solver", "[mul
     }
 }
 
-// spin_symmetric evolves only the dw sector and mirrors it onto up, so a state
+// spin_sym evolves only the dw sector and mirrors it onto up, so a state
 // that is not its own mirror image would silently get the dw correlators. Both
 // solvers must refuse it, and spin_block must take it.
-TEST_CASE("spin_symmetric refuses a spin-polarized state", "[spin_guard]") {
+TEST_CASE("spin_sym refuses a spin-polarized state", "[spin_guard]") {
     constexpr int L=8;
     constexpr double dt=0.1;
     constexpr double U=0.2;
@@ -316,7 +316,7 @@ TEST_CASE("spin_symmetric refuses a spin-polarized state", "[spin_guard]") {
     REQUIRE_THROWS_AS(Fbr_dyn_shared(model,std::vector{symmetric,polarized_slave},dt),
                       std::invalid_argument);
 
-    model.layout=polarized.layout=spin_block;
+    model.geometry=polarized.geometry=spin_block;
     REQUIRE_NOTHROW(Fbr_dyn(model,polarized,dt));
 }
 

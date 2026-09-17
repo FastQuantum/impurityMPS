@@ -50,7 +50,7 @@ Fb_mps<cmpx> slater_like(Fb_mps<cmpx> const& proto, cx_mat const& rot, uvec cons
 Fb_mps<cmpx> proto_state(int L)
 {
     return Fb_mps<double>::from_slater(mat(L,L,fill::eye),
-                                       regspace<vec>(0,L-1), 1, 1, leading).to_complex();
+                                       regspace<vec>(0,L-1), 1, 1, standard).to_complex();
 }
 
 // <A|B> for two Slater states = det( (A.rot^dag B.rot)[occA, occB] ).

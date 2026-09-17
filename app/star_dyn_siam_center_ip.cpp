@@ -14,7 +14,7 @@ using namespace fbr;
 using cmpx= std::complex<double>;
 
 /// return the kinetic energy in star geometry and the rotation to get it.
-/// Layout: [spin-up bath | spin-up imp | spin-down imp | spin-down bath]
+/// Chain_geometry: [spin-up bath | spin-up imp | spin-down imp | spin-down bath]
 /// For spin-up the impurity is at the right end; for spin-down at the left end.
 auto computeKstar(mat K, int n_imp)
 {

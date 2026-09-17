@@ -19,10 +19,9 @@ namespace fbr {
 
 namespace detail {
 
-/// Rank of the impurity-bath coupling block of Kmat: the largest over the spin
-/// sectors, so both grow the window by the same amount even when their coupling
-/// ranks differ (spin_block). An extra, weakly coupled representative costs one
-/// orbital; two different window widths would cost a special case everywhere.
+/// Largest impurity-to-Slater coupling rank across spin sectors. Dynamics fixes
+/// this rank at construction; each representative plan caps it by the available
+/// singular vectors. Rank selection uses the state's relative activity tolerance.
 inline int coupling_rank(Fb_mps<cmpx> const& fb, arma::mat const& Kmat)
 {
     int rank=0;
@@ -39,33 +38,28 @@ inline int coupling_rank(Fb_mps<cmpx> const& fb, arma::mat const& Kmat)
     return rank;
 }
 
-/// spin_symmetric evolves only the dw sector: its orbital plans are reflected
-/// onto up, and Fb_mps::apply overwrites the up block of cc with the mirrored dw
-/// block. That is exact only for a state that is itself spin-flip symmetric, so
-/// refuse any other one. A spin-polarized state (c^dag_up|gs>, say) would
-/// otherwise run silently, reporting the dw occupations for the up ones and
-/// cutting the up sector's window to the dw one. The model conserves the
-/// symmetry, so checking the initial state is enough. The threshold is loose
-/// on purpose: a symmetric state computed under spin_block is a mirror image
-/// only to DMRG accuracy, while a polarized one misses by O(1).
-inline void require_spin_symmetric_state(Fb_mps<cmpx> const& fb)
+/// Check that the initial cc blocks agree under spin reflection. Orbital plans
+/// use the down sector and mirror it onto up, so a polarized state needs spin_block.
+/// The 1e-6 threshold allows DMRG error in a nominally symmetric initial state.
+/// This is a one-particle symmetry check, not a test of the full many-body state.
+inline void require_spin_sym_state(Fb_mps<cmpx> const& fb)
 {
-    if (fb.layout!=spin_symmetric) return;
+    if (fb.geometry!=spin_sym) return;
     constexpr double threshold=1e-6;
     arma::cx_mat mirrored=fb.cc;
     fb.ensure_symmetry(mirrored);
     double mismatch=arma::abs(mirrored-fb.cc).max();
     if (mismatch>threshold)
-        throw std::invalid_argument("Fbr_dyn: spin_symmetric needs a spin-flip symmetric state, "
+        throw std::invalid_argument("Fbr_dyn: spin_sym needs a spin-flip symmetric state, "
                                     "but the up and dw blocks of cc differ by "+std::to_string(mismatch)
                                     +" (threshold "+std::to_string(threshold)+"); use spin_block");
 }
 
 } // namespace detail
 
-/// Real-time evolution of one few-body MPS. The orbital layout (spinless,
+/// Real-time evolution of one few-body MPS. The chain geometry (standard,
 /// spin-flip symmetric or generic spin) comes from the state and the model,
-/// which share it through ImpurityParam::layout:
+/// which share it through ImpurityParam::geometry:
 ///   auto solver = Fbr_dyn(model, fb, dt);
 /// For several states evolving in one common orbital basis, see Fbr_dyn_shared.
 struct Fbr_dyn {
@@ -75,14 +69,14 @@ struct Fbr_dyn {
     double dt;
     arma::cx_mat Kbath;      ///< diagonal bath Hamiltonian (star geometry)
     arma::cx_mat Kip0;       ///< second-order interaction-picture Hamiltonian at t=0
-    arma::uvec imp_pos;      ///< impurity positions (star layout)
-    arma::uvec bath_pos;     ///< bath positions (star layout)
+    arma::uvec imp_pos;      ///< impurity positions (star geometry)
+    arma::uvec bath_pos;     ///< bath positions (star geometry)
     arma::cx_mat rot_star;  ///< the star frame, the basis Kip0 and Kbath are written in
-    int n_sv=0;             ///< fixed rank of the impurity–bath coupling
+    int coupling_rank=0;    ///< fixed rank of the impurity–bath coupling
 
     /// these quantities are updated during the iterations
-    arma::cx_mat K;          ///< the current Hamiltonian
-    int n_iter=0;
+    arma::cx_mat K;          ///< kinetic matrix in the current orbital basis (interaction picture)
+    int n_iter=0;            ///< completed timesteps between calls to iterate()
 
     State fb;               ///< the current few-body MPS
     double energy=-1000;
@@ -99,13 +93,13 @@ struct Fbr_dyn {
         imp_pos = arma::conv_to<arma::uvec>::from(param.imp_pos);
         bath_pos = arma::conv_to<arma::uvec>::from(set_diff(L,param.imp_pos));
 
-        // The state layout must put its impurity where the model does: this is
-        // what tells a centered layout apart from a leading one.
+        // The state geometry must put its impurity where the model does: this is
+        // what tells a centered geometry apart from a standard one.
         auto [a_imp,b_imp]=fb.range(Part::impurity);
         if (imp_pos.empty() || b_imp-a_imp!=param.n_imp()
             || (int)imp_pos.min()!=a_imp || (int)imp_pos.max()!=b_imp-1)
-            throw std::invalid_argument("Fbr_dyn: the state layout does not match the impurity positions of the model");
-        detail::require_spin_symmetric_state(fb);
+            throw std::invalid_argument("Fbr_dyn: the state geometry does not match the impurity positions of the model");
+        detail::require_spin_sym_state(fb);
 
         arma::mat Kstar=param.Kmat;
         if (!bath_pos.empty()) {
@@ -138,10 +132,10 @@ struct Fbr_dyn {
         rot_star = param.rot * cmpx(1,0);
         Kbath = Kstar.submat(bath_pos,bath_pos) * cmpx(1,0);
 
-        // Fix n_sv = rank of the impurity–bath coupling block at construction.
+        // Fix coupling_rank = rank of the impurity–bath coupling block at construction.
         // The same value is used for every representative plan thereafter.
-        n_sv = detail::coupling_rank(fb,param.Kmat);
-        fb.n_sv=n_sv;
+        coupling_rank = detail::coupling_rank(fb,param.Kmat);
+        fb.coupling_rank=coupling_rank;
         K=build_K();
     }
 
@@ -233,11 +227,11 @@ struct Fbr_dyn {
     arma::cx_mat build_K() const
     {
         arma::cx_vec d = ip_phase(n_iter);
-        // A = rot.rows(imp_pos); exp_ih is identity on impurity rows, so it drops out.
+        // A = rot.rows(imp_pos); bath phases are one on impurity rows.
         arma::cx_mat A = rot_star.cols(imp_pos).t() * fb.rot;   // n_imp x L
         // B = M * rot, evaluated left-to-right to keep every factor n_imp x L.
         arma::cx_mat B = Kip0.rows(imp_pos);                // M (n_imp x L)
-        B.each_row() %= d.st();                             // M * diag(exp_ih)
+        B.each_row() %= d.st();                             // M * diag(d)
         B = B * rot_star.t();                                   // n_imp x L
         B = B * fb.rot;                                     // n_imp x L
         arma::cx_mat D = Kip0.submat(imp_pos, imp_pos);     // n_imp x n_imp
@@ -254,7 +248,7 @@ struct Fbr_dyn {
     arma::cx_mat effective_rot() const
     {
         arma::cx_mat M = rot_star.t() * fb.rot;
-        M.each_col() %= ip_phase(n_iter);   // exp_ih * M, with exp_ih=diag(ip_phase)
+        M.each_col() %= ip_phase(n_iter);   // diag(ip_phase) * M
         return rot_star * M;
     }
 
@@ -309,15 +303,11 @@ struct Fbr_dyn {
 
 /// Few-body real-time evolution of several states in one common orbital basis.
 ///
-/// The states follow a master-slave convention: the FIRST state is the master
-/// and its natural orbitals define the shared basis; the others are slaves that
-/// live in it. Make the master the state whose evolution is hardest to
-/// represent -- for a Green function that is the excitation c^dag|psi0>, not the
-/// stationary ground state |psi0>. The orbital basis is found once per step from
-/// the master and applied identically to every MPS (widen_to_all_states then
-/// grows the window to hold every orbital where a slave differs, so no slave's
-/// support is dropped). Each state is nevertheless evolved by its own TDVP call,
-/// since the TDVP projection and truncation are state-dependent.
+/// The first state's natural orbitals define the basis for every state. Put the
+/// state whose evolution is hardest to represent first (usually c^dag|psi0> for
+/// a Green function). After rotating, widen_to_all_states keeps the window large
+/// enough for every state. Each MPS gets its own TDVP sweep because projection
+/// and truncation depend on the state.
 struct Fbr_dyn_shared {
     using State = Fb_mps<cmpx>;
 
@@ -325,14 +315,14 @@ struct Fbr_dyn_shared {
     double dt;
     arma::cx_mat Kbath;      ///< diagonal bath Hamiltonian (star geometry)
     arma::cx_mat Kip0;       ///< second-order interaction-picture Hamiltonian at t=0
-    arma::uvec imp_pos;      ///< impurity positions (star layout)
-    arma::uvec bath_pos;     ///< bath positions (star layout)
+    arma::uvec imp_pos;      ///< impurity positions (star geometry)
+    arma::uvec bath_pos;     ///< bath positions (star geometry)
     arma::cx_mat rot_star;  ///< the star frame, the basis Kip0 and Kbath are written in
-    int n_sv=0;             ///< fixed rank of the impurity–bath coupling
+    int coupling_rank=0;    ///< fixed rank of the impurity–bath coupling
 
     /// these quantities are updated during the iterations
-    arma::cx_mat K;          ///< the current Hamiltonian
-    int n_iter=0;
+    arma::cx_mat K;          ///< kinetic matrix in the current orbital basis (interaction picture)
+    int n_iter=0;            ///< completed timesteps between calls to iterate()
 
     std::vector<State> states;    ///< the current few-body MPS states
     std::vector<double> energies; ///< energy of every state
@@ -352,13 +342,13 @@ struct Fbr_dyn_shared {
         imp_pos = arma::conv_to<arma::uvec>::from(param.imp_pos);
         bath_pos = arma::conv_to<arma::uvec>::from(set_diff(L,param.imp_pos));
 
-        // The state layout must put its impurity where the model does: this is
-        // what tells a centered layout apart from a leading one.
+        // The state geometry must put its impurity where the model does: this is
+        // what tells a centered geometry apart from a standard one.
         auto [a_imp,b_imp]=first.range(Part::impurity);
         if (imp_pos.empty() || b_imp-a_imp!=param.n_imp()
             || (int)imp_pos.min()!=a_imp || (int)imp_pos.max()!=b_imp-1)
-            throw std::invalid_argument("Fbr_dyn: the state layout does not match the impurity positions of the model");
-        detail::require_spin_symmetric_state(first);
+            throw std::invalid_argument("Fbr_dyn: the state geometry does not match the impurity positions of the model");
+        detail::require_spin_sym_state(first);
 
         arma::mat Kstar=param.Kmat;
         if (!bath_pos.empty()) {
@@ -391,14 +381,14 @@ struct Fbr_dyn_shared {
         rot_star = param.rot * cmpx(1,0);
         Kbath = Kstar.submat(bath_pos,bath_pos) * cmpx(1,0);
 
-        // Fix n_sv = rank of the impurity–bath coupling block at construction.
+        // Fix coupling_rank = rank of the impurity–bath coupling block at construction.
         // The same value is used for every representative plan thereafter.
-        n_sv = detail::coupling_rank(first,param.Kmat);
+        coupling_rank = detail::coupling_rank(first,param.Kmat);
         check_common_orbitals();
         for (auto const& state : states)
-            detail::require_spin_symmetric_state(state);
+            detail::require_spin_sym_state(state);
         energies.assign(states.size(),-1000.0);
-        for (auto& state : states) state.n_sv=n_sv;
+        for (auto& state : states) state.coupling_rank=coupling_rank;
         K=build_K();
     }
 
@@ -488,11 +478,11 @@ struct Fbr_dyn_shared {
     {
         auto const& fb=states.front();
         arma::cx_vec d = ip_phase(n_iter);
-        // A = rot.rows(imp_pos); exp_ih is identity on impurity rows, so it drops out.
+        // A = rot.rows(imp_pos); bath phases are one on impurity rows.
         arma::cx_mat A = rot_star.cols(imp_pos).t() * fb.rot;   // n_imp x L
         // B = M * rot, evaluated left-to-right to keep every factor n_imp x L.
         arma::cx_mat B = Kip0.rows(imp_pos);                // M (n_imp x L)
-        B.each_row() %= d.st();                             // M * diag(exp_ih)
+        B.each_row() %= d.st();                             // M * diag(d)
         B = B * rot_star.t();                                   // n_imp x L
         B = B * fb.rot;                                     // n_imp x L
         arma::cx_mat D = Kip0.submat(imp_pos, imp_pos);     // n_imp x n_imp
@@ -509,7 +499,7 @@ struct Fbr_dyn_shared {
     arma::cx_mat effective_rot(std::size_t n=0) const
     {
         arma::cx_mat M = rot_star.t() * states.at(n).rot;
-        M.each_col() %= ip_phase(n_iter);   // exp_ih * M, with exp_ih=diag(ip_phase)
+        M.each_col() %= ip_phase(n_iter);   // diag(ip_phase) * M
         return rot_star * M;
     }
 
@@ -561,7 +551,7 @@ struct Fbr_dyn_shared {
         return effective_rot_times(v.st(),n);
     }
 private:
-    /// All states must share the orbital layout, the rotation frame, the
+    /// All states must share the orbital geometry, the rotation frame, the
     /// ITensor site indices, and the Slater part of the correlation matrix.
     void check_common_orbitals() const
     {
@@ -577,7 +567,7 @@ private:
             auto const& state=states[n];
             if (state.sites.length()!=L || state.range(Part::active)!=window
                 || state.imp_size!=first.imp_size)
-                throw std::invalid_argument("Fbr_dyn_shared: states do not share the same orbital layout");
+                throw std::invalid_argument("Fbr_dyn_shared: states do not share the same orbital geometry");
             if (arma::norm(state.rot-first.rot,"fro")>10*first.tol)
                 throw std::invalid_argument("Fbr_dyn_shared: states do not share the same orbital rotation");
             for (int i=1; i<=L; ++i)
@@ -643,7 +633,7 @@ private:
                     hi=std::max(hi,i+1);
                 }
         }
-        if (states.front().layout==spin_symmetric) {   // keep the window centered
+        if (states.front().geometry==spin_sym) {   // keep the window centered
             int d=std::max(hi-L/2,L/2-lo);
             lo=L/2-d;
             hi=L/2+d;

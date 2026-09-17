@@ -4,7 +4,7 @@
 // for both (few-body: Fbr_gs; star: DMRG on the star Hamiltonian), all three
 // states psi0, c_up^dag psi0, c_dw^dag psi0 evolved, evolved to t = L/2.
 //
-// Model: spin_symmetric SIAM of example/fbr_gs_siam.cpp -- two interleaved spin
+// Model: spin_sym SIAM of example/fbr_gs_siam_spin_sym.cpp -- two interleaved spin
 // chains (hopping 0.5 at distance 2), impurity sites 0 (up) and 1 (dw),
 // hybridization 0.5, Hubbard U between them.
 //
@@ -85,9 +85,9 @@ int main(int argc, char **argv)
     K(0, 2) = K(2, 0) = K(1, 3) = K(3, 1) = 0.5;      // impurity-bath hybridization
     mat Umat(L, L, fill::zeros); Umat(0, 1) = U;
     // spin_block (generic spin): the Green-function excitation c^dag_{imp,up} breaks
-    // spin symmetry, so spin_symmetric (which only evolves one sector and mirrors it)
+    // spin symmetry, so spin_sym (which only evolves one sector and mirrors it)
     // is invalid here.
-    auto model = ImpurityParam{.Kmat = K, .Umat = Umat, .imp_pos = {0, 1}, .layout = spin_block};
+    auto model = ImpurityParam{.Kmat = K, .Umat = Umat, .imp_pos = {0, 1}, .geometry = spin_block};
     model.to_star();
     mat Kstar = model.Kmat, Ustar = model.Umat;
     int impUp = model.imp_pos[0], impDw = model.imp_pos[1];   // star positions of imp_up, imp_dw

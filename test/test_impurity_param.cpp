@@ -41,7 +41,7 @@ void requireDiagonalBath(mat const& K, int a, int b)
 
 } // namespace
 
-TEST_CASE("star transform, leading layout", "[param]")
+TEST_CASE("star transform, standard geometry", "[param]")
 {
     int L = 12;
     mat K(L, L, fill::zeros);
@@ -56,16 +56,16 @@ TEST_CASE("star transform, leading layout", "[param]")
     requireFrameRecoversInput(model, K);
 }
 
-TEST_CASE("star transform, centered layouts", "[param]")
+TEST_CASE("star transform, centered geometries", "[param]")
 {
     int L = 12;
     double V = 0.3;
 
-    SECTION("spin_symmetric puts the impurity at the center, one diagonal bath per spin")
+    SECTION("spin_sym puts the impurity at the center, one diagonal bath per spin")
     {
         mat K = interleavedChain(L, V, 0.5, 0.5);
         auto model = ImpurityParam{.Kmat=K, .Umat=mat(L,L,fill::zeros),
-                                .imp_pos={0,1}, .layout=spin_symmetric};
+                                .imp_pos={0,1}, .geometry=spin_sym};
         model.to_star();
 
         REQUIRE(model.imp_pos == vector{L/2-1, L/2});
@@ -80,11 +80,11 @@ TEST_CASE("star transform, centered layouts", "[param]")
                 == Approx(0.0).margin(1e-12));
     }
 
-    SECTION("spin_symmetric rejects a model whose sectors are not mirror images")
+    SECTION("spin_sym rejects a model whose sectors are not mirror images")
     {
         mat K = interleavedChain(L, V, 0.5, 0.8);
         ImpurityParam param {.Kmat=K, .Umat=mat(L,L,fill::zeros),
-                             .imp_pos={0,1}, .layout=spin_symmetric};
+                             .imp_pos={0,1}, .geometry=spin_sym};
         REQUIRE_THROWS_AS(param.to_star(), std::invalid_argument);
     }
 
@@ -95,7 +95,7 @@ TEST_CASE("star transform, centered layouts", "[param]")
         // bath by a copy of the dw one.
         mat K = interleavedChain(L, V, 0.5, 0.8);
         auto model = ImpurityParam{.Kmat=K, .Umat=mat(L,L,fill::zeros),
-                                .imp_pos={0,1}, .layout=spin_block};
+                                .imp_pos={0,1}, .geometry=spin_block};
         model.to_star();
 
         REQUIRE(model.imp_pos == vector{L/2-1, L/2});
@@ -113,7 +113,7 @@ TEST_CASE("star transform, centered layouts", "[param]")
 }
 
 
-TEST_CASE("leading star transform preserves ordered impurities and interaction", "[param][regression]")
+TEST_CASE("standard star transform preserves ordered impurities and interaction", "[param][regression]")
 {
     int L=6;
     mat K=diagmat(vec{0.1,0.2,0.3,0.4,0.5,0.6});
@@ -179,7 +179,7 @@ TEST_CASE("model preparation checks inputs before constructing a state", "[param
     SECTION("centered models require even length") {
         model.Kmat.eye(5,5);
         model.imp_pos={1,2};
-        model.layout=spin_block;
+        model.geometry=spin_block;
     }
     REQUIRE_THROWS_AS(model.prepare(),std::invalid_argument);
     REQUIRE_THROWS_AS(slater<double>(model),std::invalid_argument);
@@ -191,7 +191,7 @@ TEST_CASE("Slater state rejects energies and impurity positions inconsistent wit
     SECTION("wrong energy count") {
         REQUIRE_THROWS_AS(slater<double>(model,vec{-1,1}),std::invalid_argument);
     }
-    SECTION("impurities must already occupy their layout positions") {
+    SECTION("impurities must already occupy their geometry positions") {
         model.imp_pos={2};
         REQUIRE_THROWS_AS(slater<double>(model),std::invalid_argument);
         model.to_star();

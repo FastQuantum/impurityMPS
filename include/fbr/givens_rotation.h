@@ -49,14 +49,15 @@ struct GivensRot {
     using matrix22=typename arma::Mat<T>::template fixed<2,2>;
 
     size_t b;     ///< bond b --- b+1
-    T c=1, s=0;  ///< cos, sin, radius
+    T c=1, s=0;  ///< rotation coefficients; |c|^2 + |s|^2 = 1
 
-    /// build the J s.t.  J * (p,q)=(0,r) is go_right=true. Adapted from eigen.tuxfamily.org
+    /// Build J with J*(p,q)^T = (0,r)^T when go_right, or (r,0)^T otherwise.
+    /// If supplied, r receives the surviving entry. Adapted from Eigen.
     static GivensRot<T> create_from_pair(size_t b, T p,  T q, bool go_right, T* r=nullptr);
 
     matrix22 matrix() const;
 
-    /// the underline "Hamiltonian" the output is Hermitian.
+    /// Hermitian generator H = i log(J), so exp(-i H) = J for J = matrix().
     arma::cx_mat ilog_matrix() const
     {
         matrix22 rot=matrix();
@@ -65,13 +66,14 @@ struct GivensRot {
         return evec * arma::diagmat(eval2) * evec.t();
     }
 
-    /// assuming that |z|=1 ??
+    /// Multiply both coefficients by z; |z|=1 preserves normalization.
+    /// This is not scalar multiplication of the full 2x2 matrix.
     GivensRot<cmpx> operator*(cmpx z) const { GivensRot<cmpx> g{.b=b}; g.c=c*z; g.s=s*z; return g;}
 
-    /// return transpose conjugate
+    /// Conjugate transpose J^dag.
     GivensRot<T> dagger() const;
 
-    /// return transpose
+    /// Simple transpose J^T, without complex conjugation.
     GivensRot<T> transpose() const;
 
     /// return reflection wrt L: the bond b (sites b, b+1) is mapped to bond L-2-b

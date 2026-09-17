@@ -12,7 +12,7 @@ using namespace std;
 using namespace arma;
 
 /// return the kinetic energy in star geometry and the rotation to get it.
-/// Layout: [spin-up bath | spin-up imp | spin-down imp | spin-down bath]
+/// Chain_geometry: [spin-up bath | spin-up imp | spin-down imp | spin-down bath]
 /// For spin-up the impurity is at the right end; for spin-down at the left end.
 auto computeKstar(mat K, int n_imp)
 {
@@ -204,7 +204,7 @@ int main()
     }
 
     // --- Site index sets (0-indexed) ---
-    // Layout: [0..nBath-1 = bath_up | nBath..nBath+1 = imp_up |
+    // Chain_geometry: [0..nBath-1 = bath_up | nBath..nBath+1 = imp_up |
     //          L/2..L/2+1 = imp_dw  | L/2+2..L-1    = bath_dw ]
     uvec pos_up  = regspace<uvec>(0,   L/2-1);
     uvec pos_dw  = regspace<uvec>(L/2, L-1);

@@ -80,7 +80,7 @@ int main(int argc, char** argv)
     // ---- ground state ----
     auto gs=Fb_mps<double>::from_slater(model.rot,
                                         vec{model.Kmat.diag()},
-                                        n_part, model.n_imp(), leading);
+                                        n_part, model.n_imp(), standard);
     gs.tol=1e-12;
     auto gs_solver=Fbr_gs(model,gs);
     for(auto i=0; i<60; i++) gs_solver.iterate({.max_bond_dim=256});

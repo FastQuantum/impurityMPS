@@ -51,6 +51,20 @@ Findings so far:
   the first state, the excitation). The U=0.1 data predates it and used the average of the
   states' correlation matrices.
 
+## Experimental bath-frame evolution
+
+`Fbr_dyn_frame` records a failed first-order splitting experiment. After a
+natural-orbital update, the bath Hamiltonian can couple empty and filled Slater
+orbitals. Evolving only the active window omits that hopping.
+
+The recorded U=0 ground-state comparison kept `n_active=4` with drift around
+5e-8 when the bath step was disabled. Enabling the window-only bath step grew
+the window to the full system and corrupted the state. See
+`gs_frame_vs_ip_siam.cpp` for the comparison driver.
+
+The archived benchmark filenames retain their original `sym`, `block`, and `ns`
+labels; these correspond to `spin_sym`, `spin_block`, and `standard`.
+
 ## Cost of one evolution
 
 | Program | Question | Data | Plot |
@@ -58,14 +72,14 @@ Findings so far:
 | `quench_vs_excitation_siam` | Window and time of one `Fbr_dyn` for the paper's quench, the excitation c₀†\|gs⟩ (`spin_block`), and \|gs⟩ itself | `{quench,excitation,gs}_siam_L{100,500}_U0.025` | `quench_vs_excitation.py` |
 | `gs_frame_vs_ip_siam` | Does a co-moving frame (`fbr_dyn_frame.h`) keep the \|gs⟩ window smaller than the interaction picture? | `gs_{ip,frame}_siam_L{20,40}_U0` | `quench_vs_excitation.py` |
 | `bench_buildK` | Per-step wall time against L of the spin dynamics (the O(L²) orbital bookkeeping) | prints | — |
-| `bench_dyn_cost` | Is an `Fbr_dyn` timestep O(L²) or O(L³)? Phase by phase, for `spin_symmetric`, `spin_block` and `leading` | `bench_dyn_cost_{sym,block,ns}_L{250,500,1000,2000,4000}_U{0.1,0.2}` | `bench_dyn_cost.py` |
+| `bench_dyn_cost` | Is an `Fbr_dyn` timestep O(L²) or O(L³)? Phase by phase, for `spin_sym`, `spin_block` and `standard` | `bench_dyn_cost_{sym,block,ns}_L{250,500,1000,2000,4000}_U{0.1,0.2}` | `bench_dyn_cost.py` |
 
-Finding (2026-09-15): **the timestep is O(L²) for all three layouts.** The measurement
+Finding (2026-09-15): **the timestep is O(L²) for all three geometries.** The measurement
 `correlator(i,j)` was O(L³) and is now O(L²). 60 steps (t=6) of the example quenches, run one at a
 time on one core. The window and χ do not depend on L (n_active 12–14, χ=8 for the SIAM, 8 and 12 for
 the IRLM), so the cost against L is the cost of a step. Slopes are fitted over L=1000–4000:
 
-| per step | `spin_symmetric` | `spin_block` | `leading` | where it comes from |
+| per step | `spin_sym` | `spin_block` | `standard` | where it comes from |
 |---|---|---|---|---|
 | orbital update (build_K, plan, apply) | 2.02 | 1.99 | 2.20 | ≈L Givens gates per step (4028 at L=4000), each O(L) on `rot`, `cc`, `K` |
 | TDVP | 1.03 | 1.02 | 1.15 | ITensor sweeps the MPO and the environments over all L sites |
@@ -82,8 +96,8 @@ the IRLM), so the cost against L is the cost of a step. Slopes are fitted over L
   use only rows of `effective_rot` (`effective_rot_row`, `effective_rot_times`), which gives the same n0
   (|diff|=0 against the independent two-row evaluation `correlator_L2` in `bench_dyn_cost`). `effective_rot()`
   itself and the full `correlator()` matrix are still O(L³).
-- Checks: `spin_symmetric` and `spin_block` agree on n0(t=6) to 1.4e-5 at every L, and the L=1000
-  `spin_symmetric` value (0.886199) matches `test/ref/output/fbr_dyn_siam_L1000_U0.1.txt` (0.886201).
+- Checks: `spin_sym` and `spin_block` agree on n0(t=6) to 1.4e-5 at every L, and the L=1000
+  `spin_sym` value (0.886199) matches `test/ref/output/fbr_dyn_siam_L1000_U0.1.txt` (0.886201).
 
 Finding: the co-moving frame is a **negative result**. The bath propagator couples empty and
 full Slater orbitals, so the window grows and the eigenstate drifts. The ~20-orbital
@@ -131,13 +145,13 @@ Findings (2026-09-14):
   | 200 | 0.4 | 24 → 93 | 29 → 119 | 36 | 1640 / 1342 | 2.4e-4 |
 
   (Wall time is the evolution only, one core each, 16–20 runs sharing the machine.)
-- **spin_symmetric is wrong for the excitation:** `Fb_mps::apply` mirrors the down block of `cc`
+- **spin_sym is wrong for the excitation:** `Fb_mps::apply` mirrors the down block of `cc`
   onto the up block, so n0↑ reads n0↓ after one step (0.651 instead of 0.996). The MPS drifts
   too: the window and the rotations come from the down sector only, so the window stays at 12
   instead of 14–15 (L=40, U=0.1) and the up electron's spread is cut off. n0↑ read straight
   from the MPS is off by 3e-4 at t=3, ten times the spin_block–star agreement. `Fbr_dyn` and
   `Fbr_dyn_shared` now throw on a state that is not its own mirror image under
-  `spin_symmetric`; use `spin_block` for spin-polarized states.
+  `spin_sym`; use `spin_block` for spin-polarized states.
 
 ## Cutoffs of the excitation: circuit vs orbital activity
 

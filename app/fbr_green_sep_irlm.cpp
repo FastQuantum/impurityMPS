@@ -52,7 +52,7 @@ int main(int argc, char **argv)
                    .to_complex();
     } catch (...) {
         auto gs = Fb_mps<double>::from_slater(model.rot, vec{model.Kmat.diag()},
-                                              L / 2, model.n_imp(), leading);
+                                              L / 2, model.n_imp(), standard);
         gs.tol = 1e-12;
         Fbr_gs gsSolver(model, gs);
         int nsweep = envI("GREEN_GSSWEEP", 80);

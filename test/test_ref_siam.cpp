@@ -15,7 +15,7 @@ namespace {
 
 using Solver = Fbr_dyn;
 
-// Spinless (interleaved up/down) layout: the FBR site -> chain index map.
+// Standard geometry (interleaved up/down): the FBR site -> chain index map.
 uvec fbrIndexToChainIndex(int L)
 {
     uvec p(L);
@@ -81,10 +81,10 @@ void checkChain(TrajResult const &res, std::map<std::string, Tol> const &tol)
 
 } // namespace
 
-TEST_CASE("fbr_ns vs chain center reference U=0.2", "[fb_ref_ns]") {
+TEST_CASE("fbr_siam vs chain center reference U=0.2", "[fb_ref_siam]") {
     checkChain(resultFor(0.2, "0.2"), chainTol());
 }
-TEST_CASE("fbr_ns vs chain center reference U=0.1", "[fb_ref_ns]") {
+TEST_CASE("fbr_siam vs chain center reference U=0.1", "[fb_ref_siam]") {
     checkChain(resultFor(0.1, "0.1"), chainTol());
 }
 

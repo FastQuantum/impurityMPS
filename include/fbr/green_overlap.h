@@ -26,7 +26,7 @@ namespace overlap_detail {
 
 /// Givens reduction of `rot` to (phased) identity, LEFT-stair like
 /// givens_for_rot_left, but skipping any pivot whose lower entry is already below
-/// `tol`. This is what keeps the alignment O(n_active): the plain reduction turns
+/// `tol`. This avoids spurious gates: the plain reduction turns
 /// a pair of ~machine-eps entries (all the frozen/deep-bath columns of a
 /// near-identity relative frame) into a full 45-degree rotation -- spurious gates
 /// that only cancel in aggregate and that shred an entangled MPS. Skipping them

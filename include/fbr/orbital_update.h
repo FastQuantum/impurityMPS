@@ -1,7 +1,7 @@
 #ifndef FBR_ORBITAL_UPDATE_H
 #define FBR_ORBITAL_UPDATE_H
 
-#include "layout.h"
+#include "chain_geometry.h"
 #include "givens_rotation.h"
 
 #include <complex>

@@ -1,11 +1,11 @@
-// Cost of one Fbr_dyn timestep against L, phase by phase, for the three layouts.
+// Cost of one Fbr_dyn timestep against L, phase by phase, for the three geometries.
 //
 // The question: is a timestep O(L^2) (orbital bookkeeping on the L x L matrices
 // rot, cc, K) with an L-independent MPS part, or is there an O(L^3) left?
 //
 // The quenches are those of the examples: SIAM (U=0.1, V=0.1) from the doubly
-// occupied impurity with empty buffers (example/fbr_dyn_siam.cpp) for
-// spin_symmetric and spin_block, IRLM (U=0.2, V=0.1) from |10> for leading.
+// occupied impurity with empty buffers (example/fbr_dyn_siam_spin_sym.cpp) for
+// spin_sym and spin_block, IRLM (U=0.2, V=0.1) from |10> for standard.
 // At fixed t the physics (window, bond dimension) does not depend on L, so the
 // time of step n isolates the L dependence. The steps below replay
 // Fbr_dyn::iterate() through its public methods, in the same order, with a
@@ -20,8 +20,8 @@
 // went through the dense effective_rot, O(L^3): 166 s at L=4000 (app/README.md).
 //
 //   OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 ./build/app/bench_dyn_cost block 1000 30
-//   layout: sym | block | ns
-//   writes app/output/bench_dyn_cost_<layout>_L<L>_U<U>.dat
+//   geometry: sym | block | ns
+//   writes app/output/bench_dyn_cost_<geometry>_L<L>_U<U>.dat
 
 #include "fbr/fbr.h"
 
@@ -42,7 +42,7 @@ static double sec_since(clk::time_point t0)
 }
 
 /// SIAM in the example's convention: {buf_up, imp_up, imp_dw, buf_dw} = {2, 0, 1, 3}
-static ImpurityParam siam(int L, double U, Layout layout)
+static ImpurityParam siam(int L, double U, Chain_geometry geometry)
 {
     double V = 0.1;
     arma::mat K(L, L, arma::fill::zeros);
@@ -51,7 +51,7 @@ static ImpurityParam siam(int L, double U, Layout layout)
     K(0, 2) = K(2, 0) = K(1, 3) = K(3, 1) = V;
     arma::mat Umat(L, L, arma::fill::zeros);
     Umat(0, 1) = U;
-    return ImpurityParam{.Kmat = K, .Umat = Umat, .imp_pos = {2, 0, 1, 3}, .layout = layout};
+    return ImpurityParam{.Kmat = K, .Umat = Umat, .imp_pos = {2, 0, 1, 3}, .geometry = geometry};
 }
 
 /// spinless IRLM, as in example/fbr_dyn_irlm.cpp
@@ -92,7 +92,7 @@ int main(int argc, char** argv)
 
     auto t0 = clk::now();
     ImpurityParam model = lay == "ns"    ? irlm(L, U)
-                          : lay == "sym" ? siam(L, U, spin_symmetric)
+                          : lay == "sym" ? siam(L, U, spin_sym)
                                          : siam(L, U, spin_block);
     model.to_star();
     double t_star = sec_since(t0);
@@ -116,7 +116,7 @@ int main(int argc, char** argv)
 
     std::string fname = "app/output/bench_dyn_cost_" + lay + "_L" + std::to_string(L) + "_U" + Ustr + ".dat";
     std::ofstream out(fname);
-    out << "# Fbr_dyn timestep cost, layout=" << lay << " L=" << L << " U=" << Ustr
+    out << "# Fbr_dyn timestep cost, geometry=" << lay << " L=" << L << " U=" << Ustr
         << " dt=" << dt << " tol=1e-10 epsilon_M=0, one thread\n"
         << "# setup: to_star " << t_star << " s, Fbr_dyn constructor " << t_ctor << " s\n"
         << "# times in seconds; total = buildK+plan+applyK+applyfb+tdvp\n"

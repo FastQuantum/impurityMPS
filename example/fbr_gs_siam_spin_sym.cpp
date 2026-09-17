@@ -17,12 +17,12 @@ int main()
         K(1,1)=-U/2;
         K(0,2)=K(2,0)=K(1,3)=K(3,1)=0.5;
     }
-    // Umat: L×L, indexed by site in input Kmat layout. U on (site 0 = imp_up, site 1 = imp_dw).
+    // Umat: L×L, indexed by site in input Kmat geometry. U on (site 0 = imp_up, site 1 = imp_dw).
     arma::mat Umat(L, L, arma::fill::zeros);
     Umat(0, 1) = U;
     // imp_pos in convention 2 (outer up, inner up=imp_up, inner dw=imp_dw, outer dw).
     // Only physical impurities here (no buffer): imp_pos = {0, 1}.
-    auto model = ImpurityParam{.Kmat=K, .Umat=Umat, .imp_pos={0,1}, .layout=spin_symmetric};
+    auto model = ImpurityParam{.Kmat=K, .Umat=Umat, .imp_pos={0,1}, .geometry=spin_sym};
     model.to_star();
 
     auto ek=arma::vec {model.Kmat.diag()};
@@ -42,7 +42,7 @@ int main()
 
     for(auto i=0;i<100;i++){
         auto [a,b]=solver.fb.range(Part::active);
-        solver.fb.occupations_ni().as_row().eval().cols(a,b-1).eval().print("ni");
+        solver.fb.occupations().as_row().eval().cols(a,b-1).eval().print("ni");
         solver.iterate(/*{.max_bond_dim=128}*/);
         double n0 = solver.fb.correlator(0,0);
         double cd=2*solver.fb.correlator(0,1);

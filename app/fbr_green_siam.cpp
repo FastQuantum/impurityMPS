@@ -16,8 +16,8 @@
 // ITensor's particle-number-conserving AutoMPO cannot build).
 //
 // The ground state psi0 is spin-flip symmetric, so it is found under the cheaper
-// spin_symmetric layout. B = c_0^dag|psi0> has N_up = N_dw + 1 and is not:
-// spin_symmetric evolves only the dw sector and mirrors it onto the up one, which
+// spin_sym geometry. B = c_0^dag|psi0> has N_up = N_dw + 1 and is not:
+// spin_sym evolves only the dw sector and mirrors it onto the up one, which
 // would give B the dw sector's correlators and cut the up electron's spread out
 // of the window (Fbr_dyn_shared refuses it). The dynamics therefore runs under
 // spin_block, in the same star frame -- the reflected up bath of the symmetric
@@ -89,7 +89,7 @@ int main(int argc, char** argv)
 
     auto model = fbrtest::makeSiamModel(L, U, V);
 
-    // ---- ground state (spin_symmetric) -------------------------------------
+    // ---- ground state (spin_sym) -------------------------------------
     auto gs = slater<double>(model);
     gs.tol = 1e-12;
     auto gs_solver = Fbr_gs(model, gs);
@@ -106,9 +106,9 @@ int main(int argc, char** argv)
     // Master-slave convention: the first state is the master and drives the
     // shared orbital basis. The excitation B=c_0^dag|psi0> is the hard evolution,
     // so it is the master; the stationary ground state psi0 is the slave.
-    model.layout = spin_block;   // B is not spin-flip symmetric, see the top
+    model.geometry = spin_block;   // B is not spin-flip symmetric, see the top
     auto psi0 = gs_solver.fb.to_complex();
-    psi0.layout = spin_block;
+    psi0.geometry = spin_block;
     psi0.tol = 1e-12;
     auto [B, nrm] = add_particle(psi0, 0);
     B.tol = psi0.tol;
@@ -132,7 +132,7 @@ int main(int argc, char** argv)
                 + "_U" + us + ".dat";
     ofstream out(name);
     out << setprecision(12);
-    out << "# SIAM impurity greater Green function, FBR (gs spin_symmetric, dynamics spin_block)\n"
+    out << "# SIAM impurity greater Green function, FBR (gs spin_sym, dynamics spin_block)\n"
         << "# L=" << L << " U=" << U << " V=" << V << " dt=" << dt
         << " tmax=" << tmax << " E_gs=" << gs_solver.energy << "\n"
         << "# t  n_active  bond_dim  wall_s  ReG00  ImG00  n0  ReC0n  ImC0n  E_psi0  E_B\n";

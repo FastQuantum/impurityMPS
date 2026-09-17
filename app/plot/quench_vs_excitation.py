@@ -1,5 +1,5 @@
 """What one FBR evolution costs, by protocol (SIAM): the quench of the paper and the
-ground state itself (spin_symmetric), and the Green-function excitation c_0^dag|gs>
+ground state itself (spin_sym), and the Green-function excitation c_0^dag|gs>
 (spin_block, since it is spin-polarized);
 plus the co-moving-frame negative result (Fbr_dyn_frame against Fbr_dyn on |gs>).
 
