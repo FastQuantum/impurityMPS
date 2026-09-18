@@ -14,6 +14,7 @@ import traceback
 import bench_dyn_cost
 import bench_green_cost
 import bond_dynamics
+import green_align_gates
 import green_irlm
 import green_siam
 import quench_vs_excitation
@@ -22,6 +23,7 @@ from common import HERE, REPO
 SECTIONS = [
     ("IRLM Green function: separate vs shared frames", green_irlm),
     ("SIAM Green function: FBR vs star vs chain", green_siam),
+    ("Separate-frame alignment cost (SIAM)", green_align_gates),
     ("Green function cost: few-body vs full star", bench_green_cost),
     ("Cost of one evolution, by protocol", quench_vs_excitation),
     ("Cost of a timestep against L", bench_dyn_cost),

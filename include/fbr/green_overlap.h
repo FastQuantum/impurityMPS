@@ -87,6 +87,19 @@ Range mismatch_band(Fb_mps<T> const& A, Fb_mps<T> const& B, double tol)
     return {lo, hi};
 }
 
+/// Diagnostics of one align_to_frame call: how big the alignment circuit was.
+/// The number of gates actually applied to the MPS (`gates`) is the cost that
+/// matters and is far below the candidate count once the near-identity gates of
+/// the frozen bath are skipped. `band` is the width b-a of the aligned band.
+struct AlignStats {
+    int band = 0;             ///< width of the aligned band (b - a)
+    int gates_candidate = 0;  ///< two-site gates before the ~identity skip
+    int gates = 0;            ///< two-site gates actually applied to the MPS
+    int phases = 0;           ///< single-site phase clean-ups applied
+    int bond = 0;             ///< max bond dim of the rotated (throwaway) MPS after the circuit
+    bool full = false;        ///< whole-chain fallback was triggered
+};
+
 /// Rotate `fb` into the orbital frame `target` (an L x L unitary in the same
 /// original basis as fb.rot), leaving the physical state unchanged. After the
 /// call fb.rot == target (to `cutoff`), fb.cc and fb.psi are transformed to
@@ -103,15 +116,21 @@ Range mismatch_band(Fb_mps<T> const& A, Fb_mps<T> const& B, double tol)
 ///
 /// `cutoff` sets the accuracy/cost trade-off, as an amplitude: the reduction drops
 /// any Givens whose entry is below it, and a residual phase closer to 1 than it is
-/// left alone. gateTEvol truncates the MPS to a discarded weight of cutoff^2 (but
-/// no finer than fb.tol, the state's own truncation): a weight is a squared
-/// amplitude, and a truncation at `cutoff` itself, repeated over the O(band^2)
-/// gates, costs far more than `cutoff` (L=100 IRLM, cutoff 1e-4: G off by 8e-3,
-/// against 1e-4 with cutoff^2 in a 1.4x longer run). cutoff<0 uses fb.tol. The
-/// rotated MPS of a Green-function overlap is a throwaway, so 1e-4 is enough.
+/// left alone. cutoff<0 uses fb.tol.
+///
+/// `mps_cutoff` is the discarded weight at which gateTEvol truncates the rotated
+/// MPS as the circuit is applied (never finer than fb.tol). It is separate from
+/// `cutoff` because the rotated MPS is a THROWAWAY: only the scalar overlap it
+/// feeds survives, and the frame rotation entangles it, so keeping it accurate is
+/// what makes the alignment expensive -- chi of the rotated MPS climbs with time
+/// even when both states' own bond dims have saturated. When only a few digits of
+/// the Green function are wanted, a loose mps_cutoff (1e-6..1e-4) keeps chi, and
+/// hence the alignment cost, bounded. mps_cutoff<0 falls back to cutoff^2, the
+/// historical default (a squared amplitude; L=100 IRLM, cutoff 1e-4: G to ~1e-4,
+/// against ~8e-3 when the MPS is truncated at cutoff itself).
 template<class T>
 void align_to_frame(Fb_mps<T>& fb, arma::Mat<T> const& target, double cutoff=-1,
-                    Range band={-1,-1})
+                    Range band={-1,-1}, double mps_cutoff=-1, AlignStats* stats=nullptr)
 {
     if (target.n_rows!=(arma::uword)fb.length())
         throw std::invalid_argument("align_to_frame: target size mismatch");
@@ -128,7 +147,9 @@ void align_to_frame(Fb_mps<T>& fb, arma::Mat<T> const& target, double cutoff=-1,
         arma::abs(1.0 - arma::sum(arma::square(arma::abs(G)), 0)).max() > cutoff) {
         a = 0; b = fb.length();
         G = fb.rot.t() * target;
+        if (stats) stats->full = true;
     }
+    if (stats) stats->band = b - a;
 
     // givens_dagger(givens_align_left(G)) is a nearest-neighbour circuit whose
     // matrot equals G up to a diagonal column phase D; applying it as a frame
@@ -136,6 +157,7 @@ void align_to_frame(Fb_mps<T>& fb, arma::Mat<T> const& target, double cutoff=-1,
     auto givens = givens_dagger(overlap_detail::givens_align_left(G, cutoff));
     OrbitalUpdate<T> update(fb.active.a, fb.active.b);
     update.append(arma::regspace<arma::uvec>(a, b-1), givens);
+    if (stats) stats->gates_candidate = (int)update.gates.size();
 
     std::vector<GivensRot<T>> circuit;
     for (auto const& gate : update.gates) {
@@ -144,11 +166,14 @@ void align_to_frame(Fb_mps<T>& fb, arma::Mat<T> const& target, double cutoff=-1,
         if (std::abs(gate.s) > cutoff)                  // skip ~identity gates
             circuit.push_back(gate.givens(gate.a).transpose());
     }
+    if (stats) stats->gates = (int)circuit.size();
     auto gates = gates_from_givens(fb.sites, circuit);
+    double mc = mps_cutoff>=0 ? std::max(mps_cutoff,fb.tol) : std::max(cutoff*cutoff,fb.tol);
     if (!gates.empty())
         itensor::gateTEvol(gates,1,1,fb.psi,
-                           {"Cutoff",std::max(cutoff*cutoff,fb.tol),"Quiet",true,
+                           {"Cutoff",mc,"Quiet",true,
                             "Normalize",false,"ShowPercent",false});
+    if (stats) stats->bond = itensor::maxLinkDim(fb.psi);
 
     // Remove the residual column phase D = diag(target^dag fb.rot) on the band.
     for (int k=a; k<b; ++k) {
@@ -159,6 +184,7 @@ void align_to_frame(Fb_mps<T>& fb, arma::Mat<T> const& target, double cutoff=-1,
             fb.rot.col(k) *= std::conj(d);                 // -> target.col(k)
             fb.cc.row(k)  *= std::conj(d);
             fb.cc.col(k)  *= d;
+            if (stats) ++stats->phases;
         }
     }
     fb.active = update.active;
@@ -169,11 +195,13 @@ void align_to_frame(Fb_mps<T>& fb, arma::Mat<T> const& target, double cutoff=-1,
 /// frames differ -- and the two MPS are contracted; see align_to_frame for
 /// `cutoff`. Pass full=true to align the whole chain (the reference path).
 template<class T>
-cmpx overlap(Fb_mps<T> const& A, Fb_mps<T> const& B, double cutoff=-1, bool full=false)
+cmpx overlap(Fb_mps<T> const& A, Fb_mps<T> const& B, double cutoff=-1, bool full=false,
+             double mps_cutoff=-1, AlignStats* stats=nullptr)
 {
     auto Bc = B;
     double tol = cutoff<0 ? A.tol : cutoff;
-    align_to_frame(Bc, A.rot, cutoff, full ? Range{-1,-1} : mismatch_band(A, B, tol));
+    align_to_frame(Bc, A.rot, cutoff, full ? Range{-1,-1} : mismatch_band(A, B, tol),
+                   mps_cutoff, stats);
     return itensor::innerC(A.psi, Bc.psi);
 }
 
@@ -187,11 +215,13 @@ cmpx overlap(Fb_mps<T> const& A, Fb_mps<T> const& B, double cutoff=-1, bool full
 /// discarded. `cutoff` may be loose (1e-4 is enough). cutoff<0 uses A.tol; full=true
 /// aligns the whole chain (the O(L^3) reference path, for validation).
 template<class T>
-cmpx c_element(Fb_mps<T> const& A, Fb_mps<T> const& B, int i, double cutoff=-1, bool full=false)
+cmpx c_element(Fb_mps<T> const& A, Fb_mps<T> const& B, int i, double cutoff=-1, bool full=false,
+               double mps_cutoff=-1, AlignStats* stats=nullptr)
 {
     auto Bc = B;
     double tol = cutoff<0 ? A.tol : cutoff;
-    align_to_frame(Bc, A.rot, cutoff, full ? Range{-1,-1} : mismatch_band(A, B, tol));
+    align_to_frame(Bc, A.rot, cutoff, full ? Range{-1,-1} : mismatch_band(A, B, tol),
+                   mps_cutoff, stats);
     auto Ai = A;
     Ai.apply_local_op("Cdag", i);       // |c_i^dag A>
     return itensor::innerC(Ai.psi, Bc.psi);

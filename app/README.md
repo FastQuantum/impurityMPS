@@ -24,6 +24,7 @@ read by the test suite.
 | `fbr_green_shared_irlm` | The same IRLM run in one shared frame, same parameters | `fbr_green_shared_irlm_L100_U{0.1,0.2}` | `green_irlm.py` |
 | `bench_green_cost` | IRLM: few-body separate frames vs the full star, time per sweep against L | `bench_green_cost_L{20,40,80,160}_U0.2` | `bench_green_cost.py` |
 | `bench_green_cost_siam` | SIAM: the same, split into evolution and overlap, up to t=L/2 | `bench_green_cost_siam_L{40,80,160}_U0.025` | `bench_green_cost.py` |
+| `green_align_gates_siam` | SIAM separate frames: what the frame ALIGNMENT costs — gates, band, `chi_align`, wall time — sweeping the throwaway-MPS truncation `mps_cutoff` | `green_align_gates_siam_L200_U0.1` | `green_align_gates.py` |
 
 Findings so far:
 - **SIAM, shared frame:** G00 agrees with the chain baseline to 2e-5 at L=100 (the star baseline only to 3e-4).
@@ -50,6 +51,21 @@ Findings so far:
   was produced with the master-slave `Fbr_dyn_shared` that the library now uses (basis from
   the first state, the excitation). The U=0.1 data predates it and used the average of the
   states' correlation matrices.
+- **What the separate-frame alignment costs, and its wall (SIAM L=200, U=0.1, t=L/2 target).**
+  `green_align_gates_siam` evolves |gs⟩ and c₀†|gs⟩ in separate frames and, at each step,
+  aligns one into the other's frame (`green_overlap.h`), recording the circuit and its cost.
+  The number of applied Givens gates saturates (~8600, well under the ~19900 a naive
+  band(band-1)/2 reduction would use, band = L by t≈1), the state bond dims saturate (~13–16),
+  and the **final** `chi_align` of the rotated throwaway MPS also saturates (~15). Yet the
+  alignment **wall time hits a wall** around t≈27–30: it is <5 s/step early but explodes to
+  10²–10³ s/step there (reproducible, CPU-bound), so t=L/2=100 is out of reach. The cause is
+  the staircase circuit passing through **highly-entangled intermediate** MPS configurations
+  that the small final bond hides — not the states, not the final overlap.
+  A new `mps_cutoff` argument to `align_to_frame`/`overlap`/`c_element` decouples the
+  throwaway-MPS truncation from the Givens-skip `cutoff` (the old code used `cutoff²`).
+  Sweeping it (`GREEN_MPS_CUTOFFS=1e-4,1e-5,1e-6`) shows 1e-6 keeps G to ~3 digits while 1e-4
+  is too loose (~3% by t≈20); it sets the *final* truncation, so it lowers the typical cost
+  but does not remove the intermediate-entanglement wall.
 
 ## Experimental bath-frame evolution
 
