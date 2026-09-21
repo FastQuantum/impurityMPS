@@ -31,7 +31,7 @@
 // Output: app/output/excitation_cutoff_siam_<method>_L<L>_U<U>_mc<mps>_ac<act>.dat
 //
 // Usage: excitation_cutoff_siam method [L] [tmax] [U] [dt] [maxdim] [mps_cutoff] [activity_tol]
-//        defaults: fbr 100 L/2 0.05 0.1 1024 1e-9 (activity_tol defaults to mps_cutoff)
+//        defaults: fbr 100 L/2 0.05 0.1 1024 1e-8 (activity_tol defaults to mps_cutoff)
 //        L a multiple of 4; method in {fbr, star, star_gs}
 
 #include "fbr/fbr.h"
@@ -106,7 +106,7 @@ int main(int argc, char** argv)
     double U      = std::stod(us);
     double dt     = argc > 5 ? std::stod(argv[5]) : 0.1;
     int maxdim    = argc > 6 ? std::stoi(argv[6]) : 1024;
-    string mcs    = argc > 7 ? argv[7] : "1e-9";
+    string mcs    = argc > 7 ? argv[7] : "1e-8";
     double mps_cut = std::stod(mcs);
     string acs    = argc > 8 ? argv[8] : mcs;   // activity_tol defaults to mps_cutoff
     double act_cut = std::stod(acs);

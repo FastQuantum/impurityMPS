@@ -81,7 +81,7 @@ auto computeKip(arma::mat const& Kstar, int n_imp, double dt)
     return Kip;
 }
 
-void do_tdvp(itensor::MPS &psi, itensor::MPO const mpo, double dt, double tol=1e-12)
+void do_tdvp(itensor::MPS &psi, itensor::MPO const mpo, double dt, double tol=1e-8)
 {
     TdvpParam args;
     auto sweeps = itensor::Sweeps(1);

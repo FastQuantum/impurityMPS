@@ -28,7 +28,7 @@ int main()
     ek[0]=-10;
     ek[1]=10;
     auto fb=slater<cmpx>(model, ek);
-    fb.tol=1e-10;
+    fb.tol=1e-8;
 
     double dt=0.1;
     auto solver=Fbr_dyn(model,fb,dt);

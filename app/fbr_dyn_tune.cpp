@@ -45,7 +45,7 @@ static auto makeFbrRun(int L, double dt, double U)
     ek[L / 2 - 2] = ek[L / 2 + 1] = 10;
     auto fb = slater<cmpx>(model, ek);
     auto solver = Fbr_dyn(model, fb, dt);
-    solver.fb.tol = 1e-12;
+    solver.fb.tol = 1e-8;
     return solver;
 }
 

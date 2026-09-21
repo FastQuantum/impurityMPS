@@ -34,7 +34,7 @@ int main()
 
     double dt=0.1;
     auto solver=Fbr_dyn(model,fb,dt);
-    solver.fb.tol=1e-12;
+    solver.fb.tol=1e-8;
 
     arma::real(solver.K*1).eval().clean(1e-11).print("K initial");
 

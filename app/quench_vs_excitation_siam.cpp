@@ -108,7 +108,7 @@ int main(int argc, char** argv)
 
     // ---- ground state (needed for the excitation, and as an energy reference) ----
     auto gs = slater<double>(model);
-    gs.tol = 1e-12;
+    gs.tol = 1e-9;
     auto gs_solver = Fbr_gs(model, gs);
     itensor::cpu_time clk;
     for (int i = 0; i < 80; i++) gs_solver.iterate({.max_bond_dim = 512});
@@ -123,7 +123,7 @@ int main(int argc, char** argv)
         int m = L / 2;                 // impurity orbitals sit at m-1 (up) and m (dw)
         ek[m - 1] = ek[m] = -1e3;      // fill both impurity spins
         auto fb = slater<cmpx>(model, ek);
-        fb.tol = 1e-10;
+        fb.tol = 1e-8;
         run(model, fb, dt, nStep,
             "app/output/quench_siam_L" + to_string(L) + "_U" + us + ".dat", "quench", e_gs);
     }
@@ -138,7 +138,7 @@ int main(int argc, char** argv)
         model_block.geometry = spin_block;
         auto fb = gs_solver.fb.to_complex();
         fb.geometry = spin_block;
-        fb.tol = 1e-10;
+        fb.tol = 1e-8;
         fb.apply_local_op("Cdag", 0);
         fb.psi.normalize();
         fb.update_cc();
@@ -149,7 +149,7 @@ int main(int argc, char** argv)
     // ---- protocol 3: ground state alone (isolates (a), the IP evolution) ----
     if (wanted("gs")) {
         auto fb = gs_solver.fb.to_complex();
-        fb.tol = 1e-10;
+        fb.tol = 1e-8;
         run(model, fb, dt, nStep,
             "app/output/gs_siam_L" + to_string(L) + "_U" + us + ".dat", "ground state", e_gs);
     }

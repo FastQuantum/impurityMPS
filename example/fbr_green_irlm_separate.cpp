@@ -81,7 +81,7 @@ int main(int argc, char** argv)
     auto gs=Fb_mps<double>::from_slater(model.rot,
                                         vec{model.Kmat.diag()},
                                         n_part, model.n_imp(), standard);
-    gs.tol=1e-12;
+    gs.tol=1e-9;
     auto gs_solver=Fbr_gs(model,gs);
     for(auto i=0; i<60; i++) gs_solver.iterate({.max_bond_dim=256});
     cout<<setprecision(12)
@@ -90,7 +90,7 @@ int main(int argc, char** argv)
 
     // ---- one run per matrix element, two INDEPENDENT solvers per run ----
     auto psi0=gs_solver.fb.to_complex();
-    psi0.tol=1e-12;
+    psi0.tol=1e-8;
 
     struct Run { Fbr_dyn A, B; double nrm; };
     auto run_for=[&](int j) {

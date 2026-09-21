@@ -104,7 +104,7 @@ int main(int argc, char** argv)
         ek[L / 2 - 2] = ek[L / 2 + 1] = 10;
     }
     auto fb = slater<cmpx>(model, ek);
-    fb.tol = 1e-10;
+    fb.tol = 1e-8;
 
     t0 = clk::now();
     auto solver = Fbr_dyn(model, fb, dt);
@@ -117,7 +117,7 @@ int main(int argc, char** argv)
     std::string fname = "app/output/bench_dyn_cost_" + lay + "_L" + std::to_string(L) + "_U" + Ustr + ".dat";
     std::ofstream out(fname);
     out << "# Fbr_dyn timestep cost, geometry=" << lay << " L=" << L << " U=" << Ustr
-        << " dt=" << dt << " tol=1e-10 epsilon_M=0, one thread\n"
+        << " dt=" << dt << " tol=1e-8 epsilon_M=0, one thread\n"
         << "# setup: to_star " << t_star << " s, Fbr_dyn constructor " << t_ctor << " s\n"
         << "# times in seconds; total = buildK+plan+applyK+applyfb+tdvp\n"
         << "# t n_active chi ngates buildK plan applyK applyfb tdvp total\n"

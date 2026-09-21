@@ -90,7 +90,7 @@ auto computeKstar(mat K, int n_imp)
 }
 
 void do_tdvp(itensor::MPS &psi, itensor::MPO const mpo, double dt,
-            fbr::TdvpParam const& args, double tol=1e-12)
+            fbr::TdvpParam const& args, double tol=1e-8)
 {
     auto sweeps = itensor::Sweeps(1);
     sweeps.maxdim() = args.max_bond_dim;

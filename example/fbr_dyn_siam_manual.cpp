@@ -91,7 +91,7 @@ int main()
     }
 
     auto solver=Fbr_dyn(model,fb,dt);
-    solver.fb.tol=1e-12;
+    solver.fb.tol=1e-8;
 
     // arma::real(fb.rot*1).eval().clean(1e-11).print("fb.rot");
     // arma::real(model.rot*1).eval().clean(1e-11).print("param.rot");

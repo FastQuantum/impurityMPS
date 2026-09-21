@@ -50,7 +50,7 @@ auto computeKstar(mat K, int n_imp)
     return make_pair(Kstar,rot);
 }
 
-void do_tdvp(itensor::MPS &psi, itensor::MPO const mpo, double dt, double tol=1e-12)
+void do_tdvp(itensor::MPS &psi, itensor::MPO const mpo, double dt, double tol=1e-8)
 {
     TdvpParam args;
     auto sweeps = itensor::Sweeps(1);

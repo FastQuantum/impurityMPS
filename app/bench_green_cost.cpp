@@ -52,7 +52,7 @@ void applyCdag(itensor::Fermion const &sites, itensor::MPS &psi, int site)
 void starTdvp(itensor::MPS &psi, itensor::MPO const &mpo, double dt)
 {
     auto sweeps = itensor::Sweeps(1);
-    sweeps.maxdim() = 1024; sweeps.cutoff() = 1e-10; sweeps.niter() = 16; sweeps.noise() = 0;
+    sweeps.maxdim() = 1024; sweeps.cutoff() = 1e-8; sweeps.niter() = 16; sweeps.noise() = 0;
     std::vector<double> eK(2, 1e-4);
     itensor::addBasis(psi, mpo, eK, {"Cutoff", 1e-8, "Method", "DensityMatrix",
                                      "KrylovOrd", 2, "DoNormalize", true, "Quiet", true, "Silent", true});
@@ -85,9 +85,9 @@ int main(int argc, char **argv)
     cerr << "# few-body GS energy = " << setprecision(10) << gsSolver.energy << "\n";
     auto addFb = [](Fb_mps<cmpx> const &p, int j) {
         auto s = p; s.apply_local_op("Cdag", j); s.psi.normalize(); s.update_cc(); return s; };
-    auto psi0 = gsSolver.fb.to_complex(); psi0.tol = 1e-9;
+    auto psi0 = gsSolver.fb.to_complex(); psi0.tol = 1e-8;
     auto fbB0 = addFb(psi0, 0), fbB1 = addFb(psi0, 1);
-    fbB0.tol = fbB1.tol = 1e-9;
+    fbB0.tol = fbB1.tol = 1e-8;
     Fbr_dyn dPsi(model, psi0, dt), dB0(model, fbB0, dt), dB1(model, fbB1, dt);
 
     // ---- full-L star ground state (DMRG on the star Hamiltonian) ----
@@ -99,7 +99,7 @@ int main(int argc, char **argv)
         uvec iek = sort_index(vec{Kstar.diag()});
         for (int j = 0; j < n_part; j++) st.set((int)iek[j] + 1, "1");
         sPsi = itensor::MPS(st);
-        auto sw = itensor::Sweeps(1); sw.maxdim() = 1024; sw.cutoff() = 1e-10; sw.niter() = 4; sw.noise() = 1e-8;
+        auto sw = itensor::Sweeps(1); sw.maxdim() = 1024; sw.cutoff() = 1e-9; sw.niter() = 4; sw.noise() = 1e-8;
         double e = 0;
         for (int i = 0; i < 40; i++) e = itensor::dmrg(sPsi, mpo, sw, {"Quiet", true, "Silent", true});
         cerr << "# star DMRG GS energy   = " << setprecision(10) << e << "\n";

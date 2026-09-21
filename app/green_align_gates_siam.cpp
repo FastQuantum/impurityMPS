@@ -39,11 +39,11 @@
 // Env: GREEN_CUTOFF       Givens-skip / band threshold             (default 1e-4)
 //      GREEN_MPS_CUTOFFS  comma list of throwaway-MPS truncations  (default 1e-6;
 //                         pass e.g. 1e-4,1e-5,1e-6 to sweep cost vs accuracy)
-//      GREEN_TOL          state MPS/circuit cutoff fb.tol          (default 1e-9)
+//      GREEN_TOL          state MPS/circuit cutoff fb.tol          (default 1e-8)
 //      GREEN_GSSWEEP      ground-state DMRG sweeps                 (default 80)
 //
 // GREEN_TOL governs how far the excitation's OWN bond dimension grows. At the
-// excitation-bond-study default (1e-9..1e-10) it saturates around chi~25-35; a
+// tuned production default (1e-8) it stays off the numerical-noise floor; a
 // much tighter value (1e-12) keeps noise-level singular values and inflates it.
 
 #include "fbr/fbr_dyn.h"
@@ -92,7 +92,7 @@ int main(int argc, char **argv)
     double dt   = argc > 4 ? std::stod(argv[4]) : 0.1;
     double V    = 0.1;
     double cutoff = envD("GREEN_CUTOFF", 1e-4);     // Givens-skip / band threshold
-    double tol    = envD("GREEN_TOL", 1e-9);        // state MPS/circuit cutoff (fb.tol)
+    double tol    = envD("GREEN_TOL", 1e-8);        // state MPS/circuit cutoff (fb.tol)
     // The rotated throwaway-MPS truncation. Default 1e-6: the tuned production
     // value, loose enough that chi_align (and the alignment time) saturate while G
     // keeps ~3 digits. Pass a comma list to sweep several at once (each step G is

@@ -41,7 +41,7 @@ int main()
 
     auto sweeps = itensor::Sweeps(1);
     sweeps.maxdim() = 1024;
-    sweeps.cutoff() = 1e-10;
+    sweeps.cutoff() = 1e-9;
     sweeps.niter() = 4;
     sweeps.noise() = 1e-8;
 

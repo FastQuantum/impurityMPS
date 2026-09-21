@@ -30,7 +30,7 @@ int main()
     ek[0]=-10;
     ek[1]=10;
     auto fb=slater<double>(model, ek);
-    fb.tol=1e-10;
+    fb.tol=1e-9;
 
     auto solver=Fbr_gs(model,fb);
 

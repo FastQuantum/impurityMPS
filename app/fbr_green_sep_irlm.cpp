@@ -53,7 +53,7 @@ int main(int argc, char **argv)
     } catch (...) {
         auto gs = Fb_mps<double>::from_slater(model.rot, vec{model.Kmat.diag()},
                                               L / 2, model.n_imp(), standard);
-        gs.tol = 1e-12;
+        gs.tol = 1e-9;
         Fbr_gs gsSolver(model, gs);
         int nsweep = envI("GREEN_GSSWEEP", 80);
         for (int i = 0; i < nsweep; i++) gsSolver.iterate({.max_bond_dim = 256});
@@ -61,7 +61,7 @@ int main(int argc, char **argv)
              << ": energy=" << setprecision(10) << gsSolver.energy << "\n";
         psi0 = gsSolver.fb.to_complex();
     }
-    psi0.tol = 1e-12;
+    psi0.tol = 1e-8;
     auto addParticle = [](Fb_mps<cmpx> const &p, int j) {
         auto s = p; s.apply_local_op("Cdag", j);
         double nrm = std::sqrt(std::real(itensor::innerC(s.psi, s.psi)));
@@ -70,7 +70,7 @@ int main(int argc, char **argv)
     };
     auto [B0, nrm0] = addParticle(psi0, 0);
     auto [B1, nrm1] = addParticle(psi0, 1);
-    B0.tol = B1.tol = 1e-12;
+    B0.tol = B1.tol = 1e-8;
 
     // three INDEPENDENT solvers, stepped in lockstep (shared star frame, n_iter)
     Fbr_dyn dPsi(model, psi0, dt), dB0(model, B0, dt), dB1(model, B1, dt);

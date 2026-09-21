@@ -126,8 +126,9 @@ ground-state window of `Fbr_dyn` is physical (see `include/fbr/fbr_dyn_frame.h`)
 | `quench_bond_irlm` | Paper Fig. 2: χmax and N_active of the IRLM quench (U=0.2, L=200), FBR vs the full chain and full star | `quench_bond_irlm_{fbr,chain,star}_L200_U0.2` | `bond_dynamics.py` |
 | `excitation_bond_siam` | For which U does the full star MPS of the Green-function excitation c₀↑†\|gs⟩ grow, and what does the FBR do on the same evolution? | `excitation_bond_siam_{star,fbr}_L{100,200}_U{0,0.025,0.05,0.1,0.2,0.4}` (+ `_cut1e-12`, `star_gs` checks at L=100, U=0.1) | `bond_dynamics.py` |
 
-Both truncate every MPS at 1e-10 (the paper's ε). The full-MPS programs share `full_mps.h`, and
-the star is built from the same `ImpurityParam` the FBR uses, so it is exactly the FBR's star.
+Both now default to the tuned 1e-8 MPS cutoff; the archived data in the table was produced
+at 1e-10 (the paper's ε). The full-MPS programs share `full_mps.h`, and the star is built
+from the same `ImpurityParam` the FBR uses, so it is exactly the FBR's star.
 
 Findings (2026-09-14):
 - **IRLM quench (Fig. 2) is reproduced:** the FBR saturates at χmax≈70–77 and N_active=23 by
@@ -198,6 +199,24 @@ Findings (2026-09-16, L=100, U=0.1, t=30, accuracy = running max|n0up − n0up(1
 - **gs precision is not critical.** gs_tol 1e-9 vs 1e-12 changes the dynamics n0↑ by 7e-5
   (below the 1e-8 floor) but cuts the gs DMRG bond from 479 to 42 — ~6× cheaper, ~9× with
   the iteration cap. gs_tol=1e-7 is too loose (E off 2e-3, N_active collapses).
+
+The numbers behind the sweet spot (same run; χ, N_active and Rényi-½ averaged over the
+t>20 plateau, error = max over the whole run):
+
+| mps = act | χ | N_active | Rényi-½ | max\|Δn0↑\| vs 1e-11 | wall |
+|---|---|---|---|---|---|
+| 1e-11 | 28.2 | 23.8 | 0.375 | — | 31.3 s |
+| 1e-9 | 12.8 | 16.0 | 0.452 | 4.3e-5 | 19.6 s |
+| **1e-8** | **8.3** | **13.0** | **0.437** | **4.1e-4** | **15.7 s** |
+| 1e-7 | 6.6 | 11.0 | 0.401 | 2.3e-3 | 11.8 s |
+| 1e-6 | 4.0 | 8.0 | 0.258 | 8.9e-3 | 14.0 s |
+
+Rényi-½ is flat from 1e-11 down to 1e-7 while χ falls 4× — the bond dimension the tight
+cutoff buys is noise, not entanglement — and only at 1e-6 does real entanglement start
+being discarded. Past 1e-8 the accuracy loses an order of magnitude per decade for no
+further saving (1e-6 is not even faster: the wall is dominated by the orbital rotation,
+not the MPS). Hence **1e-8 is the default `Fb_mps::tol`** (`include/fbr/fb_mps.h`) and
+the default of the `app/` and `example/` programs.
 
 Production (`excitation_cutoff_siam_{star,fbr}_L1000_U{0.05,0.1}_mc1e-8_ac1e-8`, t=500,
 stop at χ=1024): star vs FBR bond growth, Rényi-½, wall/step and window. Plot with

@@ -69,7 +69,7 @@ int main()
     ek[0]=-10;
     ek[1]=10;
     auto fb=slater<double>(model, ek);
-    fb.tol=1e-10;
+    fb.tol=1e-8;
 
     auto solver=Fbr_gs(model,fb);
 
@@ -105,7 +105,7 @@ reading off real-space observables along the way:
 // ... build K, Umat, model as in the ground-state example ...
 
 auto fb=slater<cmpx>(model, ek);
-fb.tol=1e-10;
+fb.tol=1e-8;
 
 double dt=0.1;
 auto solver=Fbr_dyn(model,fb,dt);

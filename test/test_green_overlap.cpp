@@ -7,6 +7,10 @@
 using namespace arma;
 using namespace fbr;
 
+TEST_CASE("Green overlap uses the tuned throwaway-MPS cutoff", "[green_overlap]") {
+    REQUIRE(default_overlap_mps_cutoff == Approx(1e-6));
+}
+
 namespace {
 
 cx_mat random_unitary(int L, int seed)
@@ -93,9 +97,11 @@ TEST_CASE("overlap is invariant under an entangled representation", "[green_over
         auto A = slater_like(proto, rotA, occA);
         auto B = slater_like(proto, rotB, occB);
         cmpx ref = det_overlap(rotA,occA,rotB,occB);
-        align_to_frame(A, random_unitary(L, 500+trial));
-        align_to_frame(B, random_unitary(L, 900+trial));
-        REQUIRE(std::abs(overlap(A,B) - ref) < 1e-9);
+        // Reference quality: the throwaway MPS must be truncated at the states'
+        // own tol, not at the loose default_overlap_mps_cutoff.
+        align_to_frame(A, random_unitary(L, 500+trial), -1, {-1,-1}, A.tol);
+        align_to_frame(B, random_unitary(L, 900+trial), -1, {-1,-1}, B.tol);
+        REQUIRE(std::abs(overlap(A,B,-1,false,A.tol) - ref) < 1e-9);
     }
 }
 

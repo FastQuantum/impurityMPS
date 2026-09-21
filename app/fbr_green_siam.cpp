@@ -91,7 +91,7 @@ int main(int argc, char** argv)
 
     // ---- ground state (spin_sym) -------------------------------------
     auto gs = slater<double>(model);
-    gs.tol = 1e-12;
+    gs.tol = 1e-9;
     auto gs_solver = Fbr_gs(model, gs);
     itensor::cpu_time clk;
     for (int i = 0; i < 80; i++) gs_solver.iterate({.max_bond_dim = 512});
@@ -109,7 +109,7 @@ int main(int argc, char** argv)
     model.geometry = spin_block;   // B is not spin-flip symmetric, see the top
     auto psi0 = gs_solver.fb.to_complex();
     psi0.geometry = spin_block;
-    psi0.tol = 1e-12;
+    psi0.tol = 1e-8;
     auto [B, nrm] = add_particle(psi0, 0);
     B.tol = psi0.tol;
     auto solver = Fbr_dyn_shared(model, std::vector{B, psi0}, dt);

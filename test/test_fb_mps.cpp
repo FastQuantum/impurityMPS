@@ -11,6 +11,18 @@ Fb_mps<double> make_fb(int L=8, int imp_size=2, int n_part=4) {
 }
 } // namespace
 
+TEST_CASE("Fb_mps uses the tuned noise-floor cutoff by default", "[fb_mps]") {
+    Fb_mps<double> fb;
+    REQUIRE(fb.tol == Approx(1e-8));
+    REQUIRE(fb.activity_tol < 0);
+    REQUIRE(fb.act_tol() == Approx(1e-8));
+
+    fb.tol = 1e-7;
+    REQUIRE(fb.act_tol() == Approx(1e-7));
+    fb.activity_tol = 1e-6;
+    REQUIRE(fb.act_tol() == Approx(1e-6));
+}
+
 TEST_CASE("ensure_symmetry mirrors only spin-symmetric geometries", "[fb_mps_spin]") {
     const int L = 6;
     mat K(L, L, fill::zeros);

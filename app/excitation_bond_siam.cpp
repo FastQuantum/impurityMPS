@@ -18,7 +18,7 @@
 //   star_gs  the same full star TDVP applied to |gs> itself (a stationary state:
 //            any bond growth there is the cost of the TDVP, not of the physics)
 //
-// All truncate the MPS at the same cutoff (default 1e-10; a different value is
+// All truncate the MPS at the same cutoff (default 1e-8; a different value is
 // appended to the file name). The star runs stop once their bond dimension
 // reaches max_bond_dim.
 //
@@ -28,7 +28,7 @@
 // 0 for the FBR, whose frames differ between t=0 and t).
 //
 // Usage: excitation_bond_siam method [L] [tmax] [U] [dt] [max_bond_dim] [cutoff]
-//        (defaults star 100 L/2 0.05 0.1 1024 1e-10); L a multiple of 4
+//        (defaults star 100 L/2 0.05 0.1 1024 1e-8); L a multiple of 4
 
 #include "fbr/fbr.h"
 #include "full_mps.h"
@@ -85,7 +85,7 @@ int main(int argc, char** argv)
     double U      = std::stod(us);
     double dt     = argc > 5 ? std::stod(argv[5]) : 0.1;
     int maxdim    = argc > 6 ? std::stoi(argv[6]) : 1024;
-    string cs     = argc > 7 ? argv[7] : "1e-10";
+    string cs     = argc > 7 ? argv[7] : "1e-8";
     double cutoff = std::stod(cs);
     double V      = 0.1;
     int nStep     = (int)std::llround(tmax / dt);
@@ -101,7 +101,7 @@ int main(int argc, char** argv)
     int i_dw = (int)arma::abs(model.rot.row(1)).index_max();
 
     string name = "app/output/excitation_bond_siam_" + method + "_L" + to_string(L)
-                + "_U" + us + (cs == "1e-10" ? "" : "_cut" + cs) + ".dat";
+                + "_U" + us + (cs == "1e-8" ? "" : "_cut" + cs) + ".dat";
     ostringstream head;
     head << setprecision(12)
          << "# SIAM excitation B=c_0up^dag|gs> (normalized), method=" << method << "\n"
@@ -143,7 +143,7 @@ int main(int argc, char** argv)
 
     // ---- few-body: ground state, then the excitation alone ----
     auto gs = slater<double>(model);
-    gs.tol = 1e-12;
+    gs.tol = 1e-9;
     auto gs_solver = Fbr_gs(model, gs);
     for (int i = 0; i < 80; i++) gs_solver.iterate({.max_bond_dim = 512});
     head << "# E_gs=" << gs_solver.energy << " gs_n_active=" << gs_solver.fb.n_active()

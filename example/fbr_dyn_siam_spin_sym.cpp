@@ -39,7 +39,7 @@ int main()
         fb=slater<cmpx>(model, ek);
         // fb.occupations().as_row().eval().print("ni");
     }
-    // fb.tol=1e-10;
+        // fb.tol=1e-8;
 
     double dt=0.1;
     auto solver=Fbr_dyn(model,fb,dt);

@@ -34,10 +34,12 @@ std::pair<Fb_mps<cmpx>, double> addParticle(Fb_mps<cmpx> const &psi0, int j)
 }
 
 // <c_i^dag A | B> with BOTH states aligned to the fixed frame `common`.
+// Reference quality: truncate the throwaway MPS at each state's own tol instead
+// of the loose default_overlap_mps_cutoff (see green_overlap.h).
 cmpx cElementIn(Fb_mps<cmpx> const &A, Fb_mps<cmpx> const &B, int i, cx_mat const &common)
 {
-    auto Ac = A; align_to_frame(Ac, common);
-    auto Bc = B; align_to_frame(Bc, common);
+    auto Ac = A; align_to_frame(Ac, common, -1, {-1,-1}, A.tol);
+    auto Bc = B; align_to_frame(Bc, common, -1, {-1,-1}, B.tol);
     auto Ai = Ac; Ai.apply_local_op("Cdag", i);
     return itensor::innerC(Ai.psi, Bc.psi);
 }
@@ -94,7 +96,9 @@ TEST_CASE("separate-frame green: B->A agrees with the star frame and matches exa
         for (auto const &run : {std::cref(run0), std::cref(run1)}) {
             int i = 0, j = (&run.get() == &run0) ? 0 : 1;
 
-            cmpx cBA   = c_element(run.get().A.fb, run.get().B.fb, i);            // B -> A, exact
+            // mps_cutoff = A.tol: reference quality, see cElementIn above.
+            cmpx cBA   = c_element(run.get().A.fb, run.get().B.fb, i, -1, false,
+                                   run.get().A.fb.tol);                          // B -> A, exact
             cmpx cStar = cElementIn(run.get().A.fb, run.get().B.fb, i, star);     // both -> star
             cmpx cLoose= c_element(run.get().A.fb, run.get().B.fb, i, 1e-4);      // loose contraction
             devStar = std::max(devStar, std::abs(cBA - cStar));

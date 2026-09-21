@@ -2,9 +2,19 @@ include(FetchContent)
 
 # Keep downloaded dependency sources in a shared cache outside the build tree so
 # they are not re-downloaded every time a build directory is deleted/recreated.
-if(NOT DEFINED FETCHCONTENT_BASE_DIR)
-  set(FETCHCONTENT_BASE_DIR "$ENV{HOME}/.cache/${PROJECT_NAME}/fetchcontent")
+# This must be a cache variable: FetchContent otherwise installs its per-build
+# default (<build>/_deps) before it sees this normal variable.
+set(_fbr_fetchcontent_dir "$ENV{HOME}/.cache/${PROJECT_NAME}/fetchcontent")
+if(NOT DEFINED FETCHCONTENT_BASE_DIR
+   OR FETCHCONTENT_BASE_DIR STREQUAL "${CMAKE_BINARY_DIR}/_deps")
+  set(FETCHCONTENT_BASE_DIR "${_fbr_fetchcontent_dir}" CACHE PATH
+      "Shared FetchContent cache" FORCE)
+else()
+  set(FETCHCONTENT_BASE_DIR "${FETCHCONTENT_BASE_DIR}" CACHE PATH
+      "Shared FetchContent cache")
 endif()
+set(FETCHCONTENT_UPDATES_DISCONNECTED ON CACHE BOOL
+    "Do not update FetchContent dependencies automatically")
 
 FetchContent_Declare(
   armadillo

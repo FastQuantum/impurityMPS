@@ -108,7 +108,7 @@ int main(int argc, char** argv)
     auto gs=Fb_mps<double>::from_slater(model.rot,
                                         vec{model.Kmat.diag()},
                                         n_part, model.n_imp(), standard);
-    gs.tol=1e-12;
+    gs.tol=1e-9;
     auto gs_solver=Fbr_gs(model,gs);
     for(auto i=0; i<60; i++) gs_solver.iterate({.max_bond_dim=256});
     cout<<setprecision(12)
@@ -120,7 +120,7 @@ int main(int argc, char** argv)
     // orbital where they differ; Fbr_dyn_shared widens it for that. A tight
     // tolerance keeps the orbitals the extra particle leaks into inside it.
     auto psi0=gs_solver.fb.to_complex();
-    psi0.tol=1e-12;
+    psi0.tol=1e-8;
     // Master-slave: the first state drives the shared orbital basis, so it is the
     // excitation B=c_j^dag|psi0> (the hard evolution); psi0 rides along as slave.
     auto pair_for=[&](int j) {

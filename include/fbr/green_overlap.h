@@ -100,6 +100,11 @@ struct AlignStats {
     bool full = false;        ///< whole-chain fallback was triggered
 };
 
+/// Discarded-weight cutoff for the temporary MPS created to align two frames for
+/// a Green-function measurement. The state is discarded immediately after one
+/// scalar contraction, so this can be much looser than Fb_mps::tol.
+inline constexpr double default_overlap_mps_cutoff = 1e-6;
+
 /// Rotate `fb` into the orbital frame `target` (an L x L unitary in the same
 /// original basis as fb.rot), leaving the physical state unchanged. After the
 /// call fb.rot == target (to `cutoff`), fb.cc and fb.psi are transformed to
@@ -125,9 +130,9 @@ struct AlignStats {
 /// what makes the alignment expensive -- chi of the rotated MPS climbs with time
 /// even when both states' own bond dims have saturated. When only a few digits of
 /// the Green function are wanted, a loose mps_cutoff (1e-6..1e-4) keeps chi, and
-/// hence the alignment cost, bounded. mps_cutoff<0 falls back to cutoff^2, the
-/// historical default (a squared amplitude; L=100 IRLM, cutoff 1e-4: G to ~1e-4,
-/// against ~8e-3 when the MPS is truncated at cutoff itself).
+/// hence the alignment cost, bounded. mps_cutoff<0 uses
+/// `default_overlap_mps_cutoff` (never finer than fb.tol). Pass a value explicitly
+/// for a reference-quality measurement.
 template<class T>
 void align_to_frame(Fb_mps<T>& fb, arma::Mat<T> const& target, double cutoff=-1,
                     Range band={-1,-1}, double mps_cutoff=-1, AlignStats* stats=nullptr)
@@ -168,7 +173,8 @@ void align_to_frame(Fb_mps<T>& fb, arma::Mat<T> const& target, double cutoff=-1,
     }
     if (stats) stats->gates = (int)circuit.size();
     auto gates = gates_from_givens(fb.sites, circuit);
-    double mc = mps_cutoff>=0 ? std::max(mps_cutoff,fb.tol) : std::max(cutoff*cutoff,fb.tol);
+    double mc = mps_cutoff>=0 ? std::max(mps_cutoff,fb.tol)
+                              : std::max(default_overlap_mps_cutoff,fb.tol);
     if (!gates.empty())
         itensor::gateTEvol(gates,1,1,fb.psi,
                            {"Cutoff",mc,"Quiet",true,

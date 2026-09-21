@@ -39,7 +39,7 @@ struct Fb_mps
     int imp_size=0;             ///< the number of non-rotating impurity orbitals, at the center
     Range active;               ///< the active orbitals, [active.a, active.b)
     Chain_geometry geometry=standard;      ///< the arrangement of the active window
-    double tol=1e-10;           ///< truncation cutoff for MPS gates and DMRG/TDVP sweeps
+    double tol=1e-8;            ///< truncation cutoff for MPS gates and DMRG/TDVP sweeps
     double activity_tol=-1;     ///< orbital-activity cutoff: promotion (coupling rank) and demotion (empty/full window edges). <0 means "use tol".
     int coupling_rank=-1;       ///< rank retained in representative plans; -1 selects it from singular values
 

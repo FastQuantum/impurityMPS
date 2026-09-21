@@ -51,7 +51,7 @@ inline itensor::MPS product_state(itensor::Fermion const& sites, arma::vec const
 /// loose (the recipe of test/ref/star_green_siam.cpp). Seed psi with the
 /// impurity occupied.
 inline double ground_state(itensor::MPS& psi, itensor::MPO const& mpo, int nsweep = 60,
-                           double cutoff = 1e-12)
+                           double cutoff = 1e-9)
 {
     std::vector<double> noise = {1e-4, 1e-4, 1e-5, 1e-5, 1e-6, 1e-6, 1e-7, 1e-8, 0};
     double e = 0;

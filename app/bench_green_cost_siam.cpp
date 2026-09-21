@@ -62,7 +62,7 @@ cmpx starCElement(itensor::Fermion const &sites, itensor::MPS const &A,
 void starTdvp(itensor::MPS &psi, itensor::MPO const &mpo, double dt)
 {
     auto sw = itensor::Sweeps(1);
-    sw.maxdim() = 2048; sw.cutoff() = 1e-9; sw.niter() = 16; sw.noise() = 0;
+    sw.maxdim() = 2048; sw.cutoff() = 1e-8; sw.niter() = 16; sw.noise() = 0;
     std::vector<double> eK(2, 1e-4);
     itensor::addBasis(psi, mpo, eK, {"Cutoff", 1e-8, "Method", "DensityMatrix",
                                      "KrylovOrd", 2, "DoNormalize", true, "Quiet", true, "Silent", true});
@@ -100,8 +100,8 @@ int main(int argc, char **argv)
          << "  n_active=" << gsSolver.fb.n_active() << "\n";
     auto addFb = [](Fb_mps<cmpx> const &p, int j) {
         auto s = p; s.apply_local_op("Cdag", j); s.psi.normalize(); s.update_cc(); return s; };
-    auto psi0 = gsSolver.fb.to_complex(); psi0.tol = 1e-9;
-    auto fbB0 = addFb(psi0, 0), fbB1 = addFb(psi0, 1); fbB0.tol = fbB1.tol = 1e-9;
+    auto psi0 = gsSolver.fb.to_complex(); psi0.tol = 1e-8;
+    auto fbB0 = addFb(psi0, 0), fbB1 = addFb(psi0, 1); fbB0.tol = fbB1.tol = 1e-8;
     Fbr_dyn dPsi(model, psi0, dt), dB0(model, fbB0, dt), dB1(model, fbB1, dt);
 
     // ---- full-L star ground state (DMRG) ----

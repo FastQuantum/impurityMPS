@@ -86,7 +86,7 @@ int main(int argc, char** argv)
 
     auto model = siam_model(L, U, V);
     auto gs = slater<double>(model);
-    gs.tol = 1e-12;
+    gs.tol = 1e-9;
     auto gs_solver = Fbr_gs(model, gs);
     itensor::cpu_time clk;
     for (int i = 0; i < 80; i++) gs_solver.iterate({.max_bond_dim = 512});
@@ -97,12 +97,12 @@ int main(int argc, char** argv)
 
     {
         auto solver = Fbr_dyn(model, gs_solver.fb.to_complex(), dt);
-        solver.fb.tol = 1e-10;
+        solver.fb.tol = 1e-8;
         run(solver, nStep, dt, "app/output/gs_ip_siam_L" + to_string(L) + "_U" + us + ".dat");
     }
     {
         auto solver = Fbr_dyn_frame(model, gs_solver.fb.to_complex(), dt);
-        solver.fb.tol = 1e-10;
+        solver.fb.tol = 1e-8;
         run(solver, nStep, dt, "app/output/gs_frame_siam_L" + to_string(L) + "_U" + us + ".dat");
     }
     return 0;

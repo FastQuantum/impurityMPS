@@ -12,7 +12,7 @@
 //          no global subspace expansion (nearest neighbour, not needed)
 //   star   two-site TDVP in the star geometry of the FBR model, whole L kept
 //
-// All truncate the MPS at the same cutoff 1e-10 (the paper's epsilon). The
+// All truncate the MPS at the tuned cutoff 1e-8. The
 // full-MPS runs stop once the bond dimension reaches max_bond_dim.
 //
 // Output: app/output/quench_bond_irlm_<method>_L<L>_U<U>.dat, columns
@@ -36,7 +36,7 @@ using namespace fbr;
 
 namespace {
 
-constexpr double cutoff = 1e-10;
+constexpr double cutoff = 1e-8;
 
 mat irlm_K(int L, double U, double V)
 {
